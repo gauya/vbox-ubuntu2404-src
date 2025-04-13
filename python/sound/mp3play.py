@@ -1,3 +1,5 @@
+#! /usr/bin/python
+
 import sys
 import select
 import tty, termios
@@ -108,7 +110,11 @@ class PydubMP3Player:
    def force_stop(self):
       self.stop()  # pydub에서는 일반 stop으로 충분
 
+import os
+os.environ['PYGAME_HIDE_SUPPORT_PROMPT'] = '1'
 import pygame
+os.environ['PYGAME_HIDE_SUPPORT_PROMPT'] = '0'
+
 import time
 import threading
 
@@ -200,14 +206,21 @@ def pygametest(path,flst):
 
    #for fn in flst:
    idx=0
+   mfn=len(flst)
+   if mfn == 0:
+      return
    ing = True
    while ing:
       if idx >= len(flst): idx = 0
       fn = flst[idx]
       idx = idx+1
 
-      file_path = path+"/"+fn
+      if path == str:
+         file_path = path+"/"+fn
+      else:
+         file_path = fn
       print(file_path)
+
       player.play(file_path)
 
       while player.is_alive():
@@ -256,16 +269,21 @@ def pygametest(path,flst):
 
       player.stop()
 
-import getopt,os,sys,random
+import getopt,sys,random
 
-def get_mp3file_list(path=".", rand=None):
-   lst = os.listdir(path);
+def get_mp3file_list(path='.', rand=None):
+   if type(path) == list:
+      lst = path
+   else:
+      lst = os.listdir(path);
    #print(path,lst)
    olst=[]
    for fn in lst:
       if len(fn) < 4 or fn[-4:] != ".mp3":
          continue
-      if not os.path.isfile(path+"/"+fn):
+      if path and type(path) == str:
+         fn = path+"/"+fn
+      if not os.path.isfile(fn):
          continue
       olst.append(fn)
 
@@ -274,6 +292,27 @@ def get_mp3file_list(path=".", rand=None):
    
    return olst
 
+def help():
+   help_msg="""<mp3play.py>
+
+   -h, --help : help
+   -r, -R : random play
+   -d, --path : path
+
+   ex) mp3play.py -rd ~/media/Music/sounds
+
+Active hotkeys
+
+   n : next mp3
+   p : prev mp3
+   q : exit
+   z : pause  --> anykey to unpause
+   UP : volume UP
+   DOWN : volume DOWN
+   LEFT : rewind"""
+
+   print(help_msg)
+
 def prep():
    try:
       opts, args = getopt.getopt(sys.argv[1:], "hrRd:", ["help", "path="])
@@ -281,17 +320,23 @@ def prep():
       #usage()
       sys.exit(2)
    
-   path='.'
+   path=None
    random = None
    for o,a in opts:
-      if o in ( "-d","path=" ):
+      if o in ( "-d","--path" ):
          path=a
       elif o in ("-r","-R"):
          random = True
+      elif o in ("-h","--help"):
+         help()
+         sys.exit(0)
       else:
-         assert False, "unhandled option"
+         assert False, "unknown option"
    
-   flst = get_mp3file_list(path,random)
+   if not path and args:
+      flst = get_mp3file_list(args,random)
+   else:
+      flst = get_mp3file_list(path,random)
 
    #vlctest()
    #duptest()
