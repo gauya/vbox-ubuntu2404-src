@@ -172,8 +172,11 @@ class MP3Player:
     def set_volume(self, vol):
         pygame.mixer.music.set_volume(vol)
 
-    def rewind(self, vol):
+    def rewind(self):
+        t = pygame.mixer.music.get_pos()
         pygame.mixer.music.rewind()
+        #pygame.mixer.music.set_pos(0)
+        return t
 
     def is_alive(self):
         return (pygame.mixer.music.get_busy())
@@ -257,11 +260,14 @@ def pygametest(path,flst):
                   vol = 0.1
                player.set_volume(vol)
             elif k == '\x1b[C': # RIGHT
-               # skip 100
-               player.rewind(0.0)
+               break # next
             elif k == '\x1b[D': # LEFT
-               # rewind 100
-               player.rewind(0.0)
+               i = player.rewind()
+               #print(f"rewind={i}")
+               if i < 3000:
+                  idx = idx - 2
+                  if idx < 0: idx = len(flst) - 1
+                  break
             continue
          elif k < ' ':
             ing = False

@@ -17,6 +17,12 @@ class CameraWidget(QWidget):
         if not self.capture.isOpened():
             raise ValueError(f"Could not open camera {self.camera_index}")
 
+        #w = capture.get(cv2.CAP_PROP_FRAME_WIDTH)
+        #h = capture.get(cv2.CAP_PROP_FRAME_HEIGHT)
+
+        #capture.set(cv2.CAP_PROP_FRAME_WIDTH, desired_width)
+        #capture.set(cv2.CAP_PROP_FRAME_HEIGHT, desired_height)
+        
         self.current_frame = None
         self.is_recording = False
         self.video_writer = None
@@ -119,5 +125,6 @@ if __name__ == '__main__':
     camera_widget = CameraWidget(camera_index=0)
     camera_widget.setWindowTitle("USB Camera with Capture & Recording")
     camera_widget.setGeometry(100, 100, 700, 520)  # 버튼과 입력창을 위해 약간 더 넓게
+    #camera_widget.setGeometry(100, 100, 1024, 768)  # 버튼과 입력창을 위해 약간 더 넓게
     camera_widget.show()
     sys.exit(app.exec())
