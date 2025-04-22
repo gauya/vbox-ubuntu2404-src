@@ -64,4 +64,4 @@ int main() {
     return 0;
 }
 
-// g++ -std=c++17 cpp_psql.cpp -lpqxx -o cpp_psqldemo
+// g++ -std=c++17 cpp_psql.cpp -lpqxx -o cpp_psql
