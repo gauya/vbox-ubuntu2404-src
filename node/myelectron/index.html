@@ -1,0 +1,33 @@
+<!DOCTYPE html>
+<html>
+<head>
+  <meta charset="UTF-8">
+  <title>PostgreSQL Data Viewer</title>
+  <style>
+    table {
+      border-collapse: collapse;
+      width: 100%;
+    }
+    th, td {
+      border: 1px solid black;
+      padding: 8px;
+      text-align: left;
+    }
+  </style>
+</head>
+<body>
+  <h1>MP3 Library Data</h1>
+
+  <div>
+    <label for="query-input">WHERE 절 입력:</label>
+    <input type="text" id="query-input" placeholder="예: artist = 'Some Artist' AND genre = 'Pop'">
+    <button id="query-button">조회</button>
+  </div>
+
+  <br>
+
+  <div id="query-result"></div>
+
+  <script src="renderer.js"></script>
+</body>
+</html>

@@ -21,3 +21,12 @@ CREATE TABLE person (
     -- 이름, 나이, 전화번호의 유니크 제약조건
     CONSTRAINT uniq_name_age_phone UNIQUE (name, age, phone)
 );
+
+create table ttt (
+    id serial,
+    name text,
+    dat date default now()::date,
+    tim timestamp default now()
+);
+
+
