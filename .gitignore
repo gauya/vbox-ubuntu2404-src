@@ -1,3 +1,5 @@
-./node/myelectron/node_modules/
+node_modules/
 *.mp3
+node_modules/
+
 

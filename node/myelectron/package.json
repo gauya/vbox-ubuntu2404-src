@@ -1,7 +1,7 @@
 {
   "name": "myelectron",
   "version": "1.0.0",
-  "description": "",
+  "description": "tar zcvf old/n.tgz *.html *.js *.css *.json",
   "main": "main.js",
   "scripts": {
     "start": "electron ."
@@ -16,6 +16,7 @@
     "electron": "^35.2.1"
   },
   "dependencies": {
+    "howler": "^2.2.4",
     "pg": "^8.15.5"
   }
 }
