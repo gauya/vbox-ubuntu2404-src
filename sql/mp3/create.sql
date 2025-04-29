@@ -10,6 +10,26 @@ alter role gau set search_path to mp3_schema,public;
 
 -- SELECT schemaname, tablename FROM pg_tables WHERE tablename = 'mp3_library';
 
+create table mp3_schema.artist_group (
+    id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+    name varchar(120) not null,
+    descript text
+    ) tablespace mp3_space;
+
+create table mp3_schema.artist (
+    id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+    name varchar(120),
+    groupid UUID references mp3_schema.artist_group(id) 
+        on delete set null 
+        on update set null 
+        default null, 
+    descript text,
+    updated_at timestamp default CURRENT_TIMESTAMP
+    ) tablespace mp3_space;
+
+-- 아티스트 이름을 한글로할지 영문으로 할지(Apink/A-PINK/에이핑크), 띄어쓰기는? 
+-- 이렇게 다름에도 노래사이트에서는 가수를 잘 찾아준다. 어떻게?
+
 CREATE TABLE if not exists mp3_schema.mp3_library (
     id SERIAL PRIMARY KEY, --id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
     
@@ -59,3 +79,4 @@ create view v_artist_s (artist,cnt) as select artist,count(*) from mp3_library g
 
 create view v_release_date_s (day,cnt) as select release_date, count(*) from mp3_library group by release_date order by release_date desc;
 
+create view v_artist_num as select count(*) from (select artist from mp3_library group by artist);

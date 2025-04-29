@@ -13,11 +13,13 @@ def get_meta( file ):
         'file_size': os.path.getsize(file),
         'duration': audio.info.length,
         'album': audio.get('TALB', [None])[0],
-        'release_date': audio.get('TDRC', [None])[0],
-        'lyrics': audio.get('USLT', [None])[0],
+#        'release_date': audio.get('TDRC', [None])[0],
+        'lyrics': audio.get('USLT::eng', [None]),
+        'lyrics':audio.get('USLT::eng', None).text if audio.get('USLT::eng') else audio.get('USLT::kor'),
         'genre1': audio.get('TCON', [None, None])[0],
 #        'genre2': audio.get('TCON', [None, None])[1],
         'file_path': file
+        }
 
 def get_meta2( file ):
     audio = mutagen.id3.ID3(file)
