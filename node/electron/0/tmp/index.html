@@ -1,0 +1,71 @@
+<!DOCTYPE html>
+<html>
+<head>
+  <meta charset="UTF-8">
+  <link rel="stylesheet" href="style.css">
+  <title>PostgreSQL Data Viewer</title>
+</head>
+<body>
+  <h1>MP3 Library Data</h1>
+
+  <div>
+    <h2>출력할 컬럼 선택:</h2>
+  <button id="selectAllBtn">O</button>
+
+  <script>
+    document.addEventListener('DOMContentLoaded', () => {
+      const selectAllBtn = document.getElementById('selectAllBtn');
+      const deselectAllBtn = document.getElementById('deselectAllBtn');
+      const checkboxes = document.querySelectorAll('input[type="checkbox"]');
+      let isAllChecked = false;
+
+      selectAllBtn.addEventListener('click', () => {
+        checkboxes.forEach(checkbox => {
+          checkbox.checked = isAllChecked;
+        });
+        isAllChecked = !isAllChecked;
+      });
+    });
+  </script>    
+    <label><input type="checkbox" name="columns" value="title" checked>타이틀</label>
+    <label><input type="checkbox" name="columns" value="artist" checked> 아티스트</label>
+    <label><input type="checkbox" name="columns" value="album" checked> 앨범</label>
+    <!--
+    <label><input type="checkbox" name="columns" value="year">발매년도</label>
+    -->
+    <label><input type="checkbox" name="columns" value="release_date">내논날</label>
+    <label><input type="checkbox" name="columns" value="sample_rate"> 샘플링 속도</label>
+    <label><input type="checkbox" name="columns" value="duration"> 노래시간</label>
+    <label><input type="checkbox" name="columns" value="lyrics"> 노랫말</label>
+    <label><input type="checkbox" name="columns" value="file_name"> 파일이름</label>
+    <label><input type="checkbox" name="columns" value="cover_image"> 커버이미지</label>
+    </div>
+
+  <br>
+
+  <div>
+    <label for="query-input">WHERE</label>
+    <input type="text" id="query-input" placeholder="예: artist = 'Some Artist' AND genre = 'Pop'" style="width: 400px;">
+    <label for="order-by" style="display: inline-block; margin-left: 30px; margin-right: 10px;"> ORDER BY</label>
+    <select id="order-by">
+      <option value="">안함</option>
+      <option value="title">제목</option>
+      <option value="artist">아티스트</option>
+      <option value="release_date">내논날</option>
+      <option value="duration">노래시간</option>
+    </select>
+    <label><input type="checkbox" id="orderByDesc" name="order-direction"> 내림</label>
+    <label for="limit-input"> LIMIT</label>
+    <input type="text" id="limit-input" placeholder="100" style="width: 70px;" value=50>
+  </div>
+
+  <br>
+  <button id="query-button">조회</button>
+
+  <br>
+
+  <div id="query-result"></div>
+
+  <script src="renderer.js"></script>
+</body>
+</html>

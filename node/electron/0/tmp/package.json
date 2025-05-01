@@ -1,0 +1,22 @@
+{
+  "name": "myelectron",
+  "version": "1.0.0",
+  "description": "tar zcvf old/n.tgz *.html *.js *.css *.json",
+  "main": "main.js",
+  "scripts": {
+    "start": "electron ."
+  },
+  "keywords": [
+    "electron",
+    "hello-world"
+  ],
+  "author": "GAU",
+  "license": "ISC",
+  "devDependencies": {
+    "electron": "^35.2.1"
+  },
+  "dependencies": {
+    "howler": "^2.2.4",
+    "pg": "^8.15.5"
+  }
+}

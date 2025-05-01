@@ -21,7 +21,7 @@ create table mp3_schema.artist (
     name varchar(120),
     groupid UUID references mp3_schema.artist_group(id) 
         on delete set null 
-        on update set null 
+        -- on update set null 
         default null, 
     descript text,
     updated_at timestamp default CURRENT_TIMESTAMP

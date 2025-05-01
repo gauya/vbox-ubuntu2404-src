@@ -1,0 +1,8 @@
+tar zcvf old/n.tgz *.html *.js *.css *.json
+
+tar xzvf old/n.tgz .
+
+
+export DATABASE_PASSWORD=qjemf
+npm start
+

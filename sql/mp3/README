@@ -1,0 +1,3 @@
+insert.py
+create.sql
+insert into artist (name) select distinct artist from mp3_library where artist is not null and artist != '' group by artist
