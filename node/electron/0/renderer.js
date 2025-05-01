@@ -19,6 +19,16 @@ updateButton.style.border = 'none';
 updateButton.style.borderRadius = '4px';
 updateButton.style.cursor = 'pointer';
 
+/*
+document.addEventListener('keydown', (event) => {
+  //if (e.ctrlKey && e.shiftKey && e.altKey && e.key === 'K')
+  if (e.ctrlKey && e.altKey && e.key === '+') {
+    updateButton.click();
+    console.log('Update hot key pressed');
+  }
+});
+*/
+
 queryButton.insertAdjacentElement('afterend', updateButton);
 
 // 수정된 셀 추적을 위한 Set
@@ -50,6 +60,10 @@ queryResultDiv.addEventListener('keydown', (e) => {
       e.target.blur();
     }
   }
+    if (e.ctrlKey && e.altKey && (e.key === 's' || e.key === 'S') ) {
+      console.log('Update key pressed');
+      updateButton.click();
+    }
 });
 
 // 포커스 아웃 시 업데이트 확인
@@ -118,6 +132,9 @@ queryButton.addEventListener('click', async () => {
     return;
   }
 
+  modifiedCells.clear();
+  updateButton.style.display = 'none';
+
   const queryOptions = {
     columns: ['id', ...selectedColumns],
     where: whereClause,
@@ -179,6 +196,7 @@ function displayResults(results, selectedColumns) {
 async function playMp3(filename) {
   try {
     const audio = new Audio(filename);
+    audio.volume = 1.0; // 최대 음량 설정
     audio.play();
     console.log('MP3 재생 성공 renderer :', filename);
     audio.addEventListener('ended', () => {

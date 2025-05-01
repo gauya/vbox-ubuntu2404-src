@@ -110,7 +110,7 @@ ipcMain.handle('update-database', async (event, updates) => {
 
   const client = await pool.connect();
   try {
-    await client.query('BEGIN'); // 트랜잭션 시작
+//    await client.query('BEGIN'); // 트랜잭션 시작
 
     // 여러 업데이트를 한 번에 처리
     for (const update of updates) {
@@ -126,12 +126,11 @@ ipcMain.handle('update-database', async (event, updates) => {
         query = `UPDATE mp3_schema.mp3_library SET ${update.column} = $1 WHERE id = $2`;
       }
 
-      console.log('main.rs update : ',query,params);
-      await client.query(query, params);
-      console.log(`Updated ${update.column} for record ${update.id}`);
+       await client.query(query, params);
+       console.log(`Update(main.rs) ${update.column} ${update.id} : `,query,params);
     }
 
-    await client.query('COMMIT'); // 트랜잭션 커밋
+//    await client.query('COMMIT'); // 트랜잭션 커밋
     return { success: true, message: `${updates.length} records updated` };
   } catch (error) {
     await client.query('ROLLBACK'); // 에러 시 롤백
@@ -143,10 +142,9 @@ ipcMain.handle('update-database', async (event, updates) => {
   }
 });
 
-
 ipcMain.handle('play-mp3', async (event, filename) => {
   try {
-    const mp3Path = path.join('file', filename);
+    const mp3Path = path.join(__dirname, 'file/'+filename); // 수정: __dirname 사용
     console.log(mp3Path);
 
     // 파일 존재 여부 확인
@@ -156,12 +154,16 @@ ipcMain.handle('play-mp3', async (event, filename) => {
     }
 
     // 기본 음악 플레이어로 파일 열기
-    await shell.openPath(mp3Path);
-    //const player = require('node-audioplayer');
-    //player.play(mp3Path); // node-audioplayer를 사용한 예시
+    try{
+      await shell.openPath(mp3Path);
+      console.log('MP3 재생 성공:', mp3Path);
+      return { success: true };
+    }
+    catch(error){
+      console.error('MP3 재생 실패:', error);
+      return {success: false, error: error.message}
+    }
 
-    console.log('MP3 재생 성공:', mp3Path);
-    return { success: true };
   } catch (error) {
     console.error('MP3 재생 오류:', error);
     return { success: false, error: error.message };

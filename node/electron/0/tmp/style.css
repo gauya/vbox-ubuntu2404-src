@@ -1,14 +1,4 @@
 /* style.css */
-*{
-  box-sizing: border-box;
-  margin: 0;
-  padding: 0;
-}
-
-html, body {
-  width: 100%;
-  height: 100%;
-}
   <style>
     body {
       font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
@@ -101,4 +91,30 @@ img.album-cover {
   box-shadow: 0 2px 4px rgba(0,0,0,0.1);
   object-fit: contain;
 }
-  </style>
+
+[contenteditable="true"] {
+  padding: 5px;
+  border: 1px solid transparent;
+  border-radius: 3px;
+}
+
+[contenteditable="true"]:focus {
+  border-color: #007bff;
+  background-color: #f8f9fa;
+  outline: none;
+}
+
+.modified {
+  background-color: #fff3cd !important;
+}
+
+#update-button {
+  background-color: #28a745;
+  margin-left: 10px;
+}
+
+#update-button:hover {
+  background-color: #218838;
+}  
+ 
+ </style>

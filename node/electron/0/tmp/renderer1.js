@@ -179,6 +179,7 @@ function displayResults(results, selectedColumns) {
 async function playMp3(filename) {
   try {
     const audio = new Audio(filename);
+    audio.volume = 1.0; // 최대 음량 설정
     audio.play();
     console.log('MP3 재생 성공 renderer :', filename);
     audio.addEventListener('ended', () => {

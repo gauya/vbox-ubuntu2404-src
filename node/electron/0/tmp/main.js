@@ -3,8 +3,6 @@ const path = require('path');
 const { Pool } = require('pg');
 const fs = require('fs'); // fs 모듈 추가
 
-//app.commandLine.appendSwitch('autoplay-policy', 'no-user-gesture-required');
-
 // 데이터베이스 연결 설정 (기존 설정 유지)
 const pool = new Pool({
   user: process.env.DATABASE_USER || 'postgres',
@@ -29,6 +27,7 @@ function createWindow() {
       preload: path.join(__dirname, 'preload.js'),
       nodeIntegration: false,
       contextIsolation: true,
+      //contentSecurityPolicy: "default-src 'self'; script-src 'self'; style-src 'self' 'unsafe-inline';", // 안전하지 않은 Inline 스타일 허용 (개발 편의)
     },
     resizable: true,
     movable: true,
@@ -55,6 +54,7 @@ app.on('activate', () => {
   }
 });
 
+// 데이터베이스 쿼리 핸들러
 ipcMain.handle('database-query', async (event, queryOptions) => {
     const { columns, where, orderBy, orderDirection, limit } = queryOptions;
     const selectedColumns = columns.map(column => {
@@ -69,8 +69,6 @@ ipcMain.handle('database-query', async (event, queryOptions) => {
     } else {
       return column;
     }
-
-//    return column === 'year' ? `to_char(release_date,'YYYY') as year` : column;
   }).join(', ');
 
   let query = `SELECT ${selectedColumns} FROM mp3_schema.mp3_library`;
@@ -92,7 +90,6 @@ ipcMain.handle('database-query', async (event, queryOptions) => {
     query += ` LIMIT ${limit}`;
   }
 
-
   try {
     const client = await pool.connect();
     const result = await client.query(query);
@@ -107,9 +104,47 @@ ipcMain.handle('database-query', async (event, queryOptions) => {
   }
 });
 
+// 데이터 업데이트 핸들러 (중요!)
+ipcMain.handle('update-database', async (event, updates) => {
+  console.log("update event :",updates);
+
+  const client = await pool.connect();
+  try {
+//    await client.query('BEGIN'); // 트랜잭션 시작
+
+    // 여러 업데이트를 한 번에 처리
+    for (const update of updates) {
+      let query;
+      let params = [update.value, update.id];
+
+      // 컬럼 타입에 따라 다른 쿼리 생성
+      if (update.column === 'release_date') {
+        query = `UPDATE mp3_schema.mp3_library SET ${update.column} = TO_DATE($1, 'YYYY-MM-DD') WHERE id = $2`;
+      } else if (update.column === 'duration') {
+        query = `UPDATE mp3_schema.mp3_library SET ${update.column} = $1::interval WHERE id = $2`;
+      } else {
+        query = `UPDATE mp3_schema.mp3_library SET ${update.column} = $1 WHERE id = $2`;
+      }
+
+       await client.query(query, params);
+       console.log(`Update(main.rs) ${update.column} ${update.id} : `,query,params);
+    }
+
+//    await client.query('COMMIT'); // 트랜잭션 커밋
+    return { success: true, message: `${updates.length} records updated` };
+  } catch (error) {
+    await client.query('ROLLBACK'); // 에러 시 롤백
+    console.error('데이터베이스 업데이트 오류:', error);
+    return { success: false, error: error.message };
+  } finally {
+    client.release();
+    //mainWindow.webContents.send('update :', query);
+  }
+});
+
 ipcMain.handle('play-mp3', async (event, filename) => {
   try {
-    const mp3Path = path.join('file', filename);
+    const mp3Path = path.join(__dirname, 'file/'+filename); // 수정: __dirname 사용
     console.log(mp3Path);
 
     // 파일 존재 여부 확인
@@ -119,24 +154,19 @@ ipcMain.handle('play-mp3', async (event, filename) => {
     }
 
     // 기본 음악 플레이어로 파일 열기
-    await shell.openPath(mp3Path);
-    //await shell.openExternal(`file://${mp3Path}`);
+    try{
+      await shell.openPath(mp3Path);
+      console.log('MP3 재생 성공:', mp3Path);
+      return { success: true };
+    }
+    catch(error){
+      console.error('MP3 재생 실패:', error);
+      return {success: false, error: error.message}
+    }
 
-
-    console.log('MP3 재생 성공:', mp3Path);
-    return { success: true };
   } catch (error) {
     console.error('MP3 재생 오류:', error);
     return { success: false, error: error.message };
   }
 });
 
-ipcMain.handle('open-file', async (event, filePath) => { // 추가
-  try {
-    await shell.openPath(filePath);
-    return { success: true };
-  } catch (error) {
-    console.error('파일 열기 오류:', error);
-    return { success: false, error: error.message };
-  }
-});

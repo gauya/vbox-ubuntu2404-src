@@ -56,12 +56,7 @@ queryResultDiv.addEventListener('keydown', (e) => {
 queryResultDiv.addEventListener('focusout', (e) => {
   if (e.target.hasAttribute('contenteditable')) {
     if (e.target.classList.contains('modified')) {
-      // 수정된 셀이 focus를 잃으면, 변경사항 저장 버튼을 클릭하는 것이 아니라,
-      // 사용자에게 수정된 내용을 저장할 것을 알리고, 저장 버튼을 클릭하도록 유도하는 것이 더 좋습니다.
-      // updateButton.click(); // 이 부분을 제거하거나 주석 처리
-      alert("수정된 내용을 저장하세요"); // 사용자에게 알림 메시지를 표시하거나,
-      // 필요한 경우, updateButton을 활성화 시킬 수 있습니다.
-      // updateButton.disabled = false;
+      //alert("수정된 내용을 저장하세요");
     }
   }
 });
@@ -148,16 +143,15 @@ function displayResults(results, selectedColumns) {
     });
     output += '</tr></thead><tbody>';
     results.forEach(row => {
-      output += '<tr>';
-      // id는 보이지 않지만, data-id 속성으로 저장
-      output += `<td data-id="${row.id}" style="display:none;"></td>`;
+      output += `<tr data-id="${row.id}">`; // 여기에 data-id 설정
+      output += `<td style="display:none;">${row.id}</td>`; // id를 숨김
       selectedColumns.forEach(column => {
         const displayValue = row[column] ?? '';
         if (column === 'cover_image' && row[column]) {
           // Base64 이미지 데이터를 img 태그로 변환
           output += `<td><img src="data:image/jpeg;base64,${row[column]}" style="max-width: 100px; max-height: 100px;"></td>`;
         } else if (column === 'file_name' && row[column]) {
-          output += `<td><a href="#" class="play-mp3" data-filename="${row[column]}">${row[column]}</a></td>`;
+          output += `<td><a href="#" class="play-mp3" data-filename="${row[column]}">${displayValue}</a></td>`;
         } else {
           output += `<td contenteditable="true" data-column="${column}" data-original="${displayValue}">${displayValue}</td>`;
         }
@@ -185,6 +179,7 @@ function displayResults(results, selectedColumns) {
 async function playMp3(filename) {
   try {
     const audio = new Audio(filename);
+    audio.volume = 1.0; // 최대 음량 설정
     audio.play();
     console.log('MP3 재생 성공 renderer :', filename);
     audio.addEventListener('ended', () => {
