@@ -126,10 +126,14 @@ ipcMain.handle('update-database', async (event, updates) => {
         query = `UPDATE mp3_schema.mp3_library SET ${update.column} = $1 WHERE id = $2`;
       }
 
-       await client.query(query, params);
-       console.log(`Update(main.rs) ${update.column} ${update.id} : `,query,params);
+       try {
+        await client.query(query, params);
+       } catch(e) {
+         console.log(`ERROR!  Update(main.rs)`, e); 
+       } finally {
+         console.log(`Update(main.rs) ${update.column} ${update.id} : `,query,params);
+       }
     }
-
 //    await client.query('COMMIT'); // 트랜잭션 커밋
     return { success: true, message: `${updates.length} records updated` };
   } catch (error) {

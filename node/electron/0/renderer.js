@@ -19,15 +19,15 @@ updateButton.style.border = 'none';
 updateButton.style.borderRadius = '4px';
 updateButton.style.cursor = 'pointer';
 
-/*
-document.addEventListener('keydown', (event) => {
-  //if (e.ctrlKey && e.shiftKey && e.altKey && e.key === 'K')
-  if (e.ctrlKey && e.altKey && e.key === '+') {
-    updateButton.click();
-    console.log('Update hot key pressed');
+
+document.addEventListener('keydown', (e) => {
+  if (e.ctrlKey && e.key === 'Enter') {
+    if(updateButton.style.display === 'inline-block') {
+      updateButton.click();  
+    }
   }
 });
-*/
+
 
 queryButton.insertAdjacentElement('afterend', updateButton);
 
@@ -60,10 +60,12 @@ queryResultDiv.addEventListener('keydown', (e) => {
       e.target.blur();
     }
   }
+    /*
     if (e.ctrlKey && e.altKey && (e.key === 's' || e.key === 'S') ) {
       console.log('Update key pressed');
       updateButton.click();
     }
+    */
 });
 
 // 포커스 아웃 시 업데이트 확인
