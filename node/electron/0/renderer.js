@@ -28,6 +28,10 @@ document.addEventListener('keydown', (e) => {
   }
 });
 
+// 전역 변수로 현재 수정 중인 셀 추적
+let currentEditingCell = null;
+let originalValue = '';
+
 
 queryButton.insertAdjacentElement('afterend', updateButton);
 
@@ -52,28 +56,113 @@ queryResultDiv.addEventListener('input', (e) => {
   }
 });
 
-// 엔터 키 처리 (줄바꿈 방지)
+// 키보드 이벤트 핸들러 추가
 queryResultDiv.addEventListener('keydown', (e) => {
-  if (e.target.hasAttribute('contenteditable')) {
-    if (e.key === 'Enter' && !e.shiftKey) {
+  if (!currentEditingCell && e.target.hasAttribute('contenteditable')) {
+    currentEditingCell = e.target;
+    originalValue = currentEditingCell.textContent.trim();
+  }
+
+  // 수정 모드 중 방향키 처리
+  if (currentEditingCell) {
+    const key = e.key;
+    const isModified = currentEditingCell.textContent.trim() !== originalValue;
+    const shouldSave = isModified &&
+                     (key === 'ArrowRight' || key === 'ArrowLeft' ||
+                      key === 'ArrowUp' || key === 'ArrowDown');
+
+    if (shouldSave) {
+      // 값이 변경된 경우 저장 처리
+      currentEditingCell.dataset.original = currentEditingCell.textContent.trim();
+      modifiedCells.add(currentEditingCell);
+      currentEditingCell.classList.add('modified');
+      updateButton.style.display = 'inline-block';
+    } else if (!isModified &&
+              (key === 'ArrowRight' || key === 'ArrowLeft' ||
+               key === 'ArrowUp' || key === 'ArrowDown')) {
+      // 값이 변경되지 않은 경우 원래 값 복원
+      currentEditingCell.textContent = originalValue;
+    }
+
+    // 방향키에 따라 이동 처리
+    if (key === 'ArrowRight') {
       e.preventDefault();
-      e.target.blur();
+      moveToAdjacentCell(1, 0); // 오른쪽 셀
+    } else if (key === 'ArrowLeft') {
+      e.preventDefault();
+      moveToAdjacentCell(-1, 0); // 왼쪽 셀
+    } else if (key === 'ArrowDown') {
+      e.preventDefault();
+      moveToAdjacentCell(0, 1); // 아래쪽 셀
+    } else if (key === 'ArrowUp') {
+      e.preventDefault();
+      moveToAdjacentCell(0, -1); // 위쪽 셀
+    } else if (key === 'Enter' && !e.shiftKey) {
+      e.preventDefault();
+      if (e.target.hasAttribute('contenteditable')) {
+        moveToAdjacentCell(0, 1); // 엔터키 = 아래쪽 셀
+      }
     }
   }
-    /*
-    if (e.ctrlKey && e.altKey && (e.key === 's' || e.key === 'S') ) {
-      console.log('Update key pressed');
-      updateButton.click();
-    }
-    */
 });
 
-// 포커스 아웃 시 업데이트 확인
+// 인접 셀로 이동하는 함수
+function moveToAdjacentCell(xDiff, yDiff) {
+  if (!currentEditingCell) return;
+
+  const row = currentEditingCell.closest('tr');
+  const cells = Array.from(row.querySelectorAll('[contenteditable]'));
+  const currentIndex = cells.indexOf(currentEditingCell);
+  const nextCellIndex = currentIndex + xDiff;
+
+  // 같은 행 내 좌우 이동
+  if (xDiff !== 0 && nextCellIndex >= 0 && nextCellIndex < cells.length) {
+    currentEditingCell.blur();
+    const nextCell = cells[nextCellIndex];
+    nextCell.focus();
+    selectCellContent(nextCell);
+    currentEditingCell = nextCell;
+    originalValue = nextCell.textContent.trim();
+  }
+  // 다른 행으로 상하 이동
+  else if (yDiff !== 0) {
+    const nextRow = yDiff > 0 ? row.nextElementSibling : row.previousElementSibling;
+    if (nextRow) {
+      currentEditingCell.blur();
+      const nextRowCells = Array.from(nextRow.querySelectorAll('[contenteditable]'));
+      const targetCell = nextRowCells[Math.min(currentIndex, nextRowCells.length - 1)];
+      targetCell.focus();
+      selectCellContent(targetCell);
+      currentEditingCell = targetCell;
+      originalValue = targetCell.textContent.trim();
+
+      // 행 하이라이트 업데이트
+      document.querySelectorAll('#query-result tr').forEach(r => {
+        r.classList.remove('focused');
+      });
+      nextRow.classList.add('focused');
+    }
+  }
+}
+
+// 셀 내용 전체 선택 함수
+function selectCellContent(cell) {
+  const range = document.createRange();
+  range.selectNodeContents(cell);
+  const selection = window.getSelection();
+  selection.removeAllRanges();
+  selection.addRange(range);
+}
+
+// 셀 포커스 아웃 시 처리
 queryResultDiv.addEventListener('focusout', (e) => {
   if (e.target.hasAttribute('contenteditable')) {
-    if (e.target.classList.contains('modified')) {
-      //alert("수정된 내용을 저장하세요");
+    if (e.target.textContent.trim() !== originalValue) {
+      e.target.classList.add('modified');
+      modifiedCells.add(e.target);
+      updateButton.style.display = 'inline-block';
     }
+    currentEditingCell = null;
   }
 });
 
@@ -161,13 +250,14 @@ function displayResults(results, selectedColumns) {
       output += `<th>${column}</th>`;
     });
     output += '</tr></thead><tbody>';
+
     results.forEach(row => {
-      output += `<tr data-id="${row.id}">`; // 여기에 data-id 설정
-      output += `<td style="display:none;">${row.id}</td>`; // id를 숨김
+      output += `<tr data-id="${row.id}" tabindex="0">`; // tabindex 추가
+      output += `<td style="display:none;">${row.id}</td>`;
+
       selectedColumns.forEach(column => {
         const displayValue = row[column] ?? '';
         if (column === 'cover_image' && row[column]) {
-          // Base64 이미지 데이터를 img 태그로 변환
           output += `<td><img src="data:image/jpeg;base64,${row[column]}" style="max-width: 100px; max-height: 100px;"></td>`;
         } else if (column === 'file_name' && row[column]) {
           output += `<td><a href="#" class="play-mp3" data-filename="${row[column]}">${displayValue}</a></td>`;
@@ -177,23 +267,46 @@ function displayResults(results, selectedColumns) {
       });
       output += '</tr>';
     });
+
     output += '</tbody></table>';
     queryResultDiv.innerHTML = output;
-    // MP3 재생 버튼 이벤트 리스너 등록
+
+    // 행 포커스 이벤트 핸들러 추가
+    document.querySelectorAll('#query-result tr[data-id]').forEach(row => {
+      // 마우스 클릭 시
+      row.addEventListener('click', () => {
+        document.querySelectorAll('#query-result tr').forEach(r => {
+          r.classList.remove('focused');
+        });
+        row.classList.add('focused');
+      });
+
+      // 키보드 포커스 시 (탭 이동)
+      row.addEventListener('focus', () => {
+        document.querySelectorAll('#query-result tr').forEach(r => {
+          r.classList.remove('focused');
+        });
+        row.classList.add('focused');
+      });
+    });
+
+    // MP3 재생 버튼 이벤트 리스너
     document.querySelectorAll('.play-mp3').forEach(link => {
       link.addEventListener('click', (e) => {
         e.preventDefault();
         const filename = e.target.getAttribute('data-filename');
         window.electronAPI.playMp3(filename);
+
+        // 재생 버튼 클릭 시 해당 행 강조
+        const row = e.target.closest('tr');
+        document.querySelectorAll('#query-result tr').forEach(r => {
+          r.classList.remove('focused');
+        });
+        row.classList.add('focused');
       });
     });
-    console.log(output);
-  } else if (results && results.length === 0) {
-    queryResultDiv.textContent = '조회 결과가 없습니다.';
-  } else {
-    queryResultDiv.textContent = '데이터베이스 조회 실패.';
   }
-}
+};
 
 async function playMp3(filename) {
   try {

@@ -1,0 +1,193 @@
+/* postgresql trigger 
+
+*/
+
+
+-- 언어 설치
+CREATE EXTENSION IF NOT EXISTS plpythonu;
+
+-- 예제 테이블
+CREATE TABLE dfn (
+    name TEXT PRIMARY KEY,
+    path VARCHAR(120) NOT NULL unique
+);
+
+
+----------------------------------------------------------
+
+1. 함수를 사용해서 삭제, 패스는 절대경로만 사용 
+
+CREATE OR REPLACE FUNCTION delete_file_entry(nm TEXT)
+RETURNS VOID AS $$
+    import os
+
+    # 커서 가져오기
+    plpy.execute("BEGIN")
+    result = plpy.execute("SELECT path FROM dfn WHERE name = %s", [nm])
+
+    if not result:
+        plpy.error("파일 별명 '{}'을(를) 찾을 수 없습니다.".format(nm))
+
+    path = result[0]["path"]
+
+    # 파일 존재 여부 확인
+    if not os.path.exists(path):
+        plpy.error("파일 '{}' 이 존재하지 않습니다.".format(path))
+
+    try:
+        os.remove(path)
+    except Exception as e:
+        plpy.error("파일 삭제 실패: " + str(e))
+
+    plpy.execute("DELETE FROM dfn WHERE name = %s", [nm])
+    plpy.execute("COMMIT")
+$$ LANGUAGE plpythonu;
+
+///////////////////
+INSERT INTO dfn VALUES ('foo', '/tmp/testfile.mp3');
+
+SELECT delete_file_entry('foo'); -- o/s상의 파일과 DB속의 데이타 삭제
+
+
+2. 트리거사용으로 자동삭제
+
+CREATE OR REPLACE FUNCTION dfn_file_delete_trigger()
+RETURNS trigger AS $$
+    import os
+
+    path = TD["old"]["path"]
+    name = TD["old"]["name"]
+
+    if not os.path.exists(path):
+        plpy.error(f"[삭제 중단] 파일이 존재하지 않음: {path}")
+
+    try:
+        os.remove(path)
+        plpy.info(f"[삭제 성공] 파일: {path}")
+    except Exception as e:
+        plpy.error(f"[삭제 실패] {e}")
+
+    return TD["old"]
+$$ LANGUAGE plpythonu;
+
+DROP TRIGGER IF EXISTS trg_dfn_delete ON dfn;
+
+CREATE TRIGGER trg_dfn_delete
+BEFORE DELETE ON dfn
+FOR EACH ROW
+EXECUTE FUNCTION dfn_file_delete_trigger();
+
+//////////////////////////////////////
+
+DELETE FROM dfn WHERE name = 'foo';  -- DB데이타를 삭제하면 파일도 자동삭제
+
+
+3. notify로 신호를 보내고 외부의 데몬이 이를 받아처리
+
+CREATE OR REPLACE FUNCTION notify_file_delete()
+RETURNS trigger AS $$
+DECLARE
+    payload JSON;
+BEGIN
+    payload := json_build_object(
+        'name', OLD.name,
+        'path', OLD.path
+    );
+
+    PERFORM pg_notify('file_delete', payload::text);
+    RETURN OLD;
+END;
+$$ LANGUAGE plpgsql;
+
+CREATE TRIGGER trg_notify_delete
+AFTER DELETE ON dfn
+FOR EACH ROW
+EXECUTE FUNCTION notify_file_delete();
+
+/////////////////////////////////
+pip install psycopg2-binary
+
+# file_watcher.py
+import psycopg2, select, json, os
+
+conn = psycopg2.connect("dbname=YOUR_DB user=YOUR_USER")
+conn.set_isolation_level(psycopg2.extensions.ISOLATION_LEVEL_AUTOCOMMIT)
+
+cur = conn.cursor()
+cur.execute("LISTEN file_delete;")
+print("🔄 파일 삭제 감시 중 (채널: file_delete)...")
+
+while True:
+    if select.select([conn], [], [], 5) == ([], [], []):
+        continue  # timeout
+    conn.poll()
+    while conn.notifies:
+        notify = conn.notifies.pop(0)
+        data = json.loads(notify.payload)
+        path = data["path"]
+        print(f"📣 삭제 요청: {path}")
+        try:
+            os.remove(path)
+            print(f"✅ 삭제 완료: {path}")
+        except Exception as e:
+            print(f"❌ 삭제 실패: {e}")
+
+            
+/////// 데몬 준비
+sudo mkdir -p /opt/file-watcher
+sudo cp file_watcher.py /opt/file-watcher/
+sudo chmod +x /opt/file-watcher/file_watcher.py
+
+sudo vi /etc/systemd/system/file-watcher.service
+
+==============================
+[Unit]
+Description=PostgreSQL File Deletion Listener
+After=network.target postgresql.service
+
+[Service]
+ExecStart=/usr/bin/python /opt/file-watcher/file_watcher.py
+Restart=on-failure
+User=postgres
+WorkingDirectory=/opt/file-watcher
+StandardOutput=journal
+StandardError=journal
+
+[Install]
+WantedBy=multi-user.target
+=============================
+
+// 데몬등록
+sudo systemctl daemon-reexec
+sudo systemctl daemon-reload
+
+sudo systemctl enable file-watcher.service
+sudo systemctl start file-watcher.service
+
+// 상태확인
+sudo systemctl status file-watcher.service
+
+// 로그확인
+journalctl -u file-watcher.service -f
+//////////////////////////////////////////////////
+
+INSERT INTO dfn VALUES ('abc', '/tmp/test.mp3');
+DELETE FROM dfn WHERE name = 'abc';  -- 파이썬데몬이 자동으로 파일삭제
+
+
+===============================================
+
+/opt/file-watcher/.env # .env 파일의 모드는 600 또는640
+DB_NAME=yourdbname
+DB_USER=youruser
+DB_PASSWORD=yourpassword
+DB_HOST=localhost
+DB_PORT=5432
+-------------------------------
+
+# /etc/systemd/system/file-watcher.service 에 추가
+
+[Service]
+EnvironmentFile=/opt/file-watcher/.env    
+
+

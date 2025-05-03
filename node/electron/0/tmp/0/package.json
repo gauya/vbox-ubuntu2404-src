@@ -1,0 +1,25 @@
+{
+  "name": "myelectron",
+  "version": "1.0.0",
+  "description": "tar zcvf old/n.tgz *.html *.js *.css *.json",
+  "main": "main.js",
+  "scripts": {
+    "start": "electron .",
+    "opts": "electron . --no-sandbox --enable-logging --log-level=debug"
+  },
+  "keywords": [
+    "electron",
+    "hello-world"
+  ],
+  "author": "GAU",
+  "license": "ISC",
+  "devDependencies": {
+    "electron": "^35.2.1"
+  },
+  "dependencies": {
+    "howler": "^2.2.4",
+    "node-mpg123": "^1.0.2-0023",
+    "pg": "^8.15.5",
+    "play-sound": "^1.1.6"
+  }
+}

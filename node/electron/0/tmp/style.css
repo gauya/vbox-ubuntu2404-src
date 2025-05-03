@@ -75,6 +75,21 @@
       font-weight: bold;
     }
 
+    /* 포커스된 행 강조 스타일 */
+    tr.focused {
+      background-color: rgba(100, 180, 255, 0.15) !important;
+      outline: none !important; /* 포커스 테두리 제거 */
+      box-shadow: none !important; /* 그림자 효과 제거 */
+
+      /*box-shadow: 0 0 8px rgba(100, 180, 255, 0.3); */
+      /*transition: background-color 0.2s ease;*/
+    }
+
+    /* 현재 재생 중인 노래 행 스타일 */
+    tr.playing {
+      background-color: rgba(76, 175, 80, 0.15) !important;
+    }
+    
     tr:nth-child(even) {
       background-color: #f9f9f9;
     }
@@ -105,7 +120,7 @@ img.album-cover {
 }
 
 .modified {
-  background-color: #fff3cd !important;
+  background-color: #fffacd !important;
 }
 
 #update-button {
