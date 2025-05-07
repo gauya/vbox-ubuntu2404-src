@@ -80,3 +80,4 @@ create view v_artist_s (artist,cnt) as select artist,count(*) from mp3_library g
 create view v_release_date_s (day,cnt) as select release_date, count(*) from mp3_library group by release_date order by release_date desc;
 
 create view v_artist_num as select count(*) from (select artist from mp3_library group by artist);
+

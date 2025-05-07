@@ -1,0 +1,236 @@
+<!DOCTYPE html>
+<html>
+<head>
+  <title>Custom MP3 Player</title>
+  <style>
+    .player-container {
+      width: 200px;
+      background: #f5f5f5;
+      border-radius: 10px;
+      padding: 20px;
+      box-shadow: 0 4px 8px rgba(0,0,0,0.1);
+      font-family: Arial, sans-serif;
+    }
+    
+    .player-controls {
+      display: flex;
+      justify-content: center;
+      gap: 15px;
+      margin-top: 15px;
+    }
+    
+    .player-btn {
+      width: 30px;
+      height: 30px;
+      border-radius: 40%;
+      border: none;
+      background: #4a76a8;
+      color: white;
+      font-size: 16px;
+      cursor: pointer;
+      transition: all 0.3s;
+    }
+    
+    .player-btn:hover {
+      background: #3b5f8a;
+      transform: scale(1.1);
+    }
+    
+    .progress-container {
+      margin-top: 15px;
+      height: 5px;
+      background: #ddd;
+      border-radius: 5px;
+      cursor: pointer;
+    }
+    
+    .progress-bar {
+      height: 100%;
+      background: #4a76a8;
+      border-radius: 5px;
+      width: 0%;
+    }
+    
+    .song-info {
+      text-align: center;
+      margin-bottom: 15px;
+    }
+    
+    .time-display {
+      display: flex;
+      justify-content: space-between;
+      margin-top: 5px;
+      font-size: 12px;
+      color: #666;
+    }
+
+@media (max-width: 600px) {
+  .player-container {
+    width: 90%;
+    margin: 0 auto;
+  }
+  
+  .player-btn {
+    width: 50px;
+    height: 50px;
+    font-size: 20px;
+  }
+}
+
+  </style>
+</head>
+<body>
+  <div class="player-container">
+    <div class="song-info">
+      <h2 id="song-title">Song Title</h2>
+    </div>
+    
+    <audio id="audio-player" src="/song/1"></audio>
+    
+    <div class="progress-container" id="progress-container">
+      <div class="progress-bar" id="progress-bar"></div>
+    </div>
+    <div class="time-display">
+      <span id="current-time">0:00</span>
+      <span id="duration">0:00</span>
+    </div>
+    
+    <div class="player-controls">
+      <button class="player-btn" id="play-btn">▶</button>
+      <button class="player-btn" id="pause-btn">❚❚</button>
+      <button class="player-btn" id="stop-btn">■</button>
+      <button class="player-btn" id="volume-up">🔊</button>
+      <button class="player-btn" id="volume-down">🔉</button>
+    </div>
+  </div>
+
+  <script>
+    // 오디오 요소와 컨트롤 요소 가져오기
+    const audio = document.getElementById('audio-player');
+    const playBtn = document.getElementById('play-btn');
+    const pauseBtn = document.getElementById('pause-btn');
+    const stopBtn = document.getElementById('stop-btn');
+    const progressBar = document.getElementById('progress-bar');
+    const progressContainer = document.getElementById('progress-container');
+    const currentTimeEl = document.getElementById('current-time');
+    const durationEl = document.getElementById('duration');
+    const volumeUpBtn = document.getElementById('volume-up');
+    const volumeDownBtn = document.getElementById('volume-down');
+
+    // 플레이어 상태 업데이트 함수
+    function updateProgress() {
+      const { currentTime, duration } = audio;
+      const progressPercent = (currentTime / duration) * 100;
+      progressBar.style.width = `${progressPercent}%`;
+      
+      // 시간 표시 업데이트
+      currentTimeEl.textContent = formatTime(currentTime);
+      if (duration) {
+        durationEl.textContent = formatTime(duration);
+      }
+    }
+
+    // 시간 포맷팅 (초 → 분:초)
+    function formatTime(seconds) {
+      const minutes = Math.floor(seconds / 60);
+      const secs = Math.floor(seconds % 60);
+      return `${minutes}:${secs < 10 ? '0' : ''}${secs}`;
+    }
+
+    // 프로그레스 바 클릭으로 재생 위치 변경
+    function setProgress(e) {
+      const width = this.clientWidth;
+      const clickX = e.offsetX;
+      const duration = audio.duration;
+      audio.currentTime = (clickX / width) * duration;
+    }
+
+    // 다른 페이지에서 플레이어 제어 (같은 도메인 내)
+    function controlPlayer(action, songId = null) {
+      if (songId) {
+        const audio = window.opener.document.getElementById('audio-player');
+        audio.src = `/song/${songId}`;
+        audio.load();
+      }
+      
+      const audio = window.opener.document.getElementById('audio-player');
+      
+      switch(action) {
+        case 'play':
+          audio.play();
+          break;
+        case 'pause':
+          audio.pause();
+          break;
+        case 'stop':
+          audio.pause();
+          audio.currentTime = 0;
+          break;
+        case 'volume_up':
+          audio.volume = Math.min(audio.volume + 0.1, 1);
+          break;
+        case 'volume_down':
+          audio.volume = Math.max(audio.volume - 0.1, 0);
+          break;
+      }
+    }
+
+    // 이벤트 리스너 설정
+    audio.addEventListener('timeupdate', updateProgress);
+    audio.addEventListener('ended', () => {
+      progressBar.style.width = '0%';
+      currentTimeEl.textContent = '0:00';
+    });
+
+    progressContainer.addEventListener('click', setProgress);
+
+    playBtn.addEventListener('click', () => audio.play());
+    pauseBtn.addEventListener('click', () => audio.pause());
+    stopBtn.addEventListener('click', () => {
+      audio.pause();
+      audio.currentTime = 0;
+    });
+
+    volumeUpBtn.addEventListener('click', () => {
+      audio.volume = Math.min(audio.volume + 0.1, 1);
+    });
+
+    volumeDownBtn.addEventListener('click', () => {
+      audio.volume = Math.max(audio.volume - 0.1, 0);
+    });
+
+    // 페이지 로드 시 음악 메타데이터 가져오기
+    window.addEventListener('DOMContentLoaded', () => {
+      // 여기에 서버에서 노래 정보를 가져오는 코드 추가 가능
+      // document.getElementById('song-title').textContent = songData.title;
+    });
+
+    document.addEventListener('keydown', (e) => {
+      const audio = document.getElementById('audio-player');
+    
+      switch(e.key) {
+        case ' ':
+          audio.paused ? audio.play() : audio.pause();
+          break;
+        case 'ArrowRight':
+          audio.currentTime = Math.min(audio.currentTime + 5, audio.duration);
+          break;
+        case 'ArrowLeft':
+          audio.currentTime = Math.max(audio.currentTime - 5, 0);
+          break;
+        case 'ArrowUp':
+          audio.volume = Math.min(audio.volume + 0.1, 1);
+          break;
+        case 'ArrowDown':
+          audio.volume = Math.max(audio.volume - 0.1, 0);
+          break;
+        case 's':
+          audio.pause();
+          audio.currentTime = 0;
+          break;
+      }
+    });
+
+  </script>
+</body>
+</html>
