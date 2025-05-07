@@ -16,5 +16,22 @@ client.connect()
   .catch(err => console.error('연결 실패:', err))
   .finally(() => client.end());
 
+/*
+async function runQuery() {
+  try {
+    await client.connect();
+    console.log('DB 연결 성공!');
 
+    const res = await client.query('SELECT * FROM users WHERE id = $1', [1]);
+    console.log(res.rows);
+  } catch (err) {
+    console.error('오류 발생:', err);
+  } finally {
+    await client.end();
+    console.log('연결이 종료되었습니다.');
+  }
+}
+
+runQuery();
+*/
 

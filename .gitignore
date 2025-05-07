@@ -1,4 +1,6 @@
 node_modules/
 *.mp3
-# .env, .config.json, .config.ini
+.env
+.config.json
+.config.ini
 

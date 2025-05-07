@@ -126,6 +126,8 @@ def insert_to_db(filename, conn):
             return None
 
 import sys,shutil
+import os,dotenv
+
 if __name__ == '__main__':
     path = sys.argv[1]
     flist = []
@@ -138,8 +140,8 @@ if __name__ == '__main__':
                 flist.append(f)
 
     elist=[]
-    #conn = psycopg2.connect(dbname='gau',user='gau',password='qjemf')
-    conn = psycopg2.connect(dbname='gau',user='postgres')
+    dotenv.load_dotenv()
+    conn = psycopg2.connect(dbname=os.getenv("DB_NAME"),user=os.getenv("DB_USER"))
     for fl in flist:
         print(fl)
         for r in rr.keys():
@@ -156,7 +158,7 @@ if __name__ == '__main__':
         rid = insert_to_db( path + '/' + fl, conn)
         if not rid:
             elist.append(fl)
-            conn = psycopg2.connect(dbname='gau',user='postgres')
+            conn = psycopg2.connect(dbname=os.getenv("DB_NAME"),user=os.getenv("DB_USER"))
 
     print('*'*50)
     for e in elist:
