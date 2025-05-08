@@ -1,0 +1,337 @@
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>다중 채팅방</title>
+  <style>
+    body {
+      font-family: Arial, sans-serif;
+      max-width: 1200px;
+      margin: 0 auto;
+      padding: 20px;
+      display: grid;
+      grid-template-columns: 250px 1fr 200px;
+      gap: 20px;
+    }
+    #room-list, #user-list {
+      border: 1px solid #ccc;
+      padding: 10px;
+    }
+    #room-list h2, #user-list h2 {
+      margin-top: 0;
+    }
+    .room {
+      padding: 8px;
+      margin: 5px 0;
+      cursor: pointer;
+      border-radius: 4px;
+    }
+    .room:hover {
+      background-color: #f0f0f0;
+    }
+    .room.active {
+      background-color: #4CAF50;
+      color: white;
+    }
+    .room-info {
+      display: flex;
+      justify-content: space-between;
+    }
+    #chat-container {
+      display: flex;
+      flex-direction: column;
+      height: 80vh;
+    }
+    #chat-box {
+      flex-grow: 1;
+      border: 1px solid #ccc;
+      padding: 10px;
+      overflow-y: scroll;
+      margin-bottom: 10px;
+    }
+    .message {
+      margin-bottom: 10px;
+      padding: 5px;
+      border-bottom: 1px solid #eee;
+    }
+    .message-info {
+      font-size: 0.8em;
+      color: #666;
+      margin-bottom: 3px;
+    }
+    .message-content {
+      word-break: break-all;
+    }
+    .notification {
+      font-style: italic;
+      color: #888;
+    }
+    #input-area {
+      display: flex;
+      gap: 10px;
+    }
+    #username-input {
+      width: 150px;
+      padding: 8px;
+    }
+    #message-input {
+      flex-grow: 1;
+      padding: 8px;
+    }
+    #send-button {
+      padding: 8px 15px;
+    }
+    #room-creation {
+      margin-top: 10px;
+      display: flex;
+      gap: 5px;
+    }
+    #new-room-input {
+      flex-grow: 1;
+      padding: 8px;
+    }
+    #create-room-button {
+      padding: 8px;
+    }
+    .user {
+      padding: 5px;
+      margin: 3px 0;
+    }
+  </style>
+</head>
+<body>
+  <div id="room-list">
+    <h2>채팅방 목록</h2>
+    <div id="rooms-container"></div>
+    <div id="room-creation">
+      <input type="text" id="new-room-input" placeholder="새 방 이름">
+      <button id="create-room-button">생성</button>
+    </div>
+  </div>
+
+  <div id="chat-container">
+    <div id="chat-box"></div>
+    <div id="input-area">
+      <input type="text" id="username-input" placeholder="사용자 이름">
+      <input type="text" id="message-input" placeholder="메시지를 입력하세요" disabled>
+      <button id="send-button" disabled>전송</button>
+    </div>
+  </div>
+
+  <div id="user-list">
+    <h2>현재 접속자</h2>
+    <div id="users-container"></div>
+  </div>
+
+  <script>
+    const chatBox = document.getElementById('chat-box');
+    const usernameInput = document.getElementById('username-input');
+    const messageInput = document.getElementById('message-input');
+    const sendButton = document.getElementById('send-button');
+    const roomsContainer = document.getElementById('rooms-container');
+    const newRoomInput = document.getElementById('new-room-input');
+    const createRoomButton = document.getElementById('create-room-button');
+    const usersContainer = document.getElementById('users-container');
+
+    let username = '';
+    let currentRoom = null;
+    let ws;
+
+    // WebSocket 연결 생성
+    function connectWebSocket() {
+      ws = new WebSocket('ws://localhost:3000');
+
+      ws.onopen = () => {
+        appendSystemMessage('채팅 서버에 연결되었습니다.');
+      };
+
+      ws.onmessage = (event) => {
+        try {
+          const data = JSON.parse(event.data);
+          
+          if (data.type === 'roomList') {
+            updateRoomList(data.rooms);
+          } 
+          else if (data.type === 'message') {
+            appendUserMessage(data.username, data.text, data.time);
+          } 
+          else if (data.type === 'notification') {
+            appendNotification(data.message);
+          }
+          else if (data.type === 'userList') {
+            updateUserList(data.users);
+          }
+        } catch (error) {
+          console.error('Error parsing message:', error);
+        }
+      };
+
+      ws.onclose = () => {
+        appendSystemMessage('채팅 서버와의 연결이 종료되었습니다.');
+      };
+
+      ws.onerror = (error) => {
+        console.error('WebSocket error:', error);
+        appendSystemMessage('채팅 서버 연결 중 오류가 발생했습니다.');
+      };
+    }
+
+    // 방 목록 업데이트
+    function updateRoomList(rooms) {
+      roomsContainer.innerHTML = '';
+      rooms.forEach(room => {
+        const roomElement = document.createElement('div');
+        roomElement.className = `room ${room.name === currentRoom ? 'active' : ''}`;
+        roomElement.innerHTML = `
+          <div>${room.name}</div>
+          <div class="room-info">
+            <span>${room.userCount}명</span>
+          </div>
+        `;
+        roomElement.addEventListener('click', () => joinRoom(room.name));
+        roomsContainer.appendChild(roomElement);
+      });
+    }
+
+    // 사용자 목록 업데이트
+    function updateUserList(users) {
+      usersContainer.innerHTML = '';
+      if (users.length === 0) {
+        usersContainer.innerHTML = '<div class="user">접속자가 없습니다</div>';
+        return;
+      }
+      
+      users.forEach(user => {
+        const userElement = document.createElement('div');
+        userElement.className = 'user';
+        userElement.textContent = user;
+        usersContainer.appendChild(userElement);
+      });
+    }
+
+    // 방 입장
+    function joinRoom(roomName) {
+      if (!username) {
+        alert('먼저 사용자 이름을 입력해주세요.');
+        return;
+      }
+
+      if (currentRoom === roomName) return;
+
+      currentRoom = roomName;
+      chatBox.innerHTML = '';
+      appendSystemMessage(`"${roomName}" 방에 입장했습니다.`);
+
+      ws.send(JSON.stringify({
+        type: 'join',
+        room: roomName
+      }));
+
+      messageInput.disabled = false;
+      sendButton.disabled = false;
+      messageInput.focus();
+    }
+
+    // 새 방 생성
+    function createRoom() {
+      const roomName = newRoomInput.value.trim();
+      if (!roomName) {
+        alert('방 이름을 입력해주세요.');
+        return;
+      }
+
+      if (roomName.length > 20) {
+        alert('방 이름은 20자 이내로 입력해주세요.');
+        return;
+      }
+
+      ws.send(JSON.stringify({
+        type: 'createRoom',
+        roomName: roomName
+      }));
+
+      newRoomInput.value = '';
+      joinRoom(roomName);
+    }
+
+    // 메시지 전송
+    function sendMessage() {
+      const messageText = messageInput.value.trim();
+      
+      if (!username) {
+        username = usernameInput.value.trim();
+        if (!username) {
+          alert('사용자 이름을 입력해주세요.');
+          return;
+        }
+        
+        usernameInput.disabled = true;
+        ws.send(JSON.stringify({
+          type: 'register',
+          username: username
+        }));
+        
+        appendSystemMessage(`${username}으로 채팅을 시작합니다.`);
+        return;
+      }
+
+      if (messageText && currentRoom) {
+        ws.send(JSON.stringify({
+          type: 'message',
+          text: messageText
+        }));
+        messageInput.value = '';
+      }
+    }
+
+    // 사용자 메시지 추가
+    function appendUserMessage(username, message, time) {
+      const messageElement = document.createElement('div');
+      messageElement.className = 'message';
+      
+      messageElement.innerHTML = `
+        <div class="message-info">${username} (${time})</div>
+        <div class="message-content">${message}</div>
+      `;
+      
+      chatBox.appendChild(messageElement);
+      chatBox.scrollTop = chatBox.scrollHeight;
+    }
+
+    // 시스템 메시지 추가
+    function appendSystemMessage(message) {
+      const messageElement = document.createElement('div');
+      messageElement.className = 'message system';
+      messageElement.textContent = message;
+      chatBox.appendChild(messageElement);
+      chatBox.scrollTop = chatBox.scrollHeight;
+    }
+
+    // 알림 메시지 추가
+    function appendNotification(message) {
+      const messageElement = document.createElement('div');
+      messageElement.className = 'message notification';
+      messageElement.textContent = message;
+      chatBox.appendChild(messageElement);
+      chatBox.scrollTop = chatBox.scrollHeight;
+    }
+
+    // 이벤트 리스너 설정
+    sendButton.addEventListener('click', sendMessage);
+    messageInput.addEventListener('keypress', (e) => {
+      if (e.key === 'Enter') sendMessage();
+    });
+    usernameInput.addEventListener('keypress', (e) => {
+      if (e.key === 'Enter') sendMessage();
+    });
+    createRoomButton.addEventListener('click', createRoom);
+    newRoomInput.addEventListener('keypress', (e) => {
+      if (e.key === 'Enter') createRoom();
+    });
+
+    // 초기화
+    connectWebSocket();
+  </script>
+</body>
+</html>

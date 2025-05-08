@@ -1,0 +1,498 @@
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>실시간 채팅</title>
+  <style>
+    body {
+      font-family: Arial, sans-serif;
+      max-width: 1200px;
+      margin: 0 auto;
+      padding: 20px;
+      display: grid;
+      grid-template-columns: 250px 1fr 200px;
+      gap: 20px;
+    }
+    #room-list, #user-list {
+      border: 1px solid #ddd;
+      padding: 15px;
+      border-radius: 5px;
+      height: 80vh;
+      overflow-y: auto;
+    }
+    #chat-container {
+      display: flex;
+      flex-direction: column;
+      height: 80vh;
+    }
+    #chat-box {
+      flex: 1;
+      border: 1px solid #ddd;
+      padding: 15px;
+      overflow-y: auto;
+      margin-bottom: 10px;
+      border-radius: 5px;
+    }
+    #input-area {
+      display: flex;
+      gap: 10px;
+    }
+    #username-input, #message-input {
+      padding: 10px;
+      border: 1px solid #ddd;
+      border-radius: 5px;
+      flex: 1;
+    }
+    #send-button, #file-button, #create-room-button {
+      padding: 10px 15px;
+      background-color: #4CAF50;
+      color: white;
+      border: none;
+      border-radius: 5px;
+      cursor: pointer;
+    }
+    #file-input {
+      display: none;
+    }
+    .room {
+      padding: 10px;
+      margin: 5px 0;
+      cursor: pointer;
+      border-radius: 5px;
+      display: flex;
+      justify-content: space-between;
+    }
+    .room:hover {
+      background-color: #f0f0f0;
+    }
+    .room.active {
+      background-color: #4CAF50;
+      color: white;
+    }
+    .message {
+      margin-bottom: 15px;
+      padding: 10px;
+      background-color: #f9f9f9;
+      border-radius: 5px;
+    }
+    .message-info {
+      font-size: 0.8em;
+      color: #666;
+      margin-bottom: 5px;
+    }
+    .notification {
+      color: #888;
+      font-style: italic;
+    }
+    .error-message {
+      color: #f44336;
+      font-style: italic;
+    }
+    #room-creation {
+      margin-top: 15px;
+      display: flex;
+      gap: 10px;
+    }
+    #new-room-input {
+      flex: 1;
+      padding: 8px;
+    }
+    .user-count {
+      font-size: 0.8em;
+      color: #666;
+    }
+    .online-count {
+      font-size: 0.9em;
+      color: #4CAF50;
+      font-weight: bold;
+    }
+    .user-item {
+      padding: 5px 0;
+      border-bottom: 1px solid #eee;
+    }
+    .file-message {
+      margin-top: 10px;
+    }
+    .file-link {
+      display: inline-block;
+      margin-top: 5px;
+      padding: 5px 10px;
+      background-color: #f0f0f0;
+      border-radius: 4px;
+      text-decoration: none;
+      color: #333;
+    }
+    .image-preview {
+      max-width: 100%;
+      max-height: 200px;
+      margin-top: 5px;
+      border: 1px solid #ddd;
+      border-radius: 4px;
+    }
+  </style>
+</head>
+<body>
+  <div id="room-list">
+    <h2>채팅방 목록 <span class="online-count" id="online-count">(0명 온라인)</span></h2>
+    <div id="rooms-container">
+      <div class="notification">방 목록을 불러오는 중...</div>
+    </div>
+    <div id="room-creation">
+      <input type="text" id="new-room-input" placeholder="새 방 이름">
+      <button id="create-room-button">생성</button>
+    </div>
+  </div>
+
+  <div id="chat-container">
+    <div id="chat-box">
+      <div class="notification">채팅방을 선택해주세요</div>
+    </div>
+    <div id="input-area">
+      <input type="text" id="username-input" placeholder="사용자 이름">
+      <input type="text" id="message-input" placeholder="메시지 입력" disabled>
+      <button id="file-button">📎</button>
+      <input type="file" id="file-input">
+      <button id="send-button" disabled>전송</button>
+    </div>
+  </div>
+
+  <div id="user-list">
+    <h2>현재 접속자 <span id="room-user-count">(0명)</span></h2>
+    <div id="users-container">
+      <div class="notification">채팅방에 입장해주세요</div>
+    </div>
+  </div>
+
+  <script>
+    // DOM 요소
+    const chatBox = document.getElementById('chat-box');
+    const usernameInput = document.getElementById('username-input');
+    const messageInput = document.getElementById('message-input');
+    const sendButton = document.getElementById('send-button');
+    const roomsContainer = document.getElementById('rooms-container');
+    const newRoomInput = document.getElementById('new-room-input');
+    const createRoomButton = document.getElementById('create-room-button');
+    const fileInput = document.getElementById('file-input');
+    const fileButton = document.getElementById('file-button');
+    const onlineCount = document.getElementById('online-count');
+    const usersContainer = document.getElementById('users-container');
+    const roomUserCount = document.getElementById('room-user-count');
+
+    // 상태 변수
+    let username = '';
+    let currentRoom = null;
+    let ws;
+
+    // WebSocket 연결
+    function connectWebSocket() {
+      ws = new WebSocket('ws://localhost:3000');
+
+      ws.onopen = () => {
+        console.log('서버에 연결됨');
+        appendSystemMessage('채팅 서버에 연결되었습니다.');
+      };
+
+      ws.onmessage = (event) => {
+        console.log('받은 메시지:', event.data);
+        
+        try {
+          // 바이너리 데이터 처리 (파일 전송)
+          if (event.data instanceof Blob) {
+            handleFileMessage(event.data);
+            return;
+          }
+
+          // JSON 메시지 처리
+          const data = JSON.parse(event.data);
+          
+          if (data.type === 'roomList') {
+            updateRoomList(data.rooms);
+            if (data.onlineCount !== undefined) {
+              onlineCount.textContent = `(${data.onlineCount}명 온라인)`;
+            }
+          }
+          else if (data.type === 'userList') {
+            updateUserList(data.users);
+          }
+          else if (data.type === 'registerSuccess') {
+            handleRegisterSuccess(data.username);
+          }
+          else if (data.type === 'roomCreated') {
+            handleRoomCreated(data.roomName);
+          }
+          else if (data.type === 'joinSuccess') {
+            handleJoinSuccess(data.room, data.username);
+          }
+          else if (data.type === 'message') {
+            appendMessage(data.username, data.text, data.time);
+          }
+          else if (data.type === 'file') {
+            appendFileMessage(data.username, data.fileName, data.fileUrl, data.time, data.fileType);
+          }
+          else if (data.type === 'userJoined') {
+            appendNotification(`${data.username}님이 참여했습니다.`);
+          }
+          else if (data.type === 'userLeft') {
+            appendNotification(`${data.username}님이 나갔습니다.`);
+          }
+          else if (data.type === 'error') {
+            appendErrorMessage(data.message);
+          }
+        } catch (error) {
+          console.error('메시지 처리 오류:', error);
+          appendErrorMessage('메시지 처리 중 오류가 발생했습니다.');
+        }
+      };
+
+      ws.onclose = () => {
+        appendSystemMessage('서버 연결이 끊어졌습니다.');
+      };
+
+      ws.onerror = (error) => {
+        console.error('웹소켓 오류:', error);
+        appendErrorMessage('연결 중 오류가 발생했습니다.');
+      };
+    }
+
+    // 방 목록 업데이트
+    function updateRoomList(rooms) {
+      roomsContainer.innerHTML = '';
+      
+      if (rooms.length === 0) {
+        roomsContainer.innerHTML = '<div class="notification">생성된 방이 없습니다</div>';
+        return;
+      }
+      
+      rooms.forEach(room => {
+        const roomElement = document.createElement('div');
+        roomElement.className = `room ${room.name === currentRoom ? 'active' : ''}`;
+        roomElement.innerHTML = `
+          <span>${room.name}</span>
+          <span class="user-count">${room.userCount}명</span>
+        `;
+        roomElement.addEventListener('click', () => {
+          joinRoom(room.name);
+        });
+        roomsContainer.appendChild(roomElement);
+      });
+    }
+
+    // 사용자 목록 업데이트
+    function updateUserList(userList) {
+      usersContainer.innerHTML = '';
+      roomUserCount.textContent = `(${userList.length}명)`;
+      
+      if (userList.length === 0) {
+        usersContainer.innerHTML = '<div class="notification">접속자가 없습니다</div>';
+        return;
+      }
+      
+      userList.forEach(username => {
+        const userElement = document.createElement('div');
+        userElement.className = 'user-item';
+        userElement.textContent = username;
+        usersContainer.appendChild(userElement);
+      });
+    }
+
+    // 방 입장
+    function joinRoom(roomName) {
+      ws.send(JSON.stringify({
+        type: 'join',
+        room: roomName
+      }));
+    }
+
+    // 방 생성
+    function createRoom() {
+      const roomName = newRoomInput.value.trim();
+      if (!roomName) {
+        appendErrorMessage('방 이름을 입력해주세요.');
+        return;
+      }
+
+      ws.send(JSON.stringify({
+        type: 'createRoom',
+        roomName: roomName
+      }));
+    }
+
+    // 메시지 전송
+    function sendMessage() {
+      const messageText = messageInput.value.trim();
+      
+      if (!messageText) return;
+
+      ws.send(JSON.stringify({
+        type: 'message',
+        text: messageText
+      }));
+      messageInput.value = '';
+    }
+
+    // 사용자 등록
+    function registerUsername() {
+      const usernameValue = usernameInput.value.trim();
+      if (!usernameValue) {
+        appendErrorMessage('사용자 이름을 입력해주세요.');
+        return;
+      }
+      
+      ws.send(JSON.stringify({
+        type: 'register',
+        username: usernameValue
+      }));
+    }
+
+    // 파일 전송 처리
+    function sendFile(file) {
+      if (!file) return;
+
+      const reader = new FileReader();
+      reader.onload = function() {
+        const fileType = file.type.split('/')[0];
+        const fileExt = file.name.split('.').pop();
+        
+        // 메타데이터 생성
+        const metaData = {
+          originalName: file.name,
+          ext: fileExt,
+          type: fileType
+        };
+        
+        // 메타데이터를 JSON 문자열로 변환 (50바이트로 고정)
+        const metaDataStr = JSON.stringify(metaData);
+        const metaDataPadded = metaDataStr.padEnd(50, '\0');
+        const metaDataBuffer = new TextEncoder().encode(metaDataPadded);
+        
+        // 파일 데이터
+        const fileBuffer = new Uint8Array(this.result);
+        
+        // 메타데이터와 파일 데이터 결합
+        const combinedBuffer = new Uint8Array(metaDataBuffer.length + fileBuffer.length);
+        combinedBuffer.set(metaDataBuffer);
+        combinedBuffer.set(fileBuffer, metaDataBuffer.length);
+        
+        // WebSocket으로 전송
+        ws.send(combinedBuffer);
+        appendSystemMessage(`파일 전송 중: ${file.name}`);
+      };
+      reader.readAsArrayBuffer(file);
+    }
+
+    // 파일 메시지 처리
+    function handleFileMessage(blob) {
+      const reader = new FileReader();
+      reader.onload = function() {
+        const arrayBuffer = this.result;
+        const metaDataStr = new TextDecoder().decode(new Uint8Array(arrayBuffer.slice(0, 50))).replace(/\0+$/, '');
+        const metaData = JSON.parse(metaDataStr);
+        
+        const fileUrl = URL.createObjectURL(new Blob([arrayBuffer.slice(50)]));
+        
+        if (metaData.type === 'image') {
+          appendMessage(metaData.username, 
+            `<div class="file-message">
+              <img src="${fileUrl}" class="image-preview">
+            </div>`, 
+            new Date().toLocaleTimeString());
+        } else {
+          appendMessage(metaData.username, 
+            `<div class="file-message">
+              <a href="${fileUrl}" class="file-link" download="${metaData.originalName}">${metaData.originalName} 다운로드</a>
+            </div>`, 
+            new Date().toLocaleTimeString());
+        }
+      };
+      reader.readAsArrayBuffer(blob);
+    }
+
+    // 사용자 등록 성공 처리
+    function handleRegisterSuccess(usernameValue) {
+      username = usernameValue;
+      usernameInput.disabled = true;
+      appendSystemMessage(`${username}님, 환영합니다!`);
+      messageInput.focus();
+    }
+
+    // 방 생성 성공 처리
+    function handleRoomCreated(roomName) {
+      appendSystemMessage(`"${roomName}" 방이 생성되었습니다.`);
+      newRoomInput.value = '';
+      joinRoom(roomName);
+    }
+
+    // 방 입장 성공 처리
+    function handleJoinSuccess(room, username) {
+      currentRoom = room;
+      messageInput.disabled = false;
+      sendButton.disabled = false;
+      messageInput.focus();
+      appendSystemMessage(`"${room}" 방에 입장했습니다.`);
+    }
+
+    // 메시지 표시
+    function appendMessage(username, text, time) {
+      const messageElement = document.createElement('div');
+      messageElement.className = 'message';
+      messageElement.innerHTML = `
+        <div class="message-info">${username} (${time})</div>
+        <div>${text}</div>
+      `;
+      chatBox.appendChild(messageElement);
+      chatBox.scrollTop = chatBox.scrollHeight;
+    }
+
+    // 시스템 메시지 표시
+    function appendSystemMessage(text) {
+      const messageElement = document.createElement('div');
+      messageElement.className = 'message notification';
+      messageElement.textContent = text;
+      chatBox.appendChild(messageElement);
+      chatBox.scrollTop = chatBox.scrollHeight;
+    }
+
+    // 에러 메시지 표시
+    function appendErrorMessage(text) {
+      const messageElement = document.createElement('div');
+      messageElement.className = 'message error-message';
+      messageElement.textContent = text;
+      chatBox.appendChild(messageElement);
+      chatBox.scrollTop = chatBox.scrollHeight;
+    }
+
+    // 알림 메시지 표시
+    function appendNotification(text) {
+      const messageElement = document.createElement('div');
+      messageElement.className = 'message notification';
+      messageElement.textContent = text;
+      chatBox.appendChild(messageElement);
+      chatBox.scrollTop = chatBox.scrollHeight;
+    }
+
+    // 이벤트 리스너 설정
+    sendButton.addEventListener('click', sendMessage);
+    messageInput.addEventListener('keypress', (e) => {
+      if (e.key === 'Enter') sendMessage();
+    });
+    usernameInput.addEventListener('keypress', (e) => {
+      if (e.key === 'Enter') registerUsername();
+    });
+    createRoomButton.addEventListener('click', createRoom);
+    newRoomInput.addEventListener('keypress', (e) => {
+      if (e.key === 'Enter') createRoom();
+    });
+    fileButton.addEventListener('click', () => fileInput.click());
+    fileInput.addEventListener('change', (e) => {
+      if (fileInput.files.length > 0) {
+        sendFile(fileInput.files[0]);
+        fileInput.value = '';
+      }
+    });
+
+    // 초기화
+    connectWebSocket();
+  </script>
+</body>
+</html>
