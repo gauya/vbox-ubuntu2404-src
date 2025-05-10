@@ -7,18 +7,18 @@
   <style>
     body {
       font-family: Arial, sans-serif;
-      max-width: 1200px;
+      max-width: 1000px;
       margin: 0 auto;
       padding: 20px;
       display: grid;
-      grid-template-columns: 250px 1fr 200px;
+      grid-template-columns: 250px 1fr;
       gap: 20px;
     }
-    #room-list, #user-list {
+    #room-list {
       border: 1px solid #ccc;
       padding: 10px;
     }
-    #room-list h2, #user-list h2 {
+    #room-list h2 {
       margin-top: 0;
     }
     .room {
@@ -94,10 +94,6 @@
     #create-room-button {
       padding: 8px;
     }
-    .user {
-      padding: 5px;
-      margin: 3px 0;
-    }
   </style>
 </head>
 <body>
@@ -119,11 +115,6 @@
     </div>
   </div>
 
-  <div id="user-list">
-    <h2>현재 접속자</h2>
-    <div id="users-container"></div>
-  </div>
-
   <script>
     const chatBox = document.getElementById('chat-box');
     const usernameInput = document.getElementById('username-input');
@@ -132,7 +123,6 @@
     const roomsContainer = document.getElementById('rooms-container');
     const newRoomInput = document.getElementById('new-room-input');
     const createRoomButton = document.getElementById('create-room-button');
-    const usersContainer = document.getElementById('users-container');
 
     let username = '';
     let currentRoom = null;
@@ -158,9 +148,6 @@
           } 
           else if (data.type === 'notification') {
             appendNotification(data.message);
-          }
-          else if (data.type === 'userList') {
-            updateUserList(data.users);
           }
         } catch (error) {
           console.error('Error parsing message:', error);
@@ -191,22 +178,6 @@
         `;
         roomElement.addEventListener('click', () => joinRoom(room.name));
         roomsContainer.appendChild(roomElement);
-      });
-    }
-
-    // 사용자 목록 업데이트
-    function updateUserList(users) {
-      usersContainer.innerHTML = '';
-      if (users.length === 0) {
-        usersContainer.innerHTML = '<div class="user">접속자가 없습니다</div>';
-        return;
-      }
-      
-      users.forEach(user => {
-        const userElement = document.createElement('div');
-        userElement.className = 'user';
-        userElement.textContent = user;
-        usersContainer.appendChild(userElement);
       });
     }
 
@@ -241,15 +212,14 @@
         return;
       }
 
-      if (roomName.length > 20) {
-        alert('방 이름은 20자 이내로 입력해주세요.');
-        return;
+      // 간단한 클라이언트 측 방 생성 (실제로는 서버에서 처리해야 함)
+      if (!chatRooms[roomName]) {
+        chatRooms[roomName] = new Set();
+        updateRoomList(Object.keys(chatRooms).map(room => ({
+          name: room,
+          userCount: chatRooms[room].size
+        })));
       }
-
-      ws.send(JSON.stringify({
-        type: 'createRoom',
-        roomName: roomName
-      }));
 
       newRoomInput.value = '';
       joinRoom(roomName);

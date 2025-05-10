@@ -1,8 +1,8 @@
 // npm install dotenv
 
-require('dotenv').config(); // .env 파일 로드
 const { Client } = require('pg');
 
+require('dotenv').config(); // .env 파일 로드
 const client = new Client({
   host: process.env.DB_HOST,
   port: process.env.DB_PORT,
@@ -10,6 +10,23 @@ const client = new Client({
   user: process.env.DB_USER,
   password: process.env.DB_PASSWORD,
 });
+
+/*
+const config = JSON.parse(fs.readFileSync('.config.json', 'utf8'));
+const dbConfig = config.database;
+
+const client = new Client({
+  host: dbConfig.host,
+  port: dbConfig.port,
+  database: dbConfig.name,
+  user: dbConfig.user,
+  password: dbConfig.password,
+});
+*/
+
+/*
+});
+*/
 
 client.connect()
   .then(() => console.log('DB 연결 성공!'))

@@ -2,14 +2,15 @@ const { Client } = require('pg');
 const express = require('express');
 const path = require('path');
 const app = express();
+require('dotenv').config();
 
 // PostgreSQL 연결 설정
 const client = new Client({
-  user: 'gau',
-  host: 'localhost',
-  database: 'gau',
-  password: 'qjemf',
-  port: 5432,
+  host: process.env.DB_HOST,
+  port: process.env.DB_PORT,
+  database: process.env.DB_NAME,
+  user: process.env.DB_USER,
+  password: process.env.DB_PASSWORD,
 });
 
 // 데이터베이스 연결
@@ -28,7 +29,7 @@ app.get('/song/:id', async (req, res) => {
     
     // 데이터베이스에서 bytea 데이터 조회
     const result = await client.query(
-      'SELECT audio_data, dtype FROM songs WHERE id = $1', 
+      'SELECT audio_data, dtype FROM public.songs WHERE id = $1', 
       [songId]
     );
     
@@ -54,7 +55,7 @@ app.get('/song/:id', async (req, res) => {
 // 음악 파일 목록 API
 app.get('/', async (req, res) => {
   try {
-    const result = await client.query('SELECT id, name FROM songs');
+    const result = await client.query('SELECT id, name FROM public.songs');
     const songsList = result.rows.map(row =>
       `<li><a href="/player/${row.id}">${row.name}</a></li>`
     ).join('');

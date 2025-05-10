@@ -5,12 +5,15 @@ const path = require('path');
 const app = express();
 const PORT = 3000;
 
+// 정적 파일 서빙
 app.use(express.static(path.join(__dirname, 'public')));
 
+// Express 서버 시작
 const server = app.listen(PORT, () => {
   console.log(`Server is running on http://localhost:${PORT}`);
 });
 
+// WebSocket 서버 생성
 const wss = new WebSocket.Server({ server });
 
 // 채팅방 저장 객체
@@ -20,13 +23,14 @@ const chatRooms = {
   '음악': new Set()
 };
 
-// 사용자 정보 저장 (Map<WebSocket, {username, room}>)
+// 사용자 정보 저장
 const users = new Map();
 
 // WebSocket 연결 이벤트 처리
 wss.on('connection', (ws) => {
   console.log('New client connected');
 
+  // 클라이언트로부터 메시지 수신 이벤트 처리
   ws.on('message', (message) => {
     try {
       const data = JSON.parse(message);
@@ -50,28 +54,14 @@ wss.on('connection', (ws) => {
         if (user.room && chatRooms[user.room]) {
           chatRooms[user.room].delete(ws);
           broadcastRoomMessage(user.room, {
-            type: 'userList',
-            users: getUsersInRoom(user.room)
-          });
-          broadcastRoomMessage(user.room, {
             type: 'notification',
             message: `${user.username}님이 방을 나갔습니다.`
           });
         }
 
-        // 새 방에 추가 (없으면 생성)
-        if (!chatRooms[data.room]) {
-          chatRooms[data.room] = new Set();
-        }
-        
+        // 새 방에 추가
         user.room = data.room;
         chatRooms[data.room].add(ws);
-        
-        // 방 사용자 목록 전송
-        broadcastRoomMessage(data.room, {
-          type: 'userList',
-          users: getUsersInRoom(data.room)
-        });
         
         broadcastRoomMessage(data.room, {
           type: 'notification',
@@ -79,15 +69,6 @@ wss.on('connection', (ws) => {
         });
         
         sendRoomList(ws);
-        return;
-      }
-      
-      // 방 생성
-      if (data.type === 'createRoom') {
-        if (!chatRooms[data.roomName]) {
-          chatRooms[data.roomName] = new Set();
-          broadcastRoomList();
-        }
         return;
       }
       
@@ -112,15 +93,12 @@ wss.on('connection', (ws) => {
     }
   });
 
+  // 연결 종료 이벤트 처리
   ws.on('close', () => {
     const user = users.get(ws);
     if (user) {
       if (user.room && chatRooms[user.room]) {
         chatRooms[user.room].delete(ws);
-        broadcastRoomMessage(user.room, {
-          type: 'userList',
-          users: getUsersInRoom(user.room)
-        });
         broadcastRoomMessage(user.room, {
           type: 'notification',
           message: `${user.username}님이 방을 나갔습니다.`
@@ -132,15 +110,7 @@ wss.on('connection', (ws) => {
   });
 });
 
-// 방 안의 사용자 목록 가져오기
-function getUsersInRoom(room) {
-  if (!chatRooms[room]) return [];
-  return Array.from(chatRooms[room])
-    .map(ws => users.get(ws)?.username)
-    .filter(Boolean);
-}
-
-// 특정 방에 메시지 브로드�스트
+// 특정 방에 메시지 브로드캐스트
 function broadcastRoomMessage(room, message) {
   if (!chatRooms[room]) return;
   
@@ -151,24 +121,7 @@ function broadcastRoomMessage(room, message) {
   });
 }
 
-// 모든 클라이언트에 방 목록 전송
-function broadcastRoomList() {
-  const roomList = Object.keys(chatRooms).map(room => ({
-    name: room,
-    userCount: chatRooms[room].size
-  }));
-  
-  wss.clients.forEach(client => {
-    if (client.readyState === WebSocket.OPEN) {
-      client.send(JSON.stringify({
-        type: 'roomList',
-        rooms: roomList
-      }));
-    }
-  });
-}
-
-// 특정 클라이언트에 방 목록 전송
+// 방 목록 전송
 function sendRoomList(ws) {
   const roomList = Object.keys(chatRooms).map(room => ({
     name: room,

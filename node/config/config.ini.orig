@@ -1,0 +1,15 @@
+[database]
+host = localhost
+user = myuser
+password = mypassword
+database = mydb
+port = 3306
+
+[server]
+port = 3000
+timeout = 30000
+ssl = false
+
+[logging]
+level = debug
+path = /var/log/myapp

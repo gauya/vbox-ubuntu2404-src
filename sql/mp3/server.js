@@ -9,13 +9,14 @@ const { Pool } = require('pg');
 const app = express();
 const port = 3000;
 
+require('dotenv').config();
 // PostgreSQL 연결 설정
 const pool = new Pool({
-  user: 'gau',
-  host: 'localhost',
-  database: 'gau',
-  password: 'qjemf',
-  port: 5432,
+  host: process.env.DB_HOST,
+  port: process.env.DB_PORT,
+  database: process.env.DB_NAME,
+  user: process.env.DB_USER,
+  password: process.env.DB_PASSWORD,
 });
 
 // 업로드 디렉토리
@@ -83,7 +84,8 @@ app.get('/songs', async (req, res) => {
 });
 
 // mp3 파일 재생 (다운로드 or 스트리밍)
-app.get('/songs/:id/play', async (req, res) => {
+//app.get('/songs/:id/play', async (req, res) => {
+app.get('/songs/:id', async (req, res) => {
   const result = await pool.query('SELECT file_path FROM mp3_library WHERE id = $1', [req.params.id]);
   if (result.rowCount === 0) return res.status(404).send('Not found');
   const filepath = result.rows[0].file_path;

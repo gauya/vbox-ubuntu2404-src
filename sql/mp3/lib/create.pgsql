@@ -13,8 +13,10 @@ alter role gau set search_path to mp3_schema,public;
 create table mp3_schema.artist_group (
     id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
     name varchar(120) not null,
+    members varchar(60)[],
     descript text
     ) tablespace mp3_space;
+create index i_artist_group on mp3_schema.artist_group (name) tablespace mp3_space;
 
 create table mp3_schema.artist (
     id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
@@ -26,6 +28,7 @@ create table mp3_schema.artist (
     descript text,
     updated_at timestamp default CURRENT_TIMESTAMP
     ) tablespace mp3_space;
+create index i_artist on mp3_schema.artist (name) tablespace mp3_space;
 
 -- 아티스트 이름을 한글로할지 영문으로 할지(Apink/A-PINK/에이핑크), 띄어쓰기는? 
 -- 이렇게 다름에도 노래사이트에서는 가수를 잘 찾아준다. 어떻게?

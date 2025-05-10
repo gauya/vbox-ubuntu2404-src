@@ -1,56 +1,146 @@
 const express = require('express');
 const WebSocket = require('ws');
 const path = require('path');
-const fs = require('fs');
-const { v4: uuidv4 } = require('uuid');
 
 const app = express();
 const PORT = 3000;
 
-// 파일 업로드 디렉토리 설정
-const uploadDir = path.join(__dirname, 'uploads');
-if (!fs.existsSync(uploadDir)) {
-  fs.mkdirSync(uploadDir, { recursive: true });
-}
-
 app.use(express.static(path.join(__dirname, 'public')));
-app.use('/uploads', express.static(uploadDir));
 
 const server = app.listen(PORT, () => {
-  console.log(`서버 실행 중: http://localhost:${PORT}`);
+  console.log(`Server is running on http://localhost:${PORT}`);
 });
 
 const wss = new WebSocket.Server({ server });
 
-// 초기 채팅방 설정
+// 채팅방 저장 객체
 const chatRooms = {
   '일반': new Set(),
   '게임': new Set(),
   '음악': new Set()
 };
 
-// 사용자 정보 저장
+// 사용자 정보 저장 (Map<WebSocket, {username, room}>)
 const users = new Map();
 
-// 모든 클라이언트에 방 목록 전송
-function broadcastRoomList() {
-  const roomList = Object.keys(chatRooms).map(room => ({
-    name: room,
-    userCount: chatRooms[room].size
-  }));
+// WebSocket 연결 이벤트 처리
+wss.on('connection', (ws) => {
+  console.log('New client connected');
 
-  wss.clients.forEach(client => {
-    if (client.readyState === WebSocket.OPEN) {
-      client.send(JSON.stringify({
-        type: 'roomList',
-        rooms: roomList,
-        onlineCount: users.size
-      }));
+  ws.on('message', (message) => {
+    try {
+      const data = JSON.parse(message);
+      
+      // 사용자 등록
+      if (data.type === 'register') {
+        users.set(ws, {
+          username: data.username,
+          room: null
+        });
+        sendRoomList(ws);
+        return;
+      }
+      
+      // 방 입장
+      if (data.type === 'join') {
+        const user = users.get(ws);
+        if (!user) return;
+
+        // 기존 방에서 제거
+        if (user.room && chatRooms[user.room]) {
+          chatRooms[user.room].delete(ws);
+          broadcastRoomMessage(user.room, {
+            type: 'userList',
+            users: getUsersInRoom(user.room)
+          });
+          broadcastRoomMessage(user.room, {
+            type: 'notification',
+            message: `${user.username}님이 방을 나갔습니다.`
+          });
+        }
+
+        // 새 방에 추가 (없으면 생성)
+        if (!chatRooms[data.room]) {
+          chatRooms[data.room] = new Set();
+        }
+        
+        user.room = data.room;
+        chatRooms[data.room].add(ws);
+        
+        // 방 사용자 목록 전송
+        broadcastRoomMessage(data.room, {
+          type: 'userList',
+          users: getUsersInRoom(data.room)
+        });
+        
+        broadcastRoomMessage(data.room, {
+          type: 'notification',
+          message: `${user.username}님이 방에 입장했습니다.`
+        });
+        
+        sendRoomList(ws);
+        return;
+      }
+      
+      // 방 생성
+      if (data.type === 'createRoom') {
+        if (!chatRooms[data.roomName]) {
+          chatRooms[data.roomName] = new Set();
+          broadcastRoomList();
+        }
+        return;
+      }
+      
+      // 일반 메시지
+      if (data.type === 'message') {
+        const user = users.get(ws);
+        if (!user || !user.room) return;
+        
+        const messageData = {
+          type: 'message',
+          username: user.username,
+          text: data.text,
+          time: new Date().toLocaleTimeString(),
+          room: user.room
+        };
+        
+        broadcastRoomMessage(user.room, messageData);
+      }
+      
+    } catch (error) {
+      console.error('Error parsing message:', error);
     }
   });
+
+  ws.on('close', () => {
+    const user = users.get(ws);
+    if (user) {
+      if (user.room && chatRooms[user.room]) {
+        chatRooms[user.room].delete(ws);
+        broadcastRoomMessage(user.room, {
+          type: 'userList',
+          users: getUsersInRoom(user.room)
+        });
+        broadcastRoomMessage(user.room, {
+          type: 'notification',
+          message: `${user.username}님이 방을 나갔습니다.`
+        });
+      }
+      users.delete(ws);
+    }
+    console.log('Client disconnected');
+  });
+});
+
+// 방 안의 사용자 목록 가져오기
+function getUsersInRoom(room) {
+  if (!chatRooms[room]) return [];
+  return Array.from(chatRooms[room])
+    .map(ws => users.get(ws)?.username)
+    .filter(Boolean);
 }
 
-// 특정 방에 메시지 브로드캐스트
+// 특정 방에 메시지 브로드�스트
 function broadcastRoomMessage(room, message) {
   if (!chatRooms[room]) return;
   
@@ -61,192 +151,34 @@ function broadcastRoomMessage(room, message) {
   });
 }
 
-// WebSocket 연결 처리
-wss.on('connection', (ws) => {
-  console.log('새 클라이언트 연결됨');
-
-  // 연결 시 바로 방 목록 전송
-  broadcastRoomList();
-
-  // 클라이언트로부터 메시지 수신
-  ws.on('message', (message) => {
-    try {
-      // 바이너리 데이터 처리 (파일 전송)
-      if (typeof message !== 'string') {
-        const user = users.get(ws);
-        if (!user || !user.room) return;
-
-        const metaDataStr = message.slice(0, 50).toString().replace(/\0+$/, '');
-        const metaData = JSON.parse(metaDataStr);
-        
-        const fileName = uuidv4() + '.' + metaData.ext;
-        const filePath = path.join(uploadDir, fileName);
-        
-        fs.writeFile(filePath, message.slice(50), (err) => {
-          if (err) return console.error('파일 저장 오류:', err);
-          
-          broadcastRoomMessage(user.room, {
-            type: 'file',
-            username: user.username,
-            fileName: metaData.originalName,
-            fileUrl: `/uploads/${fileName}`,
-            time: new Date().toLocaleTimeString(),
-            fileType: metaData.type
-          });
-        });
-        return;
-      }
-
-      // JSON 메시지 처리
-      const data = JSON.parse(message);
-      console.log('받은 메시지:', data);
-
-      // 사용자 등록
-      if (data.type === 'register') {
-        if (!data.username || data.username.trim() === '') {
-          ws.send(JSON.stringify({
-            type: 'error',
-            message: '사용자 이름을 입력해주세요.'
-          }));
-          return;
-        }
-
-        users.set(ws, {
-          username: data.username,
-          room: null
-        });
-        console.log(`사용자 등록: ${data.username}`);
-        
-        ws.send(JSON.stringify({
-          type: 'registerSuccess',
-          username: data.username
-        }));
-        
-        broadcastRoomList();
-        return;
-      }
-
-      // 방 생성
-      if (data.type === 'createRoom') {
-        const user = users.get(ws);
-        if (!user) {
-          ws.send(JSON.stringify({
-            type: 'error',
-            message: '먼저 사용자 이름을 등록해주세요.'
-          }));
-          return;
-        }
-
-        if (!data.roomName || data.roomName.trim() === '') {
-          ws.send(JSON.stringify({
-            type: 'error',
-            message: '방 이름을 입력해주세요.'
-          }));
-          return;
-        }
-
-        if (!chatRooms[data.roomName]) {
-          chatRooms[data.roomName] = new Set();
-          console.log(`새 방 생성: ${data.roomName}`);
-          
-          ws.send(JSON.stringify({
-            type: 'roomCreated',
-            roomName: data.roomName
-          }));
-          
-          broadcastRoomList();
-        }
-        return;
-      }
-
-      // 방 입장
-      if (data.type === 'join') {
-        const user = users.get(ws);
-        if (!user) {
-          ws.send(JSON.stringify({
-            type: 'error',
-            message: '먼저 사용자 이름을 등록해주세요.'
-          }));
-          return;
-        }
-
-        // 기존 방에서 나가기
-        if (user.room) {
-          chatRooms[user.room].delete(ws);
-          broadcastRoomMessage(user.room, {
-            type: 'userLeft',
-            username: user.username
-          });
-        }
-
-        // 새 방에 입장 (없으면 생성)
-        if (!chatRooms[data.room]) {
-          chatRooms[data.room] = new Set();
-        }
-
-        user.room = data.room;
-        chatRooms[data.room].add(ws);
-
-        console.log(`${user.username}님이 ${data.room} 방에 입장`);
-        
-        // 입장 성공 응답
-        ws.send(JSON.stringify({
-          type: 'joinSuccess',
-          room: data.room,
-          username: user.username
-        }));
-
-        // 방 사용자 목록 전송
-        const usersInRoom = Array.from(chatRooms[data.room]).map(ws => users.get(ws).username);
-        broadcastRoomMessage(data.room, {
-          type: 'userList',
-          users: usersInRoom
-        });
-
-        broadcastRoomList();
-        return;
-      }
-
-      // 일반 메시지
-      if (data.type === 'message') {
-        const user = users.get(ws);
-        if (!user || !user.room) return;
-
-        broadcastRoomMessage(user.room, {
-          type: 'message',
-          username: user.username,
-          text: data.text,
-          time: new Date().toLocaleTimeString()
-        });
-      }
-
-    } catch (error) {
-      console.error('메시지 처리 오류:', error);
-      ws.send(JSON.stringify({
-        type: 'error',
-        message: '메시지 처리 중 오류가 발생했습니다.'
+// 모든 클라이언트에 방 목록 전송
+function broadcastRoomList() {
+  const roomList = Object.keys(chatRooms).map(room => ({
+    name: room,
+    userCount: chatRooms[room].size
+  }));
+  
+  wss.clients.forEach(client => {
+    if (client.readyState === WebSocket.OPEN) {
+      client.send(JSON.stringify({
+        type: 'roomList',
+        rooms: roomList
       }));
     }
   });
+}
 
-  // 연결 종료 처리
-  ws.on('close', () => {
-    const user = users.get(ws);
-    if (user) {
-      if (user.room) {
-        chatRooms[user.room].delete(ws);
-        broadcastRoomMessage(user.room, {
-          type: 'userLeft',
-          username: user.username
-        });
-      }
-      users.delete(ws);
-      broadcastRoomList();
-    }
-    console.log('클라이언트 연결 종료');
-  });
-
-  ws.on('error', (error) => {
-    console.error('웹소켓 오류:', error);
-  });
-});
+// 특정 클라이언트에 방 목록 전송
+function sendRoomList(ws) {
+  const roomList = Object.keys(chatRooms).map(room => ({
+    name: room,
+    userCount: chatRooms[room].size
+  }));
+  
+  if (ws.readyState === WebSocket.OPEN) {
+    ws.send(JSON.stringify({
+      type: 'roomList',
+      rooms: roomList
+    }));
+  }
+}
