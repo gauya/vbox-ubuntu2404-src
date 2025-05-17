@@ -1,0 +1,2 @@
+g++ stl_viewer.cpp -o stl_viewer `wx-config --cxxflags --libs --glflags` -lassimp -lGL -lGLU
+

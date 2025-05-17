@@ -1,0 +1,42 @@
+#include "gl_canvas.h"
+#include <GL/gl.h>
+#include <GL/glu.h>
+#include <glm/gtc/type_ptr.hpp>
+
+
+MyGLCanvas::MyGLCanvas(wxWindow* parent)
+    : wxGLCanvas(parent, wxID_ANY, nullptr), rotationAngle(0.0f) {
+    wxGLContext* context = new wxGLContext(this);
+    SetCurrent(*context);
+}
+
+void MyGLCanvas::LoadModel(const std::string& filename) {
+    modelData = LoadSTL(filename);
+    Refresh();
+}
+
+void MyGLCanvas::Render() {
+    glClear(GL_COLOR_BUFFER_BIT | GL_DEPTH_BUFFER_BIT);
+    glMatrixMode(GL_MODELVIEW);
+    glLoadIdentity();
+    glRotatef(rotationAngle, 0.0f, 1.0f, 0.0f);
+
+    glBegin(GL_TRIANGLES);
+    for (const auto& tri : modelData) {
+        glVertex3fv(glm::value_ptr(tri.vertices[0]));
+        glVertex3fv(glm::value_ptr(tri.vertices[1]));
+        glVertex3fv(glm::value_ptr(tri.vertices[2]));
+    }
+    glEnd();
+
+    SwapBuffers();
+}
+
+void MyGLCanvas::OnPaint(wxPaintEvent&) {
+    Render();
+}
+
+void MyGLCanvas::OnMouse(wxMouseEvent& event) {
+    rotationAngle += event.GetX() * 0.1f;
+    Refresh();
+}

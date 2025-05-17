@@ -1,0 +1,322 @@
+#include <wx/wx.h>
+#include <wx/glcanvas.h>
+#include <wx/sizer.h>
+
+#include <GL/gl.h>
+#include <GL/glu.h>
+
+#include <assimp/Importer.hpp>
+#include <assimp/scene.h>
+#include <assimp/postprocess.h>
+
+#include <vector>
+#include <memory>
+
+// Helper function to load STL files using Assimp
+bool LoadStl(const std::string& filename, std::vector<float>& vertices) {
+    Assimp::Importer importer;
+    const aiScene* scene = importer.ReadFile(filename, aiProcess_Triangulate);
+
+    if (!scene || scene->mFlags & AI_SCENE_FLAGS_INCOMPLETE || !scene->mRootNode) {
+        wxLogError("Error loading STL: %s", importer.GetErrorString());
+        return false;
+    }
+
+    for (unsigned int i = 0; i < scene->mNumMeshes; ++i) {
+        const aiMesh* mesh = scene->mMeshes[i];
+        for (unsigned int j = 0; j < mesh->mNumFaces; ++j) {
+            const aiFace& face = mesh->mFaces[j];
+            for (unsigned int k = 0; k < face.mNumIndices; ++k) {
+                unsigned int index = face.mIndices[k];
+                vertices.push_back(mesh->mVertices[index].x);
+                vertices.push_back(mesh->mVertices[index].y);
+                vertices.push_back(mesh->mVertices[index].z);
+            }
+        }
+    }
+
+    return true;
+}
+
+#include <wx/wx.h>
+#include <wx/glcanvas.h>
+#include <wx/sizer.h>
+
+#include <GL/gl.h>
+#include <GL/glu.h>
+
+#include <assimp/Importer.hpp>
+#include <assimp/scene.h>
+#include <assimp/postprocess.h>
+
+#include <vector>
+#include <memory>
+
+// ... (STL loading function remains the same)
+
+
+class MyGLCanvas : public wxGLCanvas {
+public:
+    MyGLCanvas(wxWindow* parent) : wxGLCanvas(parent, wxID_ANY, nullptr, wxDefaultPosition, wxDefaultSize, wxFULL_REPAINT_ON_RESIZE) 
+    {
+        wxGLContextAttrs ctxAttrs;
+        ctxAttrs.PlatformDefaults().CoreProfile().EndList();
+        m_context = std::make_unique<wxGLContext>(this, nullptr, &ctxAttrs);
+
+        Bind(wxEVT_PAINT, &MyGLCanvas::OnPaint, this);
+        Bind(wxEVT_SIZE, &MyGLCanvas::OnSize, this);
+        Bind(wxEVT_LEFT_DOWN, &MyGLCanvas::OnMouseDown, this);   // Separate handler for mouse down
+        Bind(wxEVT_MOTION, &MyGLCanvas::OnMouseMotion, this); // Separate handler for dragging
+        Bind(wxEVT_MOUSEWHEEL, &MyGLCanvas::OnMouseWheel, this);
+
+        if (!LoadStl("your_stl_file.stl", m_vertices)) { // Replace with your STL file name
+            wxLogError("Could not load STL file.");
+        }
+    }
+
+    void OnPaint(wxPaintEvent& event) {
+        wxPaintDC dc(this);
+
+        SetCurrent(*m_context);
+
+        glClearColor(0.0f, 0.0f, 0.0f, 1.0f);
+        glClear(GL_COLOR_BUFFER_BIT | GL_DEPTH_BUFFER_BIT);
+
+
+        glEnable(GL_DEPTH_TEST);
+
+        glMatrixMode(GL_MODELVIEW);
+        glLoadIdentity();
+        glTranslatef(0.0f, 0.0f, -5.0f);
+        glRotatef(m_rotationX, 1.0f, 0.0f, 0.0f);
+        glRotatef(m_rotationY, 0.0f, 1.0f, 0.0f);
+        glScalef(m_zoom, m_zoom, m_zoom);       // Apply zoom
+
+        glColor3f(1.0f, 1.0f, 1.0f);
+
+        glBegin(GL_TRIANGLES);
+        for (size_t i = 0; i < m_vertices.size(); i += 3) {
+            glVertex3f(m_vertices[i], m_vertices[i + 1], m_vertices[i + 2]);
+        }
+        glEnd();
+
+        glFlush();
+        SwapBuffers();
+    }
+
+    void OnSize(wxSizeEvent& event) {
+        wxSize size = event.GetSize();
+
+        SetCurrent(*m_context);
+
+        glViewport(0, 0, size.GetWidth(), size.GetHeight());
+
+        glMatrixMode(GL_PROJECTION);
+        glLoadIdentity();
+        gluPerspective(45.0f, (double)size.GetWidth() / size.GetHeight(), 1.0f, 100.0f);
+
+        glMatrixMode(GL_MODELVIEW);
+
+        Refresh();
+    }
+
+    void OnMouseDown(wxMouseEvent& event) {
+        m_previousMouseX = event.GetX();
+        m_previousMouseY = event.GetY();
+    }
+
+
+    void OnMouseMotion(wxMouseEvent& event) {
+        if (event.Dragging()) {
+            m_rotationX += event.GetY() - m_previousMouseY;
+            m_rotationY += event.GetX() - m_previousMouseX;
+            m_previousMouseX = event.GetX();  // Update previous mouse position
+            m_previousMouseY = event.GetY();
+            Refresh(); // Redraw
+        }
+    }
+
+
+    void OnMouseWheel(wxMouseEvent& event) {
+        m_zoom += event.GetWheelRotation() / 1000.0f; // Adjust zoom speed as needed
+        Refresh(); // Redraw
+    }
+
+
+private:
+    std::unique_ptr<wxGLContext> m_context;
+    std::vector<float> m_vertices;
+    float m_rotationX = 0.0f;
+    float m_rotationY = 0.0f;
+    float m_zoom = 1.0f;                 // Zoom factor
+    int m_previousMouseX = 0;
+    int m_previousMouseY = 0;
+};
+
+/*
+class MyGLCanvas : public wxGLCanvas {
+public:
+    MyGLCanvas(wxWindow* parent) : wxGLCanvas(parent, wxID_ANY, nullptr, wxDefaultPosition, wxDefaultSize, wxFULL_REPAINT_ON_RESIZE) {
+        wxGLContextAttrs ctxAttrs;
+        ctxAttrs.PlatformDefaults().CoreProfile().EndList();
+        m_context = std::make_unique<wxGLContext>(this, &ctxAttrs);
+
+        //Bind mouse events correctly. The macro `wxEVT_MOUSE_EVENTS` is deprecated.
+        Bind(wxEVT_PAINT, &MyGLCanvas::OnPaint, this);
+        Bind(wxEVT_SIZE, &MyGLCanvas::OnSize, this);
+        Bind(wxEVT_LEFT_DOWN, &MyGLCanvas::OnMouse, this); // For Mouse Down
+        Bind(wxEVT_MOTION, &MyGLCanvas::OnMouse, this);   // For Dragging
+        Bind(wxEVT_MOUSEWHEEL, &MyGLCanvas::OnMouseWheel, this); //For zoom using Mouse Wheel
+
+        Connect(wxEVT_PAINT, wxPaintEventHandler(MyGLCanvas::OnPaint));
+        Connect(wxEVT_SIZE, wxSizeEventHandler(MyGLCanvas::OnSize));
+        Connect(wxEVT_MOUSE_EVENTS, wxMouseEventHandler(MyGLCanvas::OnMouse));
+
+        if (!LoadStl("your_stl_file.stl", m_vertices)) { // Replace with your STL file
+            wxLogError("Could not load STL file.");
+        }
+    }
+
+
+    void OnPaint(wxPaintEvent& event) {
+        wxPaintDC dc(this);
+        SetCurrent(*m_context);
+
+        glClearColor(0.0f, 0.0f, 0.0f, 1.0f);
+        glClear(GL_COLOR_BUFFER_BIT | GL_DEPTH_BUFFER_BIT);
+
+
+        glEnable(GL_DEPTH_TEST);
+
+
+
+        glMatrixMode(GL_MODELVIEW);
+        glLoadIdentity();
+        glTranslatef(0.0f, 0.0f, -5.0f); // Move the object slightly away from the camera
+        glRotatef(m_rotationX, 1.0f, 0.0f, 0.0f);
+        glRotatef(m_rotationY, 0.0f, 1.0f, 0.0f);
+
+
+        glColor3f(1.0f, 1.0f, 1.0f);  // Set color to white
+
+
+        glBegin(GL_TRIANGLES);
+        for (size_t i = 0; i < m_vertices.size(); i += 3) {
+            glVertex3f(m_vertices[i], m_vertices[i + 1], m_vertices[i + 2]);
+        }
+        glEnd();
+
+        glFlush();
+        SwapBuffers();
+    }
+
+
+    void OnSize(wxSizeEvent& event) {
+        wxSize size = event.GetSize();
+
+        SetCurrent(*m_context);
+
+        glViewport(0, 0, size.GetWidth(), size.GetHeight());
+
+        glMatrixMode(GL_PROJECTION);
+        glLoadIdentity();
+        gluPerspective(45.0f, (double)size.GetWidth() / size.GetHeight(), 1.0f, 100.0f);
+
+        glMatrixMode(GL_MODELVIEW);
+
+        Refresh();
+    }
+
+    MyGLCanvas(wxWindow* parent) : wxGLCanvas(parent, wxID_ANY, nullptr, wxDefaultPosition, wxDefaultSize, wxFULL_REPAINT_ON_RESIZE) {
+        wxGLContextAttrs ctxAttrs;
+        ctxAttrs.PlatformDefaults().CoreProfile().EndList();
+        m_context = std::make_unique<wxGLContext>(this, &ctxAttrs);  // Correct usage of make_unique
+
+
+        //Bind mouse events correctly. The macro `wxEVT_MOUSE_EVENTS` is deprecated.
+        Bind(wxEVT_PAINT, &MyGLCanvas::OnPaint, this);
+        Bind(wxEVT_SIZE, &MyGLCanvas::OnSize, this);
+        Bind(wxEVT_LEFT_DOWN, &MyGLCanvas::OnMouse, this); // For Mouse Down
+        Bind(wxEVT_MOTION, &MyGLCanvas::OnMouse, this);   // For Dragging
+        Bind(wxEVT_MOUSEWHEEL, &MyGLCanvas::OnMouseWheel, this); //For zoom using Mouse Wheel
+
+        // ... rest of the constructor as before
+    }
+
+
+    void OnMouseWheel(wxMouseEvent& event) {
+         m_zoom += event.GetWheelRotation() / 1000.0f; // Adjust zoom speed as needed
+         Refresh(); // Redraw
+    }
+
+
+
+
+    // ... (OnPaint, OnSize remain the same)
+
+    void OnMouse(wxMouseEvent& event) {
+        if (event.Dragging()) {
+            if (event.LeftIsDown()) {
+                m_rotationX += event.GetY() - m_previousMouseY;
+                m_rotationY += event.GetX() - m_previousMouseX;
+                Refresh();
+            }
+            
+        } else if (event.LeftDown()) {
+            m_previousMouseX = event.GetX();
+            m_previousMouseY = event.GetY();
+        }
+    }
+
+
+
+private:
+    std::unique_ptr<wxGLContext> m_context;
+    std::vector<float> m_vertices;
+    float m_rotationX = 0.0f;
+    float m_rotationY = 0.0f;
+    int m_previousMouseX = 0;
+    int m_previousMouseY = 0;
+    float m_zoom = 1.0f; // Add a zoom factor
+
+
+};
+*/
+
+
+class MyFrame : public wxFrame {
+public:
+    MyFrame() : wxFrame(NULL, wxID_ANY, "STL Viewer") {
+        MyGLCanvas* canvas = new MyGLCanvas(this);
+
+        wxBoxSizer* sizer = new wxBoxSizer(wxVERTICAL);
+        sizer->Add(canvas, 1, wxEXPAND);
+        SetSizer(sizer);
+
+        SetClientSize(800, 600);  // Initial size
+        Show();
+    }
+
+};
+
+class MyApp : public wxApp {
+public:
+    bool OnInit() override {
+        MyFrame* frame = new MyFrame();
+        frame->Show(true);
+        return true;
+    }
+};
+
+/*
+//In OnPaint method add scaling based on zoom level:
+void OnPaint(wxPaintEvent& event) {
+    // ... (rest of OnPaint)
+    glScalef(m_zoom, m_zoom, m_zoom);
+    // ... drawing code ...
+}
+*/
+
+wxIMPLEMENT_APP(MyApp);
+
+// g++ stl_viewer.cpp -o stl_viewer `wx-config --cxxflags --libs --glflags` -lassimp -lGL -lGLU
