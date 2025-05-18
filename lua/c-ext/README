@@ -1,0 +1,7 @@
+# 
+#exit example.c example.h example.i
+swig -lua example.i # --> example_wrap.c
+
+#gcc -fPIC -shared example.c example_wrap.c -I/usr/include/lua5.4 -o example_wrap.so
+gcc -fPIC -c example.c example_wrap.c -I/usr/include/lua5.4
+gcc -shared example.o example_wrap.o -o example.so
