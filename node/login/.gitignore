@@ -1,0 +1,8 @@
+node_modules/
+*.avi
+*.mp3
+.env
+.config.json
+.config.ini
+config.ini
+.vscode
