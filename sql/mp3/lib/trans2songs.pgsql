@@ -39,9 +39,10 @@ CREATE TABLE if not exists mp3_schema.songs (
     dsize int check( dsize > 0 ),
     file_name text,
 
-    likeno bigint,
+    likeno bigint, -- only like, ignore hate
     played bigint,
     evaluation float default 0.0, -- 0.0 - 1.0
+    check_file char, -- duplicate, damage,... may be erase
 
     updated_at timestamp default CURRENT_TIMESTAMP,
 
