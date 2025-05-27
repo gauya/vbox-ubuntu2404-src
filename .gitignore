@@ -1,8 +1,10 @@
 node_modules/
 *.avi
 *.mp3
+.README
 .env
 .config.json
 .config.ini
 config.ini
 .vscode
+wxWidgets/
