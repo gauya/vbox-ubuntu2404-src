@@ -1,8 +1,0 @@
-{
-  "dependencies": {
-    "chart.js": "^4.4.9",
-    "express": "^5.1.0",
-    "pg": "^8.15.6",
-    "socket.io": "^4.8.1"
-  }
-}
