@@ -1,6 +1,7 @@
 node_modules/
 *.avi
 *.mp3
+*.jpg
 .README
 .env
 .config.json

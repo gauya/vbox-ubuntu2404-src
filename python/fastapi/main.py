@@ -25,6 +25,18 @@ def parse_id3v2(data: bytes, filename: str):
     info = {}
     if not data.startswith(b"ID3"):
         return {"error": "ID3v2 header not found"}
+        if len(data) > 128:
+            head = data[-128:]
+            if head[0:3] != "TAG":
+                print("may be not mp3")
+                return {"error": "ID3v1 not"}
+            info["TIT2"] = head[3:33]
+            info["TPE1"] = head[33:63]
+            info["TALB"] = head[63:93]
+            info["TYER"] = head[93:97]
+            info["COMM"] = head[97:127]
+            return info
+
 
     tag_size = int.from_bytes(data[6:10], byteorder="big") & 0x7F7F7F7F
     pos = 10
