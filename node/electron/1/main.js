@@ -4,10 +4,11 @@ const { Pool } = require('pg');
 const fs = require('fs'); // fs 모듈 추가
 
 // 데이터베이스 연결 설정 (기존 설정 유지)
+require('dotenv').config();
 const pool = new Pool({
-  user: process.env.DATABASE_USER || 'postgres',
+  user:  process.env.DATABASE_USER || 'postgres',
   host: process.env.DATABASE_HOST || 'localhost',
-  database: process.env.DATABASE_NAME || 'gau',
+  database: process.env.DATABASE_NAME,
   password: process.env.DATABASE_PASSWORD,
   port: process.env.DATABASE_PORT || 5432,
 });
@@ -27,6 +28,8 @@ function createWindow() {
       preload: path.join(__dirname, 'preload.js'),
       nodeIntegration: false,
       contextIsolation: true,
+      enableRemoteModule: false,
+      worldSafeExecuteJavaScript: true
       //contentSecurityPolicy: "default-src 'self'; script-src 'self'; style-src 'self' 'unsafe-inline';", // 안전하지 않은 Inline 스타일 허용 (개발 편의)
     },
     resizable: true,
@@ -55,7 +58,7 @@ app.on('activate', () => {
 });
 
 // 데이터베이스 쿼리 핸들러
-ipcMain.handle('database-query', async (event, queryOptions) => {
+ipcMain.handle('query-database', async (event, queryOptions) => {
     const { columns, where, orderBy, orderDirection, limit } = queryOptions;
     const selectedColumns = columns.map(column => {
     if (column === 'year') {

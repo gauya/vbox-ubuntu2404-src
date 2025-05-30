@@ -56,54 +56,6 @@ queryResultDiv.addEventListener('input', (e) => {
   }
 });
 
-queryResultDiv.addEventListener('_keydown', (e) => {
-  if (e.target.hasAttribute('contenteditable')) {
-    if (e.key === 'Enter' && !e.shiftKey) {
-      e.preventDefault();
-      e.target.blur();
-    }
-  }
-});
-
-queryResultDiv.addEventListener('_keydown', (e) => {
-  const focusedRow = document.querySelector('#query-result tr.focused');
-  if (!focusedRow) return;
-
-// 엔터 키 처리 (줄바꿈 방지)
-  if (e.target.hasAttribute('contenteditable')) {
-    if (e.key === 'Enter' && !e.shiftKey) {
-      e.preventDefault();
-      e.target.blur();
-    }
-  }
-  if (e.key === 'ArrowDown') {
-    e.preventDefault();
-    const nextRow = focusedRow.nextElementSibling;
-    if (nextRow) {
-      focusedRow.classList.remove('focused');
-      nextRow.classList.add('focused');
-      nextRow.focus();
-    }
-  } else if (e.key === 'ArrowUp') {
-    e.preventDefault();
-    const prevRow = focusedRow.previousElementSibling;
-    if (prevRow) {
-      focusedRow.classList.remove('focused');
-      prevRow.classList.add('focused');
-      prevRow.focus();
-    }
-  }
-});
-
-// 포커스 아웃 시 업데이트 확인
-queryResultDiv.addEventListener('_focusout', (e) => {
-  if (e.target.hasAttribute('contenteditable')) {
-    if (e.target.classList.contains('modified')) {
-      //alert("수정된 내용을 저장하세요");
-    }
-  }
-});
-
 // 키보드 이벤트 핸들러 추가
 queryResultDiv.addEventListener('keydown', (e) => {
   if (!currentEditingCell && e.target.hasAttribute('contenteditable')) {
