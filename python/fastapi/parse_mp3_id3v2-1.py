@@ -8,8 +8,70 @@ def try_decode(b: bytes):
         try:
             return b.decode(enc)
         except UnicodeDecodeError:
+            #print(f"dec {enc} not")
             continue
     return f"<binary:{len(b)}B>"
+
+def parse_id3v2(data: bytes, filename: str):
+    info = {}
+    if not data.startswith(b"ID3"):
+        #return {"error": "ID3v2 header not found"}
+        print(f"ID3V2 not")
+        # check ID3V1
+        if len(data) > 128 and head[0:3] == "TAG":
+            head = data[-128:]
+            info["TIT2"] = head[3:33]
+            info["TPE1"] = head[33:63]
+            info["TALB"] = head[63:93]
+            info["TYER"] = head[93:97]
+            info["COMM"] = head[97:127]
+            return info
+        print("may be not mp3")
+        return {"error": "ID3v1 not"}
+
+    tag_size = int.from_bytes(data[6:10], byteorder="big") & 0x7F7F7F7F
+    pos = 10
+
+    print(f"--{filename}-- tagsize={tag_size}")
+    while pos < 10 + tag_size:
+        frame_id = data[pos:pos+4].decode("latin1", errors="ignore")
+        frame_size = int.from_bytes(data[pos+4:pos+8], byteorder="big")
+        print(f"frame_id={frame_id} {frame_size}")
+        if frame_size == 0 or not frame_id.strip():
+            break
+
+        content = data[pos+10:pos+10+frame_size]
+
+        # 텍스트 프레임 (예: TIT2, TPE1, TPE2, TCON, TCOP, TENC, TALB, TYER, TRCK, TPOS 등)
+        if frame_id.startswith("T") and len(content) > 1:
+            value = try_decode(content[1:])
+            info[frame_id] = value
+
+        # 설명 (COMM 프레임), 가사 (USLT 프레임)
+        elif frame_id in ("COMM","USLT") and len(content) > 5:
+            lang = content[1:4].decode("latin1")
+            print(f"COMM.....lang={lang}")
+            desc_end = content.find(b'\x00', 9)
+            if desc_end != -1:
+                desc = try_decode(content[4:desc_end])
+                text = try_decode(content[desc_end+1:])
+                info[frame_id] = text
+
+        # 썸네일
+        elif frame_id == "APIC":
+            parts = content[1:].split(b'\x00', 2)
+            if len(parts) >= 3:
+                mime = parts[0].decode(errors="ignore")
+                image_data = parts[2]
+                ext = ".jpg" if "jpeg" in mime else ".png"
+                img_path = filename + ext
+                with open(img_path, "wb") as f:
+                    f.write(image_data)
+                info["APIC"] = f"/thumbs/{img_path}"
+
+        pos += 10 + frame_size
+
+    return info
 
 def decode_text(data: bytes, encoding_byte: int):
     encodings = {
@@ -27,11 +89,15 @@ def decode_text(data: bytes, encoding_byte: int):
 def parse_text_frame(frame_id, content, info):
     encoding = content[0]
     lang = content[1:4].decode("latin1")
-    desc_end = content.find(b'\x00', 4)
+    qlast = 9 if frame_id in ('COMM','USLT') else 4
+    desc_end = content.find(b'\x00', qlast)
+    print(f"{frame_id} : lang={lang} desc_end={desc_end}")
     if desc_end == -1:
         desc_end = 4  # fallback
-    desc = decode_text(content[4:desc_end], encoding)
-    body = decode_text(content[desc_end+1:], encoding)
+    #desc = decode_text(content[4:desc_end], encoding)
+    #body = decode_text(content[desc_end+1:], encoding)
+    desc = try_decode(content[4:desc_end])
+    body = try_decode(content[desc_end+1:])
 
     key = f"{frame_id}::{lang}"
     info[key] = body
@@ -42,7 +108,7 @@ def parse_text_frame(frame_id, content, info):
     if frame_id == "COMM" and "COMM" not in info and lang in ("kor", "eng"):
         info["COMM"] = body
 
-def parse_id3v2(file_path):
+def parse_id3v2_(file_path):
     info = {}
     with open(file_path, "rb") as f:
         header = f.read(10)
@@ -54,17 +120,21 @@ def parse_id3v2(file_path):
         tag_size = ((header[6] & 0x7f) << 21) | ((header[7] & 0x7f) << 14) | ((header[8] & 0x7f) << 7) | (header[9] & 0x7f)
 
         offset = 10
+        print(f"{file_path} : {version} tagsize={tag_size}")
         while offset < tag_size:
             f.seek(offset)
             frame_header = f.read(10)
             if len(frame_header) < 10 or frame_header[0] == 0:
+                print(f"end {len(frame_header)} {frame_header[0]}")
                 break
 
             frame_id = frame_header[0:4].decode("latin1")
             frame_size = struct.unpack(">I", frame_header[4:8])[0]
             content = f.read(frame_size)
 
-            if frame_id in ("TIT2", "TPE1", "TALB", "TDRC", "TPE2", "TCON", "TRCK", "TCOM"):
+            print(f"{frame_id} size={frame_size}")
+
+            if frame_id in ("TIT2","TPE1","TYER","TENC","TALB","TDRC","TPE2","TCON","TRCK","TCOM"):
                 text = decode_text(content[1:], content[0])
                 info[frame_id] = text
             elif frame_id in ("USLT", "COMM"):
@@ -102,5 +172,7 @@ if __name__ == "__main__":
         sys.exit(1)
 
     path = sys.argv[1]
-    result = parse_id3v2(path)
+    with open(path,"rb") as f:
+      dat = f.read()
+    result = parse_id3v2(dat,path)
     print_metadata(result)

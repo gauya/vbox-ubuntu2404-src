@@ -111,7 +111,7 @@ async def upload(file: UploadFile = File(...)):
         "TIT2": "제목", "TPE1": "아티스트", "TPE2": "앨범 아티스트", "TCOM": "작곡가",
         "TALB": "앨범", "TDRC": "발표연도", "TYER": "발표연도", "TCON": "장르",
         "TRCK": "트랙", "COMM": "설명", "USLT": "가사", "DURATION": "재생 시간",
-        "PRIV": "산놈", "WXXX": "내논디", "EXPL": "버전"
+        "PRIV": "속닥", "WXXX": "모름", "EXPL": "버전"
     }.items():
         if tag in info:
             if tag == 'USLT':
@@ -130,7 +130,7 @@ def upload_form():
     return """
     <h1>MP3 파일 업로드</h1>
     <form action="/upload" enctype="multipart/form-data" method="post">
-      <input type="file" name="file">
+      <input type="file" name="file"><br><br>
       <input type="submit" value="분석">
     </form>
     """

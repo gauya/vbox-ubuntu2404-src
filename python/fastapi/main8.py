@@ -23,7 +23,6 @@ def try_decode(b: bytes):
 
 def parse_id3v2(data: bytes, filename: str):
     info = {}
-    # if not contents.startswith(b'ID3') and not contents[-128:].startswith(b'TAG')
     if not data.startswith(b"ID3"):
         return {"error": "ID3v2 header not found"}
         if len(data) > 128:
@@ -36,13 +35,10 @@ def parse_id3v2(data: bytes, filename: str):
             info["TALB"] = head[63:93]
             info["TYER"] = head[93:97]
             info["COMM"] = head[97:127]
-            info["EXPL"] = f"ID3v1"
             return info
 
 
     tag_size = int.from_bytes(data[6:10], byteorder="big") & 0x7F7F7F7F
-    majar_ver = data[3]
-    info["EXPL"] = f"ID3v2.{majar_ver}"
     pos = 10
 
     while pos < 10 + tag_size:
@@ -79,13 +75,17 @@ def parse_id3v2(data: bytes, filename: str):
                     f.write(image_data)
                 info["APIC"] = f"/thumbs/{img_path.name}"
 
-        elif frame_id in ("PRIV","WXXX"):
-            parts = content[4:frame_size]
-            info[frame_id] = parts.decode('utf-8')
-
         pos += 10 + frame_size
 
     return info
+
+def try_decode2(data, encodings=["utf-8", "euc-kr", "cp949", "latin1"]):
+    for enc in encodings:
+        try:
+            return data.decode(enc).strip('\x00')
+        except:
+            continue
+    return "<decode error>"
 
 def get_duration(file_data: bytes) -> float:
     try:
@@ -104,14 +104,14 @@ async def upload(file: UploadFile = File(...)):
     duration = get_duration(contents)
     m = int(duration // 60)
     s = duration % 60
+    #info["DURATION"] = f"{duration} sec" if duration > 0 else "N/A"
     info["DURATION"] = f"{m:02}:{s:5.2f}" if duration > 0 else "N/A"
 
     html = "<h2>MP3 Metadata</h2><ul>"
     for tag, label in {
         "TIT2": "제목", "TPE1": "아티스트", "TPE2": "앨범 아티스트", "TCOM": "작곡가",
         "TALB": "앨범", "TDRC": "발표연도", "TYER": "발표연도", "TCON": "장르",
-        "TRCK": "트랙", "COMM": "설명", "USLT": "가사", "DURATION": "재생 시간",
-        "PRIV": "산놈", "WXXX": "내논디", "EXPL": "버전"
+        "TRCK": "트랙", "COMM": "설명", "USLT": "가사", "DURATION": "재생 시간"
     }.items():
         if tag in info:
             if tag == 'USLT':
@@ -130,7 +130,7 @@ def upload_form():
     return """
     <h1>MP3 파일 업로드</h1>
     <form action="/upload" enctype="multipart/form-data" method="post">
-      <input type="file" name="file">
+      <input type="file" name="file"><br><br>
       <input type="submit" value="분석">
     </form>
     """

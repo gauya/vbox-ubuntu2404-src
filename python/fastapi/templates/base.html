@@ -1,0 +1,256 @@
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>MP3 메타데이터 분석기</title>
+    <style>
+        body {
+            font-family: Arial, sans-serif;
+            margin: 0;
+            padding: 0;
+            background-color: #f0f2f5;
+        }
+        .container {
+            display: flex;
+            min-height: 100vh;
+            width: 100%;
+        }
+        .left-panel {
+            flex: 1; /* 왼쪽 패널이 공간을 동일하게 차지 */
+            padding: 20px;
+            background-color: #ffffff;
+            box-shadow: 2px 0 5px rgba(0,0,0,0.1);
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            justify-content: center;
+        }
+        .leftbottom-panel {
+            flex: 1; /* 왼쪽 패널이 공간을 동일하게 차지 */
+            padding: 20px;
+            background-color: #ffffff;
+            box-shadow: 2px 0 5px rgba(0,0,0,0.1);
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            justify-content: center;
+        }
+        .right-panel {
+            flex: 1; /* 오른쪽 패널이 공간을 동일하게 차지 */
+            padding: 20px;
+            background-color: #f9f9f9;
+            overflow-y: auto; /* 내용이 넘칠 경우 스크롤 */
+        }
+        #drop-zone {
+            width: 80%; /* 패널 내에서 너비 조정 */
+            max-width: 600px;
+            height: 400px;
+            border: 2px dashed #ccc;
+            border-radius: 10px;
+            display: flex;
+            flex-direction: column;
+            justify-content: center;
+            align-items: center;
+            font-size: 1.2em;
+            color: #888;
+            background-color: #fff;
+            transition: all 0.3s ease;
+            text-align: center;
+            padding: 20px;
+            box-sizing: border-box; /* 패딩 포함 크기 계산 */
+        }
+        #drop-zone.highlight {
+            border-color: #007bff;
+            background-color: #e9f5ff;
+            color: #007bff;
+        }
+        #file-list {
+            margin-top: 15px;
+            font-size: 0.9em;
+            color: #555;
+            list-style: none;
+            padding: 0;
+            max-height: 70px; /* 목록이 길어지면 스크롤 */
+            overflow-y: auto;
+            width: 100%;
+        }
+        #file-list li {
+            padding: 3px 0;
+            border-bottom: 1px solid #eee;
+        }
+        #file-list li:last-child {
+            border-bottom: none;
+        }
+        #upload-button {
+            margin-top: 20px;
+            padding: 10px 20px;
+            font-size: 1em;
+            background-color: #007bff;
+            color: white;
+            border: none;
+            border-radius: 5px;
+            cursor: pointer;
+            transition: background-color 0.3s ease;
+        }
+        #upload-button:hover {
+            background-color: #0056b3;
+        }
+        #result-display h2 {
+            color: #333;
+            border-bottom: 2px solid #007bff;
+            padding-bottom: 10px;
+            margin-bottom: 20px;
+        }
+        #result-display ul {
+            list-style: none;
+            padding: 0;
+        }
+        #result-display li {
+            background-color: #e9ecef;
+            margin-bottom: 8px;
+            padding: 10px;
+            border-radius: 5px;
+            word-break: break-all; /* 긴 텍스트 줄바꿈 */
+        }
+        #result-display img {
+            max-width: 100%;
+            height: auto;
+            border-radius: 5px;
+            margin-top: 10px;
+        }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <div class="left-panel">
+            <h1>MP3 파일 메타데이터 분석</h1>
+            <div id="drop-zone">
+                여기에 MP3 파일을 드래그 앤 드롭하세요.<br>
+                (여러 파일 가능)
+                <ul id="file-list"></ul>
+            </div>
+            <button id="upload-button" style="display: none;">선택된 파일 분석</button>
+            <div>
+              <p>
+            </div>
+            <div class="leftbottom_panel">
+              <form action="/upload" enctype="multipart/form-data" method="post">
+                <input type="file" name="file">
+                <input type="submit" value="분석">
+              </form>
+            </div>
+        </div>
+        <div class="right-panel" id="result-display">
+            <h2>분석 결과</h2>
+            <p>파일을 업로드하면 여기에 메타데이터가 표시됩니다.</p>
+        </div>
+    </div>
+
+    <script>
+        const dropZone = document.getElementById('drop-zone');
+        const fileList = document.getElementById('file-list');
+        const uploadButton = document.getElementById('upload-button');
+        const resultDisplay = document.getElementById('result-display');
+        let droppedFiles = []; // 드롭된 파일들을 저장할 배열
+
+        // 드래그 관련 이벤트 핸들러
+        ['dragenter', 'dragover', 'dragleave', 'drop'].forEach(eventName => {
+            dropZone.addEventListener(eventName, preventDefaults, false);
+        });
+
+        function preventDefaults (e) {
+            e.preventDefault();
+            e.stopPropagation();
+        }
+
+        // 파일이 드롭 존 위로 올라왔을 때 시각적 피드백
+        ['dragenter', 'dragover'].forEach(eventName => {
+            dropZone.addEventListener(eventName, () => dropZone.classList.add('highlight'), false);
+        });
+
+        // 파일이 드롭 존을 벗어나거나 드롭되었을 때 시각적 피드백 제거
+        ['dragleave', 'drop'].forEach(eventName => {
+            dropZone.classList.remove('highlight');
+        });
+
+        // 파일이 드롭되었을 때 처리
+        dropZone.addEventListener('drop', handleDrop, false);
+
+        function handleDrop(e) {
+            const dt = e.dataTransfer;
+            const files = dt.files; // 드롭된 파일 목록
+
+            droppedFiles = [...files].filter(file => file.type === 'audio/mpeg'); // MP3 파일만 필터링
+            displayFiles(); // 파일 목록을 화면에 표시
+
+            if (droppedFiles.length > 0) {
+                uploadButton.style.display = 'block'; // 파일이 있으면 버튼 표시
+            } else {
+                uploadButton.style.display = 'none'; // MP3 파일이 없으면 버튼 숨김
+                alert('MP3 파일만 업로드할 수 있습니다.');
+            }
+        }
+
+        // 선택된 파일 목록을 화면에 표시
+        function displayFiles() {
+            fileList.innerHTML = ''; // 기존 목록 초기화
+            if (droppedFiles.length === 0) {
+                fileList.innerHTML = '<li>드롭된 MP3 파일 없음</li>';
+                return;
+            }
+            droppedFiles.forEach(file => {
+                const listItem = document.createElement('li');
+                listItem.textContent = `${file.name} (${(file.size / 1024 / 1024).toFixed(2)} MB)`;
+                fileList.appendChild(listItem);
+            });
+        }
+
+        // "선택된 파일 분석" 버튼 클릭 시 파일 전송
+        uploadButton.addEventListener('click', uploadFiles);
+
+        async function uploadFiles() {
+            if (droppedFiles.length === 0) {
+                alert('업로드할 MP3 파일을 먼저 드롭해주세요.');
+                return;
+            }
+
+            // 한 번에 한 파일씩 처리
+            for (const file of droppedFiles) {
+                const formData = new FormData();
+                formData.append('file', file); // 서버에서 'file' 이름으로 받을 수 있도록
+
+                // UI 업데이트: 현재 처리 중인 파일 표시
+                resultDisplay.innerHTML = `<h2>분석 중: ${file.name}...</h2><p>잠시만 기다려 주세요.</p>`;
+
+                try {
+                    const response = await fetch('/upload', {
+                        method: 'POST',
+                        body: formData
+                    });
+
+                    if (!response.ok) {
+                        throw new Error(`HTTP error! status: ${response.status}`);
+                    }
+
+                    const htmlContent = await response.text(); // 서버가 HTML을 반환하므로 .text() 사용
+                    resultDisplay.innerHTML = `<h2>분석 결과: ${file.name}</h2>` + htmlContent; // 결과 영역 업데이트
+                    break; // 현재는 한 파일만 처리하고 중단 (여러 파일 동시 처리는 로직 변경 필요)
+
+                } catch (error) {
+                    console.error('업로드 실패:', error);
+                    resultDisplay.innerHTML = `<h2>분석 실패: ${file.name}</h2><p>오류 발생: ${error.message}</p>`;
+                    alert(`파일 업로드 실패! ${file.name}`);
+                    break;
+                }
+            }
+
+            // 모든 파일 처리 후 UI 초기화 (선택 사항)
+            droppedFiles = [];
+            displayFiles();
+            uploadButton.style.display = 'none';
+        }
+    </script>
+</body>
+</html>
+

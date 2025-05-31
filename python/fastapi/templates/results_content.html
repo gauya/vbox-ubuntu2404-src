@@ -1,0 +1,40 @@
+<ul style="list-style: none; padding: 0;">
+    {% if info.error %}
+        <li style="background-color: #ffe0e0; color: #d32f2f; padding: 10px; border-radius: 5px;">
+            <b>오류:</b> {{ info.error }}
+        </li>
+    {% else %}
+        {% for tag, label in {
+            "TIT2": "제목", "TPE1": "아티스트", "TPE2": "앨범 아티스트", "TCOM": "작곡가",
+            "TALB": "앨범", "TDRC": "발표연도", "TYER": "발표연도 (ID3v2.3)", "TCON": "장르",
+            "TRCK": "트랙", "COMM": "설명", "USLT": "가사", "DURATION": "재생 시간",
+            "PRIV": "개인 정보 (PRIV)", "WXXX": "웹 주소 (WXXX)", "EXPL": "ID3v2 버전",
+            "TXXX": "사용자 정의 텍스트", "TIPL": "참여 인물", "TMCL": "음악가 크레딧",
+            "TMOO": "분위기", "TSOA": "앨범 정렬 순서", "TSOP": "아티스트 정렬 순서",
+            "TSOC": "작곡가 정렬 순서", "TPRO": "제작자 알림",
+            "APIC_ERROR": "썸네일 오류" 
+        }.items() %}
+            {% if tag in info %}
+                {% if tag == 'USLT' %}
+                    <li><b>{{ label }}</b>: <br>{{ info[tag]|replace("\n", "<br>")|safe }}</li>
+                {% elif tag == 'TXXX' %}
+                    <li><b>{{ label }}</b>:
+                        <ul>
+                            {% for key, value in info[tag].items() %}
+                                <li><b>{{ key }}</b>: {{ value }}</li>
+                            {% endfor %}
+                        </ul>
+                    </li>
+                {% elif tag == 'PRIV' or tag == 'WXXX' %}
+                    <li><b>{{ label }}</b>: <span style="word-break: break-all;">{{ info[tag]|safe }}</span></li>
+                {% else %}
+                    <li><b>{{ label }}</b>: {{ info[tag]|safe }}</li>
+                {% endif %}
+            {% endif %}
+        {% endfor %}
+
+        {% if "APIC" in info %}
+            <li><b>썸네일</b>:<br><img src="{{ info.APIC }}" width="200" alt="Album Art"></li>
+        {% endif %}
+    {% endif %}
+</ul>
