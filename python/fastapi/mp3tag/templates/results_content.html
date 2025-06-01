@@ -15,7 +15,9 @@
             "APIC_ERROR": "썸네일 오류"
         }.items() %}
             {% if tag in info %}
-                {% if tag == 'USLT' %}
+                {% if tag == 'TIT2' %}
+                    <li><b>{{ label }}</b>: <span class="playable-title" data-file-url="{{ info.file_url }}">{{ info[tag]|safe }}</span></li>
+                {% elif tag == 'USLT' %}
                     <li><b>{{ label }}</b>: <br>{{ info[tag]|replace("\n", "<br>")|safe }}</li>
                 {% elif tag == 'TXXX' %}
                     <li><b>{{ label }}</b>:

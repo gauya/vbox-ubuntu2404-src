@@ -24,6 +24,9 @@ thumb_dir.mkdir(exist_ok=True)
 # 정적 파일 서빙 (썸네일 이미지용)
 app.mount("/thumbs", StaticFiles(directory=thumb_dir), name="thumbs")
 
+# 정적 파일 서빙: 업로드된 MP3 파일용 (새로 추가)
+app.mount("/uploads", StaticFiles(directory=upload_dir), name="uploads")
+
 # --- ID3v2 파싱 로직 ---
 
 def synchsafe_int(data: bytes) -> int:
@@ -261,6 +264,9 @@ async def upload_multiple_files(request: Request, files: List[UploadFile] = File
         m = int(duration // 60)
         s = duration % 60
         info["DURATION"] = f"{m:02}:{s:05.2f}" if duration > 0 else "N/A"
+        
+        # 파일 이름을 `file_url`에 추가하여 클라이언트가 재생할 수 있도록 함
+        info["file_url"] = f"/uploads/{file.filename}" 
         
         # 각 파일의 메타데이터를 HTML로 렌더링
         rendered_html = templates.TemplateResponse(

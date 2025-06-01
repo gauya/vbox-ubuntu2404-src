@@ -191,6 +191,20 @@
             box-shadow: 0 2px 8px rgba(0,0,0,0.1);
         }
 
+        /* 오디오 플레이어 스타일 */
+        #audio-player-container {
+            width: 100%;
+            margin-top: 20px;
+            padding-top: 20px;
+            border-top: 1px solid #ddd;
+            text-align: center;
+        }
+        #audio-player {
+            width: 80%; /* 플레이어 너비 */
+            max-width: 400px;
+            margin: 0 auto;
+        }
+
         @media (max-width: 768px) {
             .container {
                 flex-direction: column;
@@ -226,6 +240,13 @@
                 bottom: 10px;
             }
         }
+            .playable-title {
+                cursor: pointer;
+                transition: color 0.2s;
+            }
+            .playable-title:hover {
+                color: #6b4e31;
+            }        
     </style>
 </head>
 <body>
@@ -245,16 +266,27 @@
         <div class="right-panel" id="result-display">
             <h2>분석 결과</h2>
             <p>MP3 파일을 드래그 앤 드롭하거나 '파일 선택' 버튼을 클릭하여 메타데이터를 확인하세요.</p>
+            <div id="audio-player-container" style="display: none;">
+                <h3>현재 재생 중: <span id="current-playing-title"></span></h3>
+                <audio id="audio-player" controls autoplay></audio>
+            </div>
+        
         </div>
     </div>
 
     <script>
+    
         const dropZone = document.getElementById('drop-zone');
         const fileInput = document.getElementById('file-input'); // 실제 input
         const customButton = dropZone.querySelector('.custom-file-button'); // 드롭존 내부 커스텀 버튼
         const fileList = document.getElementById('file-list');
         const uploadButton = document.getElementById('upload-button');
         const resultDisplay = document.getElementById('result-display');
+
+        const audioPlayerContainer = document.getElementById('audio-player-container');
+        const audioPlayer = document.getElementById('audio-player');
+        const currentPlayingTitle = document.getElementById('current-playing-title');
+        
         let selectedFiles = []; // 드롭되거나 선택된 파일들을 저장할 배열
 
         // 드래그 관련 이벤트 핸들러: 기본 브라우저 동작 방지
@@ -371,6 +403,9 @@
                     resultDisplay.innerHTML += '<p>분석된 메타데이터가 없습니다.</p>';
                 }
 
+                // 모든 결과가 로드된 후, 재생 가능한 타이틀에 이벤트 리스너 추가
+                addPlayableTitleListeners();
+
             } catch (error) {
                 console.error('업로드 실패:', error);
                 resultDisplay.innerHTML = `<h2>분석 실패</h2><p>오류 발생: ${error.message}</p>`;
@@ -383,6 +418,42 @@
                 fileInput.value = ''; // 실제 input file 초기화
             }
         }
+
+        // 재생 가능한 타이틀에 클릭 이벤트 리스너 추가 함수
+        function addPlayableTitleListeners() {
+            // 모든 결과 영역에서 클래스 'playable-title'을 가진 요소 찾기
+            const playableTitles = resultDisplay.querySelectorAll('.playable-title');
+            playableTitles.forEach(titleElement => {
+                titleElement.addEventListener('click', function() {
+                    const fileUrl = this.dataset.fileUrl; // data-file-url 속성에서 파일 URL 가져오기
+                    const titleText = this.textContent; // 타이틀 텍스트 가져오기
+
+                    if (fileUrl) {
+                        playAudio(fileUrl, titleText);
+                    } else {
+                        console.warn("파일 URL을 찾을 수 없습니다:", titleElement);
+                    }
+                });
+            });
+        }
+
+        // 오디오 재생 함수
+        function playAudio(url, title) {
+            audioPlayer.src = url;
+            audioPlayer.load(); // 오디오 로드
+            audioPlayer.play() // 재생 시작
+                .then(() => {
+                    audioPlayerContainer.style.display = 'block'; // 플레이어 보이기
+                    currentPlayingTitle.textContent = title; // 현재 재생곡 타이틀 업데이트
+                })
+                .catch(error => {
+                    console.error("오디오 재생 실패:", error);
+                    alert(`오디오 재생 중 오류가 발생했습니다: ${title}`);
+                });
+        }
+
+        // 초기 로딩 시 플레이어 숨기기
+        audioPlayerContainer.style.display = 'none';
     </script>
 </body>
 </html>
