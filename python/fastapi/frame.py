@@ -21,7 +21,11 @@ if not os.path.exists("templates"):
 
 @app.get("/", response_class=HTMLResponse)
 async def get_root(request: Request):
-    return templates.TemplateResponse("frame.html", {"request": request})
+    teststr = request.query_params.get("teststr", "")
+    # http://127.0.0.1:8000/?teststr=teststring
+    return templates.TemplateResponse("frame.html", {"request": request,"iqry":teststr})
+    # frame.html에 {% if iqry %}{{ iqry | e }}{% else %}No response yet.{% endif %} 
+
 
 @app.post("/query")
 async def process_query(query: str = Form(...)):

@@ -1,0 +1,388 @@
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>MP3 메타데이터 분석기</title>
+    <style>
+        body {
+            font-family: 'Inter', Arial, sans-serif;
+            margin: 0;
+            padding: 0;
+            background-color: #f0f2f5;
+            display: flex;
+            justify-content: center;
+            align-items: center;
+            min-height: 100vh;
+        }
+        .container {
+            display: flex;
+            width: 90%;
+            max-width: 1200px;
+            min-height: 80vh;
+            background-color: #ffffff;
+            border-radius: 12px;
+            box-shadow: 0 4px 20px rgba(0,0,0,0.1);
+            overflow: hidden;
+        }
+        .right-panel {
+            flex: 1;
+            padding: 30px;
+            box-sizing: border-box;
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            justify-content: center;
+        }
+        .left-panel {
+            flex: 0.7;
+            background-color: #efefef;
+            align-items: center;
+            top:0;
+            border-right: 1px solid #eee;
+        }
+        .right-panel {
+            background-color: #f9f9f9;
+            overflow-y: auto;
+            text-align: left;
+        }
+        h1 {
+            color: #333;
+            margin-bottom: 30px;
+            font-size: 1.8em;
+            text-align: center;
+        }
+        #drop-zone {
+            width: 90%;
+            max-width: 450px;
+            height: 420px;
+            border: 3px dashed #a0a0a0;
+            border-radius: 10px;
+            display: flex;
+            flex-direction: column;
+            justify-content: center;
+            align-items: center;
+            font-size: 1.1em;
+            color: #666;
+            background-color: #fdfdfd;
+            transition: all 0.3s ease;
+            text-align: center;
+            padding: 40px;
+            box-sizing: border-box;
+            cursor: pointer;
+            position: relative; /* 커스텀 버튼 겹치기를 위해 */
+        }
+        #drop-zone.highlight {
+            border-color: #007bff;
+            background-color: #e9f5ff;
+            color: #007bff;
+            box-shadow: 0 0 15px rgba(0,123,255,0.2);
+        }
+
+        /* 실제 input type="file" 숨기기 */
+        #file-input {
+            display: none; /* 이 코드가 "Choose File" 버튼을 숨깁니다 */
+        }
+
+        /* 커스텀 버튼 스타일 (drop-zone 내부에서 클릭 가능하도록) */
+        .custom-file-button {
+            display: inline-block;
+            padding: 10px 20px;
+            background-color: #007bff;
+            color: white;
+            border: none;
+            border-radius: 5px;
+            cursor: pointer;
+            font-size: 0.9em;
+            transition: background-color 0.3s ease;
+            margin-top: 10px; /* 드롭 존 텍스트와 간격 */
+            position: absolute;
+            bottom: 20px; /* 드롭 존 하단에 위치 */
+        }
+
+        .custom-file-button:hover {
+            background-color: #0056b3;
+        }
+
+
+        #file-list {
+            margin-top: 15px;
+            font-size: 0.85em;
+            color: #555;
+            list-style: none;
+            padding: 0;
+            max-height: 80px;
+            overflow-y: auto;
+            width: 100%;
+            border-top: 1px solid #eee;
+            padding-top: 10px;
+            text-align: left;
+        }
+        #file-list li {
+            padding: 5px 0;
+            border-bottom: 1px dashed #f0f0f0;
+            white-space: nowrap;
+            overflow: hidden;
+            text-overflow: ellipsis;
+        }
+        #file-list li:last-child {
+            border-bottom: none;
+        }
+        #upload-button {
+            margin-top: 30px;
+            padding: 12px 25px;
+            font-size: 1.1em;
+            background-color: #28a745; /* 초록색으로 변경 */
+            color: white;
+            border: none;
+            align-items: center;
+            justify-content: center;
+            border-radius: 8px;
+            cursor: pointer;
+            transition: background-color 0.3s ease, transform 0.2s ease;
+            box-shadow: 0 4px 10px rgba(0,123,255,0.2);
+        }
+        #upload-button:hover {
+            background-color: #218838;
+            transform: translateY(-2px);
+        }
+        #upload-button:active {
+            transform: translateY(0);
+            box-shadow: 0 2px 5px rgba(0,123,255,0.2);
+        }
+        #result-display h2 {
+            color: #333;
+            border-bottom: 2px solid #007bff;
+            padding-bottom: 10px;
+            margin-bottom: 20px;
+            font-size: 1.5em;
+        }
+        .file-result {
+            margin-bottom: 30px;
+            padding-bottom: 20px;
+            border-bottom: 1px dashed #ddd;
+        }
+        .file-result:last-child {
+            border-bottom: none;
+            margin-bottom: 0;
+            padding-bottom: 0;
+        }
+        #result-display ul {
+            list-style: none;
+            padding: 0;
+        }
+        #result-display li {
+            background-color: #e9ecef;
+            margin-bottom: 10px;
+            padding: 12px;
+            border-radius: 8px;
+            word-break: break-word;
+            line-height: 1.5;
+            font-size: 0.95em;
+        }
+        #result-display li b {
+            color: #0056b3;
+        }
+        #result-display img {
+            max-width: 100%;
+            height: auto;
+            border-radius: 8px;
+            margin-top: 15px;
+            box-shadow: 0 2px 8px rgba(0,0,0,0.1);
+        }
+
+        @media (max-width: 768px) {
+            .container {
+                flex-direction: column;
+                width: 95%;
+                min-height: unset;
+            }
+            .left-panel, .right-panel {
+                padding: 20px;
+                border-right: none;
+                border-bottom: 1px solid #eee;
+            }
+            .left-panel {
+                min-height: 300px;
+            }
+            .right-panel {
+                min-height: 400px;
+            }
+            h1 {
+                font-size: 1.5em;
+                margin-bottom: 20px;
+            }
+            #drop-zone {
+                width: 100%;
+                height: 180px;
+                font-size: 1em;
+            }
+            #upload-button {
+                margin-top: 20px;
+                padding: 10px 20px;
+                font-size: 1em;
+            }
+            .custom-file-button {
+                bottom: 10px;
+            }
+        }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <div class="left-panel">
+            <h1>MP3 파일 메타데이터 분석</h1>
+            <div id="drop-zone">
+                여기에 MP3 파일을 드래그 앤 드롭하세요.<br>
+                또는
+                <input type="file" id="file-input" name="files" multiple accept="audio/mpeg">
+                <div class="custom-file-button">파일 선택</div>
+                
+                <ul id="file-list"></ul>
+            </div>
+            <button id="upload-button" style="display: none;">선택된 파일 분석</button>
+        </div>
+        <div class="right-panel" id="result-display">
+            <h2>분석 결과</h2>
+            <p>MP3 파일을 드래그 앤 드롭하거나 '파일 선택' 버튼을 클릭하여 메타데이터를 확인하세요.</p>
+        </div>
+    </div>
+
+    <script>
+        const dropZone = document.getElementById('drop-zone');
+        const fileInput = document.getElementById('file-input'); // 실제 input
+        const customButton = dropZone.querySelector('.custom-file-button'); // 드롭존 내부 커스텀 버튼
+        const fileList = document.getElementById('file-list');
+        const uploadButton = document.getElementById('upload-button');
+        const resultDisplay = document.getElementById('result-display');
+        let selectedFiles = []; // 드롭되거나 선택된 파일들을 저장할 배열
+
+        // 드래그 관련 이벤트 핸들러: 기본 브라우저 동작 방지
+        ['dragenter', 'dragover', 'dragleave', 'drop'].forEach(eventName => {
+            dropZone.addEventListener(eventName, preventDefaults, false);
+        });
+
+        function preventDefaults (e) {
+            e.preventDefault();
+            e.stopPropagation();
+        }
+
+        // 파일이 드롭 존 위로 올라왔을 때 시각적 피드백
+        ['dragenter', 'dragover'].forEach(eventName => {
+            dropZone.addEventListener(eventName, () => dropZone.classList.add('highlight'), false);
+        });
+
+        // 파일이 드롭 존을 벗어나거나 드롭되었을 때 시각적 피드백 제거
+        ['dragleave', 'drop'].forEach(eventName => {
+            dropZone.classList.remove('highlight');
+        });
+
+        // 파일이 드롭되었을 때 처리
+        dropZone.addEventListener('drop', handleDrop, false);
+
+        function handleDrop(e) {
+            const dt = e.dataTransfer;
+            const files = dt.files;
+            handleFiles(files);
+        }
+
+        // '파일 선택' 커스텀 버튼 클릭 시 실제 input 클릭
+        customButton.addEventListener('click', () => {
+            fileInput.click();
+        });
+
+        // 실제 파일 입력 필드의 값이 변경될 때 (파일이 선택될 때)
+        fileInput.addEventListener('change', (e) => {
+            handleFiles(e.target.files);
+        });
+
+        function handleFiles(files) {
+            // 새로 선택된 파일들을 기존 selectedFiles 배열에 추가 (혹은 덮어쓰기)
+            // 여기서는 새로 선택된 파일들로 덮어쓰도록 구현합니다.
+            // 기존 파일에 추가하려면 `selectedFiles = [...selectedFiles, ...Array.from(files).filter(...)]`
+            selectedFiles = Array.from(files).filter(file => file.type === 'audio/mpeg');
+
+            displaySelectedFiles();
+
+            if (selectedFiles.length > 0) {
+                uploadButton.style.display = 'block';
+            } else {
+                uploadButton.style.display = 'none';
+                if (files.length > 0) { // MP3가 아닌 파일이 선택되었을 경우
+                    alert('MP3 파일만 업로드할 수 있습니다.');
+                }
+            }
+        }
+
+        // 선택된 파일 목록을 화면에 표시
+        function displaySelectedFiles() {
+            fileList.innerHTML = '';
+            if (selectedFiles.length === 0) {
+                fileList.innerHTML = '<li>선택된 MP3 파일 없음</li>';
+                return;
+            }
+            selectedFiles.forEach(file => {
+                const listItem = document.createElement('li');
+                listItem.textContent = `${file.name} (${(file.size / (1024 * 1024)).toFixed(2)} MB)`;
+                fileList.appendChild(listItem);
+            });
+        }
+
+        // "선택된 파일 분석" 버튼 클릭 시 파일 전송
+        uploadButton.addEventListener('click', uploadSelectedFiles);
+
+        async function uploadSelectedFiles() {
+            if (selectedFiles.length === 0) {
+                alert('업로드할 MP3 파일을 먼저 선택하거나 드롭해주세요.');
+                return;
+            }
+
+            resultDisplay.innerHTML = `<h2>분석 중...</h2><p>총 ${selectedFiles.length}개의 파일을 분석하고 있습니다. 잠시만 기다려 주세요.</p>`;
+            resultDisplay.scrollTop = 0; // 스크롤을 맨 위로
+
+            const formData = new FormData();
+            selectedFiles.forEach(file => {
+                formData.append('files', file); // 서버에서 'files' 이름으로 여러 파일을 받음
+            });
+
+            try {
+                const response = await fetch('/upload-multiple', {
+                    method: 'POST',
+                    body: formData
+                });
+
+                if (!response.ok) {
+                    const errorText = await response.text();
+                    throw new Error(`HTTP error! status: ${response.status} - ${errorText}`);
+                }
+
+                const resultJson = await response.json(); // 서버가 JSON을 반환할 것으로 예상
+                
+                resultDisplay.innerHTML = `<h2>분석 결과: ${resultJson.message}</h2>`;
+                
+                if (resultJson.results && resultJson.results.length > 0) {
+                    resultJson.results.forEach(fileResult => {
+                        const fileResultDiv = document.createElement('div');
+                        fileResultDiv.classList.add('file-result');
+                        fileResultDiv.innerHTML = `<h3>${fileResult.filename}</h3>` + fileResult.html_content;
+                        resultDisplay.appendChild(fileResultDiv);
+                    });
+                } else {
+                    resultDisplay.innerHTML += '<p>분석된 메타데이터가 없습니다.</p>';
+                }
+
+            } catch (error) {
+                console.error('업로드 실패:', error);
+                resultDisplay.innerHTML = `<h2>분석 실패</h2><p>오류 발생: ${error.message}</p>`;
+                alert(`파일 업로드 실패! ${error.message}`);
+            } finally {
+                // 처리 완료 후 UI 초기화
+                selectedFiles = [];
+                displaySelectedFiles();
+                uploadButton.style.display = 'none';
+                fileInput.value = ''; // 실제 input file 초기화
+            }
+        }
+    </script>
+</body>
+</html>

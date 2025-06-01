@@ -18,7 +18,7 @@ def parse_id3v2(data: bytes, filename: str):
         #return {"error": "ID3v2 header not found"}
         print(f"ID3V2 not")
         # check ID3V1
-        if len(data) > 128 and head[0:3] == "TAG":
+        if len(data) > 128 and data[0:3] == "TAG":
             head = data[-128:]
             info["TIT2"] = head[3:33]
             info["TPE1"] = head[33:63]

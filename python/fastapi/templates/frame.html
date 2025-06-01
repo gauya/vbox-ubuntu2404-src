@@ -7,45 +7,155 @@
             margin: 0;
             padding: 0;
             height: 100%;
-            font-family: Arial, sans-serif;
+            font-family: 'Georgia', serif;
+            background: linear-gradient(to bottom, #f4f4f4, #e0e0e0);
         }
         .container {
             display: flex;
             height: 100vh;
+            max-width: 1200px;
+            margin: 0 auto;
+            position: relative;
+            background: linear-gradient(to right, #ffffff, #f8f8f8, #f8f8f8, #ffffff);
         }
         .left, .right {
             width: 50%;
-            padding: 20px;
+            padding: 30px;
             box-sizing: border-box;
             overflow-y: auto;
+            background: #fff;
+            position: relative;
         }
         .left {
-            background-color: #f0f0f0;
+            box-shadow: 5px 0 15px rgba(0, 0, 0, 0.1);
+            border-top-left-radius: 10px;
+            border-bottom-left-radius: 10px;
+            border-top-right-radius: 5px;
+            border-bottom-right-radius: 5px;
         }
         .right {
-            background-color: #e0e0e0;
+            box-shadow: -5px 0 15px rgba(0, 0, 0, 0.1);
+            border-top-right-radius: 10px;
+            border-bottom-right-radius: 10px;
+            border-top-left-radius: 5px;
+            border-bottom-left-radius: 5px;
         }
-        textarea, input[type="text"], input[type="file"] {
+        /* Central spine effect */
+        .container::before {
+            content: '';
+            position: absolute;
+            left: 50%;
+            top: 0;
+            width: 2px;
+            height: 100%;
+            background: linear-gradient(to bottom, transparent, #ccc, transparent);
+            z-index: 1;
+        }
+        textarea, input[type="text"] {
             width: 100%;
-            margin-bottom: 10px;
+            margin-bottom: 15px;
             padding: 10px;
+            border: 1px solid #ddd;
+            border-radius: 5px;
+            font-family: 'Georgia', serif;
+            font-size: 16px;
         }
         button {
             padding: 10px 20px;
-            background-color: #007bff;
+            background-color:#007bff;
             color: white;
             border: none;
+            border-radius: 12px;
             cursor: pointer;
             margin-right: 10px;
+            font-family: 'Georgia', serif;
+            font-size: 16px;
+            width: 200px;
         }
         button:hover {
             background-color: #0056b3;
         }
+        input[type="file"] {
+            width: 100%;
+            background-color: blue;
+            margin-bottom: 15px;
+            padding: 10px;
+            color = white;
+            border: 1px solid #ddd;
+            border-radius: 5px;
+            font-family: 'Georgia', serif;
+            font-size: 16px;
+        }
+
+        /* 업로드 제출 버튼 */
+        button[type="submit"] {
+            padding: 10px 20px;
+            font-size: 1em;
+            background-color: #28a745;
+            color: white;
+            border: none;
+            border-radius: 5px;
+            cursor: pointer;
+            transition: background-color 0.3s ease;
+        }
+
+        button[type="submit"]:hover {
+            background-color: #218838;
+        }
+
+      .custom-file-button {
+            display: inline-block; /* 텍스트 너비에 맞춰 크기 조정 */
+            padding: 12px 25px;
+            background-color: #007bff;
+            color: white;
+            border: none;
+            border-radius: 5px;
+            cursor: pointer;
+            font-size: 1em;
+            transition: background-color 0.3s ease;
+            margin-bottom: 20px; /* 제출 버튼과의 간격 */
+        }
+        .custom-file-button:hover {
+            background-color: #503b2c;
+        }
+        /* 실제 input type="file" 숨기기 */
+        #file {
+            display: none; /* 이 코드가 "Choose File" 버튼을 숨깁니다 */
+        }
+
+
+        /* 선택된 파일 이름 표시 영역 */
+        #file-name {
+            display: block;
+            margin-top: 10px;
+            margin-bottom: 15px;
+            color: #555;
+            font-size: 0.9em;
+        }
+
+        #file {
+            padding: 10px 20px;
+            background-color: yellow;
+            color: gray;
+            border: none;
+            border-radius: 12px;
+            cursor: pointer;
+            margin-right: 10px;
+            font-family: 'Georgia', serif;
+            font-size: 16px;
+        }
         #response, #file-info {
             margin-top: 20px;
-            padding: 10px;
-            background-color: white;
+            padding: 15px;
+            background-color: #f9f9f9;
+            border: 1px solid #ddd;
             border-radius: 5px;
+            box-shadow: inset 0 0 5px rgba(0, 0, 0, 0.05);
+        }
+        h2 {
+            color: #4a3728;
+            font-size: 24px;
+            margin-bottom: 15px;
         }
     </style>
 </head>
@@ -59,18 +169,52 @@
             </form>
             <h2>File Upload</h2>
             <form id="file-form" enctype="multipart/form-data">
-                <input type="file" id="file" name="file">
+          <!--      <label for="file" class="custom-file-button">파일골라</label> -->
+        <div class="custom-file-button" id="selectFileBtn">
+            파일 선택 (나만의 버튼)
+        </div>
+                
+                <input type="file" id="file" name="file" multiple accept="audio/mpeg"><br>
+                <span id="file-name">선택된 파일 없음</span><br>
+
                 <button type="submit">Upload File</button>
             </form>
         </div>
         <div class="right">
             <h2>Query Response</h2>
-            <div id="response">No response yet.</div>
+            <div id="response">{% if iqry %}{{ iqry | e }}{% else %}No response yet.{% endif %}</div>
             <h2>File Information</h2>
             <div id="file-info">No file selected.</div>
         </div>
     </div>
     <script>
+        const realFileInput = document.getElementById('file');
+        const customButton = document.getElementById('selectFileBtn');
+        const fileNameSpan = document.getElementById('file-name');
+        const fileForm = document.getElementById('file-form');
+
+        // 커스텀 버튼 클릭 시 실제 파일 입력 필드 클릭
+        customButton.addEventListener('click', () => {
+            realFileInput.click();
+        });
+
+        // 실제 파일 입력 필드의 값이 변경될 때 (파일이 선택될 때)
+        realFileInput.addEventListener('change', () => {
+            if (realFileInput.files.length > 0) {
+                // 첫 번째 파일의 이름을 표시
+                //fileNameSpan.textContent = `선택된 파일: ${realFileInput.files[0].name}`;
+                // 선택된 모든 파일 이름을 리스트로 표시
+                Array.from(realFileInput.files).forEach(file => {
+                    const listItem = document.createElement('li');
+                    listItem.textContent = file.name;
+                    fileNamesList.appendChild(listItem);
+                });
+            
+            } else {
+                fileNameSpan.textContent = '선택된 파일 없음';
+            }
+        });
+
         // Handle query form submission
         document.getElementById('query-form').addEventListener('submit', async (e) => {
             e.preventDefault();
