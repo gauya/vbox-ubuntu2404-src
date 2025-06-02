@@ -3,6 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <link rel="icon" type="image/x-icon" href="/static/favicon.ico">
     <title>MP3 메타데이터 분석기</title>
     <style>
         body {
@@ -13,38 +14,38 @@
             display: flex;
             justify-content: center;
             align-items: center;
-            min-height: 100vh;
+            height: 100vh;
         }
         .container {
             display: flex;
-            width: 90%;
-            max-width: 1200px;
-            min-height: 80vh;
+            width: 100%;
+            height: 100%;
             background-color: #ffffff;
             border-radius: 12px;
             box-shadow: 0 4px 20px rgba(0,0,0,0.1);
-            overflow: hidden;
+            max-width: 1200px;
         }
         .right-panel {
             flex: 1;
             padding: 30px;
             box-sizing: border-box;
             display: flex;
+            height: 100%;
+            overflow-y: auto; /* 세로 스크롤 활성화 */
             flex-direction: column;
-            align-items: center;
-            justify-content: center;
+            align-items: left;
+            height: 100%;
         }
         .left-panel {
-            flex: 0.7;
+            flex: .6;
+            overflow-y: auto; /* 세로 스크롤 활성화 */
             background-color: #efefef;
+            box-sizing: border-box;
             align-items: center;
             top:0;
+            flex-direction: column;
             border-right: 1px solid #eee;
-        }
-        .right-panel {
-            background-color: #f9f9f9;
-            overflow-y: auto;
-            text-align: left;
+            height: 100%;
         }
         h1 {
             color: #333;
@@ -53,7 +54,7 @@
             text-align: center;
         }
         #drop-zone {
-            width: 90%;
+            width: 100%;
             max-width: 450px;
             height: 420px;
             border: 3px dashed #a0a0a0;
@@ -67,7 +68,7 @@
             background-color: #fdfdfd;
             transition: all 0.3s ease;
             text-align: center;
-            padding: 40px;
+            padding: 20px;
             box-sizing: border-box;
             cursor: pointer;
             position: relative; /* 커스텀 버튼 겹치기를 위해 */
@@ -262,16 +263,16 @@
                 <ul id="file-list"></ul>
             </div>
             <button id="upload-button" style="display: none;">선택된 파일 분석</button>
-        </div>
-        <div class="right-panel" id="result-display">
-            <h2>분석 결과</h2>
-            <p>MP3 파일을 드래그 앤 드롭하거나 '파일 선택' 버튼을 클릭하여 메타데이터를 확인하세요.</p>
             <div id="audio-player-container" style="display: none;">
                 <h3>현재 재생 중: <span id="current-playing-title"></span></h3>
                 <audio id="audio-player" controls autoplay></audio>
             </div>
-        
         </div>
+        <div class="right-panel" id="result-display">
+            <h2>분석 결과</h2>
+            <p>MP3 파일을 드래그 앤 드롭하거나 '파일 선택' 버튼을 클릭하여 메타데이터를 확인하세요.</p>
+        </div>
+        
     </div>
 
     <script>

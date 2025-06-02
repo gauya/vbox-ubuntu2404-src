@@ -23,6 +23,8 @@ thumb_dir.mkdir(exist_ok=True)
 
 # 정적 파일 서빙 (썸네일 이미지용)
 app.mount("/thumbs", StaticFiles(directory=thumb_dir), name="thumbs")
+# 정적 파일 디렉토리 마운트
+app.mount("/static", StaticFiles(directory="static"), name="static")
 
 # 정적 파일 서빙: 업로드된 MP3 파일용 (새로 추가)
 app.mount("/uploads", StaticFiles(directory=upload_dir), name="uploads")
@@ -281,6 +283,11 @@ async def upload_multiple_files(request: Request, files: List[UploadFile] = File
 
     # 모든 파일의 결과를 JSON으로 클라이언트에 반환
     return JSONResponse(content={"message": f"총 {len(results)}개의 파일 분석 완료", "results": results})
+
+# /favicon.ico 라우트 추가
+@app.get("/favicon.ico", include_in_schema=False)
+async def favicon():
+    return FileResponse("static/favicon.ico")
 
 @app.get("/", response_class=HTMLResponse)
 async def upload_form(request: Request):
