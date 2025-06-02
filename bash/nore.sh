@@ -34,10 +34,17 @@ keyin() {
 	esac
 }
 
-while getopts "zZk:d:" o; do
+help() {
+  echo "-d mp3dir"
+  echo "mp3 files"
+  exit 1
+}
+
+while getopts "zZk:d:h" o; do
   case $o in
     z|Z) opt="$opt ""-$o" ;;
     d) dir=$OPTARG;;
+    h) help;;
     \?) ;;
   esac
 done
