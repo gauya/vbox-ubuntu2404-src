@@ -1,0 +1,8 @@
+old mp3 version  mp3_schema.mp3_library -- DB + file
+
+new mp3 mp3_schema.song -- DB only  bytea필드에 mp3집어넣음
+
+DB구조 변경과 이전
+
+album, artist 구조를 따로 만들고 릴레이션 시키고 싶었는데 이제 새로 노래를 받을수 없어서 포기
+
