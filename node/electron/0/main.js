@@ -3,6 +3,7 @@ const path = require('path');
 const { Pool } = require('pg');
 const fs = require('fs'); // fs 모듈 추가
 
+// mp3_library -> songs
 // 데이터베이스 연결 설정 (기존 설정 유지)
 const pool = new Pool({
   user: process.env.DATABASE_USER || 'postgres',
@@ -73,7 +74,7 @@ ipcMain.handle('query-database', async (event, queryOptions) => {
     }
   }).join(', ');
 
-  let query = `SELECT ${selectedColumns} FROM mp3_schema.mp3_library`;
+  let query = `SELECT ${selectedColumns} FROM mp3_schema.songs`;
 
   if (where && where.trim() !== '') {
     query += ` WHERE ${where}`;
@@ -121,11 +122,11 @@ ipcMain.handle('update-database', async (event, updates) => {
 
       // 컬럼 타입에 따라 다른 쿼리 생성
       if (update.column === 'release_date') {
-        query = `UPDATE mp3_schema.mp3_library SET ${update.column} = TO_DATE($1, 'YYYY-MM-DD') WHERE id = $2`;
+        query = `UPDATE mp3_schema.songs SET ${update.column} = TO_DATE($1, 'YYYY-MM-DD') WHERE id = $2`;
       } else if (update.column === 'duration') {
-        query = `UPDATE mp3_schema.mp3_library SET ${update.column} = $1::interval WHERE id = $2`;
+        query = `UPDATE mp3_schema.songs SET ${update.column} = $1::interval WHERE id = $2`;
       } else {
-        query = `UPDATE mp3_schema.mp3_library SET ${update.column} = $1 WHERE id = $2`;
+        query = `UPDATE mp3_schema.songs SET ${update.column} = $1 WHERE id = $2`;
       }
 
        try {
