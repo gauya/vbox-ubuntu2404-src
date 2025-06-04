@@ -56,9 +56,10 @@ def insert_to_db(filename, conn):
     metadata = extract_metadata(filename)
     
     metadata['file_name'] = os.path.basename(filename)
-    metadata['file_path'] = '/db/mp3/file'
+    #file_path = '/db/mp3/file'
+    file_path = '/mnt/pc1/sounds/온'
 
-    dest = '/db/mp3/file/' + metadata['file_name']
+    dest = file_path + metadata['file_name']
 
     if metadata['release_date']:
         rd = metadata['release_date'].text
@@ -112,7 +113,7 @@ def insert_to_db(filename, conn):
             """, metadata)
             rid = cur.fetchone()[0]
 
-            dest = '/db/mp3/file/' + metadata['file_name']
+            dest = file_path + metadata['file_name']
             try:
                 shutil.copy2(filename, dest)
             except Exception as e:

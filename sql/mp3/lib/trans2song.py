@@ -127,19 +127,22 @@ def insert_to_db(filename, conn):
 
 
 def trans2songs(conn):
+    #file_path = '/db/mp3/file/'
+    file_path = '/mnt/pc1/sounds/온'
     try:
         with conn.cursor() as cur:
             cur.execute("""
                 select id, file_name 
                 from songs 
-                where song is null and date_part('year',release_date) < 2015
+                where song is null and file_name is not null
                 for update skip locked"""
             )
+                #where song is null and date_part('year',release_date) < 2015
             updated = 0
             for record in cur.fetchall():
                 id, file_name = record
                 
-                with open('/db/mp3/file/' + file_name,'rb') as f:
+                with open(file_path + '/' + file_name,'rb') as f:
                     song = f.read()
     
                 bsize = len(song)
@@ -234,7 +237,8 @@ def main(conn,path):
 
 if __name__ == '__main__':
     dotenv.load_dotenv()
-    conn = psycopg2.connect(dbname=os.getenv("DB_NAME"),user=os.getenv("DB_USER"))
+    #conn = psycopg2.connect(host=os.getenv("DB_HOST"),database=os.getenv("DB_NAME"),user=os.getenv("DB_USER"),password=os.getenv("DB_PASSWORD"))
+    conn = psycopg2.connect(dbname='gau',user='gau')
     
     path = "./"
     if len(sys.argv) > 1:
