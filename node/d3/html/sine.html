@@ -1,0 +1,343 @@
+<title>Test graph</title>
+<head>
+<style>
+/* Copyright 2013 Michael Bostock. All rights reserved. Do not copy. */
+
+@import url(http://fonts.googleapis.com/css?family=PT+Serif|PT+Serif:b|PT+Serif:i|PT+Sans|PT+Sans:b);
+
+
+html {
+  min-width: 1040px;
+}
+
+.ocks-org body {
+  background: #fcfcfa;
+  color: #333;
+  font-family: "PT Serif", serif;
+  margin: 1em auto 4em auto;
+  position: relative;
+  width: 960px;
+}
+
+.ocks-org header,
+.ocks-org footer,
+.ocks-org aside,
+.ocks-org h1,
+.ocks-org h2,
+.ocks-org h3,
+.ocks-org h4 {
+  font-family: "PT Sans", sans-serif;
+}
+
+.ocks-org h1,
+.ocks-org h2,
+.ocks-org h3,
+.ocks-org h4 {
+  color: #000;
+}
+
+.ocks-org header,
+.ocks-org footer {
+  color: #636363;
+}
+
+h1 {
+  font-size: 64px;
+  font-weight: 300;
+  letter-spacing: -2px;
+  margin: .3em 0 .1em 0;
+}
+
+h2 {
+  margin-top: 2em;
+}
+
+h1, h2 {
+  text-rendering: optimizeLegibility;
+}
+
+h2 a[name],
+h2 a[id] {
+  color: #ccc;
+  right: 100%;
+  padding: 0 .3em;
+  position: absolute;
+}
+
+header,
+footer {
+  font-size: small;
+}
+
+.ocks-org header aside,
+.ocks-org footer aside {
+  float: left;
+  margin-right: .5em;
+}
+
+.ocks-org header aside:after,
+.ocks-org footer aside:after {
+  padding-left: .5em;
+  content: "/";
+}
+
+footer {
+  margin-top: 8em;
+}
+
+h1 ~ aside {
+  font-size: small;
+  right: 0;
+  position: absolute;
+  width: 180px;
+}
+
+.attribution {
+  font-size: small;
+  margin-bottom: 2em;
+}
+
+body > p, li > p {
+  line-height: 1.5em;
+}
+
+body > p {
+  width: 720px;
+}
+
+body > blockquote {
+  width: 640px;
+}
+
+blockquote q {
+  display: block;
+  font-style: oblique;
+}
+
+ul {
+  padding: 0;
+}
+
+li {
+  width: 690px;
+  margin-left: 30px;
+}
+
+a {
+  color: steelblue;
+}
+
+a:not(:hover) {
+  text-decoration: none;
+}
+
+pre, code, textarea {
+  font-family: "Menlo", monospace;
+}
+
+code {
+  line-height: 1em;
+}
+
+textarea {
+  font-size: 100%;
+}
+
+body > pre {
+  border-left: solid 2px #ccc;
+  padding-left: 18px;
+  margin: 2em 0 2em -20px;
+}
+
+.html .value,
+.javascript .string,
+.javascript .regexp {
+  color: #756bb1;
+}
+
+.html .tag,
+.css .tag,
+.javascript .keyword {
+  color: #3182bd;
+}
+
+.comment {
+  color: #636363;
+}
+
+.html .doctype,
+.javascript .number {
+  color: #31a354;
+}
+
+.html .attribute,
+.css .attribute,
+.javascript .class,
+.javascript .special {
+  color: #e6550d;
+}
+
+svg {
+  font: 10px sans-serif;
+}
+
+.axis path, .axis line {
+  fill: none;
+  stroke: #000;
+  shape-rendering: crispEdges;
+}
+
+sup, sub {
+  line-height: 0;
+}
+
+q:before {
+  content: "â€œ";
+}
+
+q:after {
+  content: "â€";
+}
+
+blockquote q {
+  line-height: 1.5em;
+  display: inline;
+}
+
+blockquote q:before,
+blockquote q:after {
+  content: "";
+}
+
+.x.axis line {
+  shape-rendering: auto;
+}
+
+.line {
+  fill: none;
+  stroke: #000;
+  stroke-width: 1.5px;
+}
+</style>
+</head>
+
+<body>
+
+<div id="graph"></div>
+<div id="console"></div>
+
+<script src="//d3js.org/d3.v3.min.js"></script>
+<script>
+var n = 40;
+var timeSpan = 5000; // in msec
+var random = d3.random.normal(0, .1);
+
+var theta = 0;
+var dtheta = 1;
+
+
+var duration = 750;
+var now = new Date(Date.now() - duration);
+
+var initScale = d3.scale.linear().domain([1, 40]).range([now - timeSpan, now - duration]);
+
+var data = d3.range(n).map(function(a){
+	return {x : initScale(a), y : 0};
+});
+
+var data = d3.range(1).map(function(a){
+	return {x : now, y : 0};
+});
+
+var data = d3.range(0);
+
+var margin = {top: 20, right: 20, bottom: 20, left: 40};
+var width = 960 - margin.left - margin.right;
+var height = 500 - margin.top - margin.bottom;
+
+var x = d3.time.scale()
+	.domain([now - timeSpan, now - duration])
+	.range([0, width]);
+
+var y = d3.scale.linear()
+.domain([-1, 1])
+.range([height, 0]);
+
+var line = d3.svg.line()
+    .interpolate("basis")
+    .x(function(d) { return x(d.x);  })
+    .y(function(d) { return y(d.y*3); });
+
+
+var svg = d3.select("body").append("svg")
+.attr("width", width + margin.left + margin.right)
+.attr("height", height + margin.top + margin.bottom)
+.append("g")
+.attr("transform", "translate(" + margin.left + "," + margin.top + ")");
+
+svg.append("defs").append("clipPath")
+.attr("id", "clip")
+.append("rect")
+.attr("width", width)
+.attr("height", height);
+
+var axis = svg.append("g")
+.attr("class", "x axis")
+.attr("transform", "translate(0," + y(0) + ")")
+.call(x.axis = d3.svg.axis().scale(x).orient("bottom"));
+
+svg.append("g")
+.attr("class", "y axis")
+.call(d3.svg.axis().scale(y).orient("left"));
+
+var path = svg.append("g")
+.attr("clip-path", "url(#clip)")
+.append("path")
+.datum(data)
+.attr("class", "line")
+.attr("d", line);
+
+var scrollRate = -x(now - timeSpan + duration);// Time scrolled per duration
+
+tick();
+
+function tick(){
+	now = new Date();
+	x.domain([now - timeSpan, now - duration]);
+	
+	axis.transition()
+		.duration(duration)
+		.ease("linear")
+		.call(x.axis);
+	
+	path
+	.attr("d", line)
+	.attr("transform", null)
+	.transition()
+	.duration(duration)
+	.ease("linear")
+	.attr("transform", "translate(" + scrollRate + ")")
+	.each("end", tick);
+
+	// Remove elements off the screen
+	data.splice(0, data.filter(function(d){return (d.x < now - timeSpan);}).length);
+	
+}
+
+setInterval(newData, 100);
+newData();
+
+
+function newData()
+{
+	theta += dtheta;
+    
+	var sin = function(){return 0.2*Math.sin(theta);};
+	//var sin = function(){return random();};
+
+	data.push({x : new Date(), y : sin()});
+};
+
+</script>
+</body>
+

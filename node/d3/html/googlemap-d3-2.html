@@ -1,0 +1,58 @@
+<div id="map"></div>
+<script src="//maps.google.com/maps/api/js?sensor=true"></script>
+<script src="//d3js.org/d3.v3.min.js"></script>
+<script>
+var map = new google.maps.Map(d3.select("#map").node(), {
+	zoom: 12, 
+	center: new google.maps.LatLng(37.556059, 126.91009),
+	mapTypeId: google.maps.MapTypeId.ROADMAP
+});
+var overlay = new google.maps.OverlayView();
+var data = {"우리집":[126.8998768,37.4639925, 15,],"구로디지털단지역":[126.901472,37.48525, 15,2], /*생략*/};
+overlay.onAdd = function() {
+	var layer = d3.select(this.getPanes().overlayMouseTarget).append("div").attr("class", "stations");
+		
+	overlay.draw = function() {
+		var projection = this.getProjection(), padding = 50;
+
+		var marker = layer.selectAll("svg")
+			.data(d3.entries(data))
+			.each(transform)
+			.enter().append("svg:svg")
+			.each(transform)
+			.attr("class", "marker");
+
+		var pieData = [{"key": "One","value" : 29.765957771107} , {"key": "Two","value" : 10} ,{"key": "Three","value" : 32.807804682612} , {"key": "Four","value" : 196.45946739256}];
+
+		nv.addGraph(function() {
+			var chart = nv.models.pieChart()
+				.x(function(d) { return d.key; })
+				.y(function(d) { return d.value; })
+				.margin({top: 0, right: 0, bottom: 0, left: 0})
+				.showLabels(true)
+				.labelThreshold(.05)
+				.donut(true)
+				.showLegend(false);
+						  
+			marker.datum(pieData).transition().duration(1200).call(chart);
+
+			return chart;
+		});
+		function transform(d) {
+			d = new google.maps.LatLng(d.value[1], d.value[0]);
+			d = projection.fromLatLngToDivPixel(d);
+			return d3.select(this)
+				.style("left", (d.x-padding) + "px")
+				.style("top", (d.y-padding) + "px");
+		}
+	}; //overlay.draw end
+}; //overlay.onAdd end
+overlay.setMap(map);
+</script>
+
+<body>
+<div id="map"></div>
+<strong>Google Sydney</strong>
+</body>
+
+

@@ -1,0 +1,163 @@
+#!/usr/bin/env node 
+/**
+ * Module dependencies.
+ */
+
+var app = require('../app');
+var debug = require('debug')('momed:server');
+var http = require('http');
+
+var node_server_ip = 'gau.iptime.org';
+
+/**
+ * Get port from environment and store in Express.
+ */
+
+var port = normalizePort(process.env.PORT || '3000');
+var ctlport = normalizePort(process.env.CTLPORT || '3001');
+
+app.set('port', port);
+
+/**
+ * Normalize a port into a number, string, or false.
+ */
+
+function normalizePort(val) {
+  var port = parseInt(val, 10);
+
+  if (isNaN(port)) {
+    // named pipe
+    return val;
+  }
+
+  if (port >= 0) {
+    // port number
+    return port;
+  }
+
+  return false;
+}
+
+var srv = http.createServer(app).listen(app.get('port'));
+
+var server = require('socket.io').listen(srv).sockets;
+
+server.on('error', function (error) {
+  if (error.syscall !== 'listen') {
+    throw error;
+  }
+
+  var bind = typeof httpport === 'string'
+    ? 'Pipe ' + port
+    : 'Port ' + port;
+
+  // handle specific listen errors with friendly messages
+  switch (error.code) {
+    case 'EACCES':
+      console.error(bind + ' requires elevated privileges');
+      process.exit(1);
+      break;
+    case 'EADDRINUSE':
+      console.error(bind + ' is already in use');
+      process.exit(1);
+      break;
+    default:
+      throw error;
+  }
+});
+
+server.on('listening', function() {
+  console.log(__filename, 'onListening');
+  var addr = server.address();
+  var bind = typeof addr === 'string'
+    ? 'pipe ' + addr
+    : 'port ' + addr.port;
+  debug('Listening on ' + bind);
+  console.log(addr.addr + ' Listening on ' + addr.port);
+});
+
+server.on('connection', function(socket) {
+	console.log(__filename,'connection');
+});
+
+server.on('data', function(a) {
+	console.log(__filename,'data',a);
+});
+
+server.on('close', function() {
+	console.log(__filename,'close');
+});
+
+
+//////////////////////////////////////////////////////////////////////////
+
+var netServer = require('net').createServer(function(socket){
+	socket.on('data', function(data) {
+		var date = new Date();
+		//var now = date.toFormat('YYYY-MM-DD HH24:MI:SS');
+		var now = date.toUTCString();
+		//console.log(data.toString());
+
+		var cliData;
+		try{
+			console.log('net recved ['+data+']'+' lendtg='+data.length);
+			cliData = JSON.parse(JSON.stringify(data));
+		}catch(e){ 
+        console.log(e.toString());			
+		  return;
+		}
+		
+		for(key in cliData)
+		{
+			if(cliData[key] == "news") {
+			  server.emit('news', {time : now, mac : cliData.mac});
+			}
+			if(key == "test") {
+			  server.emit('test', cliData.mac);
+			}
+		}
+	});
+	socket.on('lookup', function() {
+	 	console.log('client lookup');
+	});
+	socket.on('connect', function() {
+	 	console.log('client connect');
+	});
+	socket.on('end', function() {
+	 	console.log('client disconnect');
+	});
+	socket.on('timeout', function() {
+	 	console.log('client timeout');
+	});
+	socket.on('drain', function() {
+	 	console.log('client drain');
+	});
+	socket.on('close', function() {
+	 	console.log('client close');
+	});
+	socket.on('error', function() {
+	 	console.log('client error');
+	});
+});
+
+netServer.on('listening', function (){
+  console.log('netServer is listening on port', ctlport);
+});
+
+netServer.on('connection', function(socket) {
+  console.log('netServer has a new connection : ' + socket.remoteAddress);
+
+  socket.write('What. i am very busy!! you are ['+socket.remoteAddress+']\n\r');
+});
+
+netServer.on('close', function() {
+  console.log('netServer connection closed');
+  socket.end();
+});
+
+netServer.on('error', function(err) {
+  console.log('netServer Error occured:', err.message);
+});
+
+netServer.listen(ctlport);
+

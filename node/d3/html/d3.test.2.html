@@ -1,0 +1,101 @@
+<body>
+<script type="text/javascript" src="//d3js.org/d3.v3.min.js"></script>
+<script>
+var holder = d3.select("body").append("svg")
+	.style("border", "1px solid black")
+	.attr("width", 449)      // make the SVG element 449 pixels wide
+	.attr("height", 449);    // make the SVG element 249 pixels high
+
+holder.append("rect")          // attach a circle
+  	.attr("x", 150)            // x position of the top-left corner
+	.attr("y", 50)             // y position of the top-left corner
+	.attr("width", 100)        // set the rectangle width
+	.attr("height", 100)      // set the rectangle height
+ 	.attr("rx", 10)         // set the x corner curve radius
+	.attr("ry", 10);        // set the y corner curve radius
+
+holder.append("ellipse")       // attach an ellipse
+    .attr("cx", 200)           // position the x-centre
+    .attr("cy", 200)           // position the y-centre
+	.style("stroke", "red")    // set the line colour
+	.style("stroke-dasharray", ("10,3")) // make the stroke dashed
+	.style("stroke-width", 5)    // set the stroke width
+	.style("fill", "none")    // set the fill colour 
+    .attr("rx", 100)           // set the x radius
+    .attr("ry", 50);           // set the y radius
+
+holder.append("line")          // attach a line
+    .style("stroke", "black")  // colour the line
+    .attr("x1", 100)     // x position of the first end of the line
+    .attr("y1", 50)      // y position of the first end of the line
+    .attr("x2", 300)     // x position of the second end of the line
+    .attr("y2", 150);    // y position of the second end of the line
+
+holder.append("polyline")      // attach a polyline
+    .style("stroke", "black")  // colour the line
+    .style("fill", "none")     // remove any fill colour
+    .attr("points", "100,50, 200,150, 300,50, 150,300");  // x,y points
+
+holder.append("polygon")       // attach a polygon
+    .style("stroke", "red")  // colour the line
+    .style("fill", "none")     // remove any fill colour
+    .attr("points", "10,20, 200,150, 300,50");  // x,y points 
+
+holder.append("path")          // attach a path
+    .style("stroke", "yellow")  // colour the line
+	.style("glyph-orientation-vertical", 0)
+    .style("fill", "none")     // remove any fill colour
+    .attr("d", "M 200,150, L 300,250, L 400,50 Z");  // path commands 
+
+// define the clipPath
+holder.append("clipPath")       // define a clip path
+	.attr("id", "ellipse-clip") // give the clipPath an ID
+  .append("ellipse")            // shape it as an ellipse
+	.attr("cx", 175)            // position the x-centre
+	.attr("cy", 100)            // position the y-centre
+	.attr("rx", 100)            // set the x radius
+	.attr("ry", 50);            // set the y radius
+
+// draw clipped path on the screen
+holder.append("rect")       // attach a rectangle
+    .attr("x", 125)         // position the left of the rectangle
+    .attr("y", 75)          // position the top of the rectangle
+    .attr("clip-path", "url(#ellipse-clip)") // clip the rectangle
+    .style("fill", "lightgrey")   // fill the clipped path with grey
+    .attr("height", 100)    // set the height
+    .attr("width", 200);    // set the width
+
+holder.append("text")         // append text
+    .style("fill", "blue")   // fill the text with the colour black
+    .attr("x", 200)           // set x position of left side of text
+    .attr("y", 100)           // set y position of bottom of text 
+    .text("Hello World");     // define the text to display 
+
+holder.append("text")         // append text
+    .style("fill", "black")   // fill the text with the colour black
+    .attr("x", 220)           // set x position of left side of text
+    .attr("y", 300)           // set y position of bottom of text
+    .attr("dy", ".35em")           // set offset y position
+    .attr("text-anchor", "middle") // set anchor y justification
+    .attr("transform", "rotate(-40)")
+    .text("Hello World");          // define the text to display
+
+holder.append("text")         // append text
+    .style("fill", "pink")   // fill the text with the colour black
+    .attr("dy", ".35em")           // set offset y position
+    .attr("text-anchor", "middle") // set anchor y justification
+    .attr("transform", "translate(200,100) scale(4) rotate(60)")
+    .text("Hello World");          // define the text to display
+
+holder.append("line")                  // attach a line
+    .style("stroke", "black")          // colour the line
+    .style("stroke-width", 20)         // adjust line width
+    .style("stroke-linecap", "round")  // stroke-linecap type, "square", "butt"
+    .attr("x1", 100)     // x position of the first end of the line
+    .attr("y1", 400)     // y position of the first end of the line
+    .attr("x2", 300)     // x position of the second end of the line
+    .attr("y2", 200);    // y position of the second end of the line
+
+</script>
+<p>hahaha</p>
+</body>

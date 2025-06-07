@@ -1,0 +1,79 @@
+<style>
+ .axis path, .axis line {
+    fill: none;
+    stroke: #000;
+    shape-rendering: crispEdges;
+}
+
+ .axis text {
+     font-size: 10px
+ }
+</style>
+
+<script src="//d3js.org/d3.v3.min.js"></script>
+
+<script>
+var data = d3.json("bar-chart.json", function(dat) { return dat; });
+
+/*
+var data = [ { "date":"2013-06-05", "count":6, "price":237000 }
+	, { "date":"2013-06-05", "count":8, "price":372900 }
+	, { "date":"2013-06-05", "count":4, "price":236600 }
+	];
+*/
+//var data = d3.json("bar-chart.json");
+
+var margin = {top: 10, right: 10, bottom: 40, left: 60},
+      width = 960 - margin.left - margin.right,
+      height = 110 - margin.top - margin.bottom;
+
+var x = d3.time.scale().range([0, width]);
+var y = d3.scale.linear().range([height, 0]);
+          
+var xAxis = d3.svg.axis().scale(x).orient("bottom").ticks(20);
+var yAxis = d3.svg.axis().scale(y).orient("left").ticks(5);
+          
+var nodes = d3.nest()
+      .key(function(d) { return d.date; })
+      .rollup(function(r){
+            return d3.sum(r, function(d){
+                  return parseInt(d.count);
+            })
+      })
+      .entries(data);
+          
+var svg = d3.select("body").append("svg")
+      .attr("width", width + margin.left + margin.right)
+      .attr("height", height + margin.top + margin.bottom)
+      .append("g")
+      .attr("transform", "translate(" + margin.left + "," + margin.top + ")");
+
+x.domain([
+      d3.min(nodes, function(d) { return new Date(d.key); }), 
+      d3.max(nodes, function(d) { return new Date(d.key); })
+]);
+y.domain([0, d3.max(nodes, function(d) { return d.values; })]);
+
+svg.append("g").attr("class", "x axis")
+      .attr("transform", "translate(0," + height + ")")
+      .call(xAxis);
+
+svg.append("g").attr("class", "y axis").call(yAxis);
+
+svg.selectAll(".bar").data(nodes).enter()
+      .append("rect")
+      .attr("class", "bar")
+      .attr("fill", function(d) { return "steelblue"; })
+      .attr("x", function(d) { return x(new Date(d.key)); })
+      .attr("width", 2)
+      .attr("y", function(d) { return y(d.values); })
+      .attr("height", function(d) { return height - y(d.values) < 0 ? 0 : height - y(d.values); });
+
+svg.selectAll(".x.axis text")
+      .attr("transform", function(d) {
+            return "translate(" + this.getBBox().height * -2 + "," + this.getBBox().height + ")rotate(-45)";
+});
+</script>
+<body>
+Body
+</body>

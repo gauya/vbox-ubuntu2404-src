@@ -1,0 +1,42 @@
+<script src="//d3js.org/d3.v3.min.js"></script>
+<body>
+<script>
+var svg = d3.select('body').append('svg')
+	.attr({ x:10, y:10, width:300, height:300 });
+var originX = 200;
+var originY = 200;
+var innerCircleRadius = 40;
+var outerCircleRadius = 60;
+
+var table = svg.append("circle").attr({
+    cx: originX,
+    cy: originY,
+    r: innerCircleRadius,
+    fill: "white",
+    stroke: "black"
+});
+
+var outerCircle = svg.append("circle").attr({
+    cx: originX,
+    cy: originY,
+    r: outerCircleRadius,
+    fill: "none",
+    stroke: "black"
+});
+var chairOriginX = originX + ((outerCircleRadius) * Math.sin(0));
+var chairOriginY = originY - ((outerCircleRadius) * Math.cos(0));
+var chairWidth = 20;
+var chair = svg.append("rect").attr({
+    x: chairOriginX - (chairWidth / 2),
+    y: chairOriginY - (chairWidth / 2),
+    width: chairWidth,
+    opacity: 1,
+    height: 20,
+    fill: "none",
+    stroke: "blue"
+});
+chair.attr("transform", "rotate(45, 200, 200)");
+
+</script>
+</body>
+

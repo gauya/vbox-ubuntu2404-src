@@ -1,0 +1,32 @@
+<body>
+<p>Body</p>
+<script src="https://d3js.org/d3-path.v1.min.js"></script>
+<script src="https://d3js.org/d3-shape.v1.min.js"></script>
+<script src="https://d3js.org/d3.v4.min.js"></script>
+<script>
+var ac = d3.arc();
+ac({
+  innerRadius: 10,
+  outerRadius: 100,
+  startAngle: 20,
+  endAngle: Math.PI / 2
+}); // "M0,-100A100,100,0,0,1,100,0L0,0Z"
+
+var arc = d3.arc()
+    .innerRadius(0)
+	     .outerRadius(100)
+		      .startAngle(0)
+				    .endAngle(Math.PI / 2);
+
+arc();
+var data = [1, 1, 2, 3, 5, 8, 13, 21];
+var arcs = d3.pie()(data);
+
+var line = d3.line(342,24,34,345);
+//.x(function(d) { return x(d.date); }).y(function(d) { return y(d.value); });
+
+line(data);
+</script>
+
+<p>Body</p>
+</body>
