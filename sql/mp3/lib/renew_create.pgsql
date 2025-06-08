@@ -36,15 +36,14 @@ CREATE TABLE if not exists mp3_schema.songs (
     
     song bytea,  -- 
     dtype varchar(5) default 'mp3' check ( dtype in ('mp3','wav','m4a','aac','ogg','flac','alac','m4a','aif','aiff')),
-    dsize int check( dsize > 0 ),
     file_name text,
 
     likeno bigint, -- only like, ignore hate
     played bigint,
     evaluation float default 0.0, -- 0.0 - 1.0
-    check_file char, -- duplicate, damage,... may be erase
 
     updated_at timestamp default CURRENT_TIMESTAMP,
+    check_file char, -- duplicate, damage,... may be erase
 
     UNIQUE (title, artist, album)
 ) tablespace mp3_space;
