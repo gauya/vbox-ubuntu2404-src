@@ -1,0 +1,1 @@
+/usr/bin/c++ CMakeFiles/imgui_example.dir/main.cpp.o -o imgui_example  /usr/lib/x86_64-linux-gnu/libglfw.so.3.3 /usr/lib/x86_64-linux-gnu/libGL.so -limgui -limgui_impl_glfw -limgui_impl_opengl3 
