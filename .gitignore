@@ -9,3 +9,5 @@ node_modules/
 config.ini
 .vscode
 wxWidgets/
+SDL/
+
