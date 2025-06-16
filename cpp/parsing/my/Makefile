@@ -6,21 +6,21 @@ CXX = g++
 CXXFLAGS = -std=c++23 -Wall
 LDFLAGS = 
 
-INCDIR = .
+INCDIR = -I.
 LIBDIR = 
 
 %.o: %.cpp
-	$(CXX) $(CXXFLAGS) -I$(INCDIR) -c $< -o $@
+	$(CXX) $(CXXFLAGS) $(INCDIR) -c $< -o $@
+
+$(TARGET): $(OBJS)
+	$(CXX) $(CXXFLAGS) $(INCDIR) $(LDFLAGS) $(SRCS) -o $(TARGET) 
 
 clean:
 	@rm -f *.o lexer 2>/dev/null
 #	-@rm  *.o lexer 2>/dev/null
 
-$(TARGET): $(OBJS)
-	$(CXX) $(CXXFLAGS)-I$(INCDIR) -L$(LDFLAGS) -o $(TARGET) 
-
-test:
-	g++ -std=c++23 -I. -DTEST lexer.cpp -o lexer
+test: 
+	g++ $(CXXFLAGS) $(INCDIR) $(LDFLAGS) -DTEST $(SRCS) -o $(TARGET) 
 
 all: $(TARGET)
 

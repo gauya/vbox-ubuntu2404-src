@@ -4,6 +4,7 @@
 #include <string>
 #include <vector>
 #include <stdexcept> // 예외 처리를 위해
+#include <map>
 #include <unordered_map>
 
 #ifdef TEST
@@ -18,6 +19,7 @@ enum class TokenType : int {
     UNDEF = 0,
     KEYWORD,  // X 
     NAME,     // X
+    STRING,   // 
     ALPA,     // constant, name, IDENTIFIER,, KEYWORD, STRING_LITERAL,
     NUMBER,   // constant,
     OPERATOR, // +-*/?=!~^%&
@@ -33,6 +35,7 @@ enum class TokenType : int {
 
 struct Token {
     TokenType   m_type;
+    std::string m_subtype;
     std::string m_value;
     int m_line;
     int m_column;
@@ -82,13 +85,15 @@ public:
   void skipWhitespace();
   Token parseNumber();
   Token parseName();
+  Token parseString();
   Token parseBlock();
   Token parseComment();
 
   // 토큰 타입 맵 (문자열 -> TokenType)
   static const std::unordered_map<std::string, TokenType> keywords; // 키워드 맵 (정적 멤버)
+  static const std::map<TokenType, std::string> tokentype_names;
 
-  int load_file(std::string fn);
+  int load_file(const char * fn);
 };
 
 }
