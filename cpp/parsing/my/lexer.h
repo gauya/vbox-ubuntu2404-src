@@ -25,7 +25,7 @@ enum class TokenType : int {
     SPACE,    // isspace()
     COMMENT,  // #, //, --, /* */, <% %>, ;, 
     BLOCK,    // (, {, [, <, ", ', """, ''', /**/, #,
-    ENDFILE = -1  // EOF
+    END_OF_FILE = -1  // EOF
 };
 
 // 차례
@@ -38,8 +38,9 @@ struct Token {
     int m_column;
 
     // 생성자
+    Token() : m_type(TokenType::UNDEF), m_line(0), m_column(0) {}
     Token(TokenType type, const std::string& value, int line, int column)
-        : m_type(type), m_value(value), m_line(line), m_column(column) {}
+      : m_type(type), m_value(value), m_line(line), m_column(column) {}
 
     // 디버깅을 위한 출력 (선택 사항)
     inline std::string toString() const { return m_value; }
@@ -62,9 +63,12 @@ public:
   explicit Lexer( std::string& str ) 
   : m_str(str), m_pos(0), m_line(1), m_column(0) { tokenize(); };
 
-  // 다음 토큰을 반환하고 내부 포인터 이동
-  Token getNextToken();
+  bool is_oper_char(int ch);
+  bool is_block_char(int ch);
+  bool is_special_char(int ch);
 
+  // 다음 토큰을 반환하고 내부 포인터 이동
+  Token getToken();
   // 모든 토큰을 리스트로 반환 (한 번에 렉싱)
   std::vector<Token> tokenize();
   
@@ -73,13 +77,13 @@ public:
   // 현재 위치의 문자를 반환 (이동 없음)
   char peek() const;
   char npeek() const;
+  
   // 특정 문자만큼 포인터 건너뛰기
   void skipWhitespace();
-  void skipComment();
-  // 숫자, 식별자, 문자열 등을 파싱하는 헬퍼 함수
   Token parseNumber();
-  Token parseIdentifierOrKeyword();
-  Token parseString();
+  Token parseName();
+  Token parseBlock();
+  Token parseComment();
 
   // 토큰 타입 맵 (문자열 -> TokenType)
   static const std::unordered_map<std::string, TokenType> keywords; // 키워드 맵 (정적 멤버)

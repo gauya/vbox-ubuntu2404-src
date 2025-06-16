@@ -17,21 +17,21 @@ int Lexer::load_file( std::string fn ) {
 
 // peek()에서 '\' 를 처리해야할까
 char Lexer::peek() const {
-  if (m_pos < m_str.length()) {
+  if (m_pos < (int)m_str.length()) {
     return m_str[m_pos];
   }
   return '\0'; // EOF
 }
 
 char Lexer::npeek() const {
-  if ((m_pos+1) < m_str.length()) {
+  if ((m_pos+1) < (int)m_str.length()) {
     return m_str[m_pos+1];
   }
   return '\0'; // EOF
 }
 
 char Lexer::advance() {
-  if (m_pos < m_str.length()) {
+  if (m_pos < (int)m_str.length()) {
     char c = m_str[m_pos++];
     if (c == '\n') {
       m_line++;
@@ -46,7 +46,7 @@ char Lexer::advance() {
 
 //  return lines
 void Lexer::skipWhitespace() {
-  while (current_pos < source.length() && std::isspace(peek())) {
+  while (m_pos < (int)m_str.length() && std::isspace(peek())) {
     advance();
   }
 }
@@ -60,16 +60,14 @@ void Lexer::skipComment() {
     m_token.m_line = m_line;
     m_token.m_column = m_column;
 
-    while (m_pos < m_str.length() && peek() != '\n') {
+    while (m_pos < (int)m_str.length() && peek() != '\n') {
       advance();
     }
     
-    m_token.m_value = m_str.substring(oidx, (m_pos - oidx));
+    m_token.m_value = m_str.substr(oidx, (m_pos - oidx));
     m_token.m_type = TokenType::COMMENT;
 
     skipWhitespace();
-
-    return m_token;
   } 
   // 여러줄 주석
 
@@ -78,17 +76,17 @@ void Lexer::skipComment() {
 Token Lexer::parseNumber() {
   int start_col = m_column;
   std::string num_str;
-  while (m_pos < m_str.length() && std::isdigit(peek())) {
+  while (m_pos < (int)m_str.length() && std::isdigit(peek())) {
     num_str += advance();
   }
   // 간단한 정수만 처리
   return Token(TokenType::NUMBER, num_str, m_line, start_col);
 }
 
-Token Lexer::parseIdentifierOrKeyword() {
+Token Lexer::parseName() {
   int start_col = m_column;
   std::string ident_str;
-  while (m_pos < m_str.length() && (std::isalnum(peek()) || peek() == '_')) {
+  while (m_pos < (int)m_str.length() && (std::isalnum(peek()) || peek() == '_')) {
     ident_str += advance();
   }
 
@@ -101,11 +99,12 @@ Token Lexer::parseIdentifierOrKeyword() {
   }
 }
 
-Token Lexer::parseString() {
-  int start_col = m_col;
-  char quote_char = advance(); // '\"' 소비
+Token Lexer::parseBlock() {
+  int start_col = m_column;
+  char quote_char = advance(); // 
+
   std::string str_val;
-  while (m_pos < m_str.length() && peek() != quote_char && peek() != '\n') {
+  while (m_pos < (int)m_str.length() && peek() != quote_char && peek() != '\n') {
     str_val += advance();
   }
   if (peek() == '\"') {
@@ -116,72 +115,86 @@ Token Lexer::parseString() {
   }
 }
 
+const char __block_chars[] = "(){}[]\'\"\`<>";
+bool Lexer::is_block_char( int ch ) {
+  return ( strchr( __block_chars, ch ))? true : false;
+}
+
+const char __oper_chars[] = "+-*/%!~|&^=<>?";
+bool Lexer::is_oper_char( int ch ) {
+  return ( strchr( __oper_chars, ch ))? true : false;
+}
+const char __special_chars[] = ",.:;@$`";
+bool Lexer::is_special_char( int ch ) {
+  return ( strchr( __special_chars, ch ))? true : false;
+}
+
+
 #include <stdio.h> // for static keywords map
-Token Lexer::getNextToken() {
-  while (m_pos < m_str.length()) {
+Token Lexer::getToken() {
+  while (m_pos < (int)m_str.length()) {
     skipWhitespace(); // 공백 무시
-    skipComment();  // 주석 무시
-    if (m_pos >= m_str.length()) break; // 공백/주석만 남았으면 종료
 
     char c = peek();
-    int start_col = m_col; // 토큰 시작 컬럼 저장
+    int start_col = m_column; // 토큰 시작 컬럼 저장
+
+    if( (c == '#') 
+      || ( c == '/' && npeek() == '/') 
+      || ( c == '/' && npeek() == '*') 
+      || ( c == '*' && npeek() == '/') {
+      
+      return parseComment();
+    }
 
     if (std::isdigit(c)) {
       return parseNumber();
-    } else if (std::isalpha(c) || c == '_') {
-      return parseIdentifierOrKeyword();
-    } else if (c == '\"' || c == '\'') {
-      return parseString();
-    } else if (c == '(') {
-      advance(); return Token(TokenType::PAREN_OPEN, "(", m_line, start_col);
-    } else if (c == ')') {
-      advance(); return Token(TokenType::PAREN_CLOSE, ")", m_line, start_col);
-    } else if (c == '{') {
-      advance(); return Token(TokenType::BRACE_OPEN, "{", m_line, start_col);
-    } else if (c == '}') {
-      advance(); return Token(TokenType::BRACE_CLOSE, "}", m_line, start_col);
-    } else if (c == ';') {
-      advance(); return Token(TokenType::SEMICOLON, ";", m_line, start_col);
-    } else if (c == ',') { // <--- Add this new block for comma!
-      advance(); return Token(TokenType::COMMA, ",", m_line, start_col);
-    } else if (c == '+') {
-      advance(); return Token(TokenType::OPERATOR, "+", m_line, start_col);
-    } else if (c == '-') {
-      advance(); return Token(TokenType::OPERATOR, "-", m_line, start_col);
-    } else if (c == '*') {
-      advance(); return Token(TokenType::OPERATOR, "*", m_line, start_col);
-    } else if (c == '/') {
-      advance(); return Token(TokenType::OPERATOR, "/", m_line, start_col);
-    } else if (c == '=') {
-      advance();
-      if (peek() == '=') { // == 연산자
-
-        advance(); return Token(TokenType::OPERATOR, "==", m_line, start_col);
-      }
-      return Token(TokenType::OPERATOR, "=", m_line, start_col); // = 할당 연산자
-    } else if (c == '>') {
-      advance(); return Token(TokenType::OPERATOR, ">", m_line, start_col);
-    } else if (c == '<') {
-      advance(); return Token(TokenType::OPERATOR, "<", m_line, start_col);
+    } 
+    if (std::isalpha(c) || c == '_') {
+      return parseName();
+    } 
+    if ( is_block_char(c) ) {
+      return parseBlock();
     }
     
-    else {
-      printf("[%c]\n",c);
-    }
     // 알 수 없는 문자
-    throw std::runtime_error("Unexpected character \'" + std::string(1, c) + "\' at line " + std::to_string(m_line) + ", column " + std::to_string(m_col));
+    throw std::runtime_error("Unexpected character \'" + std::string(1, c) + "\' at line " + std::to_string(m_line) + ", column " + std::to_string(m_column));
   }
-  return Token(TokenType::END_OF_FILE, "", m_line, m_col;
+  return Token(TokenType::END_OF_FILE, "", m_line, m_column);
 }
 
+
 std::vector<Token> Lexer::tokenize() {
-  while (m_toks.type != TokenType::END_OF_FILE) {
-    Token token = getNextToken();
-    m_toks.push_back(token);
+  while (m_token.m_type != TokenType::END_OF_FILE) {
+    m_token = getToken();
+    m_toks.push_back(m_token);
   }
   return m_toks;
 }
 
-
+int Lexer::load_file(std::string fn) {
+  std::ifstream file(fn);
+  if (!file) {    // !file.is_open()
+      std::cerr << "Failed to open " << fn << "\n";
+      return -1;
+/*
+  struct stat file_stat;
+  if (stat(fn, &file_stat) == -1) {
+      perror("stat");
+      return;
+  }
+*/
+  std::stringstream buffer;
+  buffer << file.rdbuf()
+  m_str = buffer.str();
+  
+  return (int)m_str.length();
+}
 
 } // namespace GLexer
+
+#ifdef TEST
+int main() {
+  Lexer lex;
+}
+#endif // TEST
+
