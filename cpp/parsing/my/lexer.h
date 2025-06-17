@@ -35,15 +35,15 @@ enum class TokenType : int {
 
 struct Token {
     TokenType   m_type;
-    std::string m_subtype;
     std::string m_value;
-    int m_line;
-    int m_column;
+    size_t m_line;
+    size_t m_column;
+    std::string m_subtype;
 
     // 생성자
     Token() : m_type(TokenType::UNDEF), m_line(0), m_column(0) {}
-    Token(TokenType type, const std::string& value, int line, int column)
-      : m_type(type), m_value(value), m_line(line), m_column(column) {}
+    Token(TokenType type, const std::string& value, size_t line, size_t column, const std::string st )
+      : m_type(type), m_value(value), m_line(line), m_column(column), m_subtype(st) {}
 
     // 디버깅을 위한 출력 (선택 사항)
     inline std::string toString() const { return m_value; }
@@ -55,11 +55,10 @@ private:
   std::string m_str;
   std::vector<Token> m_toks;
 
-  int m_pos;
-  int m_line;
-  int m_column;
+  size_t m_pos;
+  size_t m_line;
+  size_t m_column;
 
-  Token m_token;
 public:
   explicit Lexer() 
   : m_pos(0), m_line(1), m_column(0) {};
@@ -77,6 +76,7 @@ public:
   
   // 현재 위치의 문자를 반환하고 포인터 이동
   char advance();
+  char nchar();
   // 현재 위치의 문자를 반환 (이동 없음)
   char peek() const;
   char npeek() const;
@@ -88,6 +88,9 @@ public:
   Token parseString();
   Token parseBlock();
   Token parseComment();
+
+  //std::vector<Token>operator=() { return m_toks; }
+  const std::vector<Token>& getTokens() const { return m_toks; }
 
   // 토큰 타입 맵 (문자열 -> TokenType)
   static const std::unordered_map<std::string, TokenType> keywords; // 키워드 맵 (정적 멤버)

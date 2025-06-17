@@ -4,6 +4,7 @@
 #include <string>    // std::string
 #include <sstream>   // std::stringstream
 #include <format>
+#include <string.h>
 
 namespace GLexer {
 
@@ -24,7 +25,7 @@ const std::map<TokenType, std::string> Lexer::tokentype_names = {
   { TokenType:: ALPA, "alpa" },
   { TokenType:: NUMBER, "number" },
   { TokenType:: OPERATOR,"operator" },
-  { TokenType:: SCHAR, "special_char" },
+  { TokenType:: SCHAR, "sp_char" },
   { TokenType:: COMMENT, "comment" },
   { TokenType:: SPACE, "space" },
   { TokenType:: BLOCK, "block" },
@@ -33,21 +34,21 @@ const std::map<TokenType, std::string> Lexer::tokentype_names = {
 
 // peek()에서 '\' 를 처리해야할까
 char Lexer::peek() const {
-  if (m_pos < (int)m_str.length()) {
+  if (m_pos < m_str.length()) {
     return m_str[m_pos];
   }
   return '\0'; // EOF
 }
 
 char Lexer::npeek() const {
-  if ((m_pos+1) < (int)m_str.length()) {
+  if ((m_pos+1) < m_str.length()) {
     return m_str[m_pos+1];
   }
   return '\0'; // EOF
 }
 
 char Lexer::advance() {
-  if (m_pos < (int)m_str.length()) {
+  if (m_pos < m_str.length()) {
     char c = m_str[m_pos++];
     if (c == '\n') {
       m_line++;
@@ -60,9 +61,37 @@ char Lexer::advance() {
   return '\0'; // EOF
 }
 
+char Lexer::nchar() {
+  char c = m_str[m_pos];
+
+  if ( c == '\\' ) {
+    m_pos++; m_column++;
+    char nc = peek();
+    if( strchr("fb\"\'nrt\\", nc) ) {
+      
+      switch(nc) {
+      case 'b': c = '\b'; break;
+      case 'n': c = '\n'; break;
+      case 'r': c = '\r'; break;
+      case 't': c = '\t'; break;
+      case '\\': c = '\\'; break;
+      case '\"': c = '\"'; break;
+      case '\'': c = '\''; break;
+
+      default:
+        c = nc;
+        break;
+      }
+    } else {
+      // error
+    }
+  }
+  return c;
+}
+
 //  return lines
 void Lexer::skipWhitespace() {
-  while (m_pos < (int)m_str.length() && std::isspace(peek())) {
+  while (m_pos < m_str.length() && std::isspace(peek())) {
     advance();
   }
 }
@@ -73,11 +102,12 @@ Token Lexer::parseComment() {
   // 한줄 주석 처리
   int start_col = m_column;
   std::string str;
-  if ((peek() == '#') || (peek() == '/' && npeek() == '/')) {
-    while (m_pos < (int)m_str.length() && peek() != '\n') {
+  char c = peek();
+  if ((c == '#') || (c == '/' && npeek() == '/')) {
+    while (m_pos < m_str.length() && peek() != '\n') {
       str += advance();
     }
-    return Token(TokenType::COMMENT, str, m_line, start_col);
+    return Token(TokenType::COMMENT, str, m_line, start_col, (c=='#')? std::string(1,c) : "//");
   } 
   // 여러줄 주석
   throw std::runtime_error("not comment [" +  std::to_string(start_col) + "]");
@@ -86,26 +116,26 @@ Token Lexer::parseComment() {
 Token Lexer::parseNumber() {
   int start_col = m_column;
   std::string num_str;
-  while (m_pos < (int)m_str.length() && std::isdigit(peek())) {
+  while (m_pos < m_str.length() && std::isdigit(peek())) {
     num_str += advance();
   }
   // 간단한 정수만 처리
-  return Token(TokenType::NUMBER, num_str, m_line, start_col);
+  return Token(TokenType::NUMBER, num_str, m_line, start_col, "");
 }
 
 Token Lexer::parseName() {
   int start_col = m_column;
   std::string ident_str;
-  while (m_pos < (int)m_str.length() && (std::isalnum(peek()) || peek() == '_')) {
+  while (m_pos < m_str.length() && (std::isalnum(peek()) || peek() == '_')) {
     ident_str += advance();
   }
 
   // 키워드인지 확인
   auto it = keywords.find(ident_str);
   if (it != keywords.end()) {
-    return Token(it->second, ident_str, m_line, start_col); // 키워드 토큰
+    return Token(it->second, ident_str, m_line, start_col,""); // 키워드 토큰
   } else {
-    return Token(TokenType::NAME, ident_str, m_line, start_col); // 식별자 토큰
+    return Token(TokenType::NAME, ident_str, m_line, start_col, ""); // 식별자 토큰
   }
 }
 
@@ -121,33 +151,37 @@ Token Lexer::parseBlock() {
     (quote_char == '[')? ']' : '>' ;
 
   std::string str_val;
-  while (m_pos < (int)m_str.length() && peek() != end_char) {
+  while (m_pos < m_str.length() && peek() != end_char) {
     str_val += advance();
   }
   str_val += advance(); // end_char  
-  return Token(TokenType::BLOCK, str_val, m_line, start_col);
+  return Token(TokenType::BLOCK, str_val, m_line, start_col, std::string(1,quote_char));
 }
 
+// python """, '''
 Token Lexer::parseString() {
   int start_col = m_column;
   char quote_char = advance();  
   
   std::string str_val;
-  while( m_pos < (int)m_str.length() && peek() != quote_char ) {
-    str_val += advance();
+  char ch;
+  while( m_pos < m_str.length() && peek() != quote_char ) {
+    ch = advance();
+    str_val += ch;
+    if (ch == '\\') {
+      str_val += advance();  
+    }
   }
   advance();
-  return Token(TokenType::STRING, str_val, m_line, start_col);
+  return Token(TokenType::STRING, str_val, m_line, start_col, {quote_char});
 }
 
-#include <string.h>
-
-const char __block_chars[] = "(){}[]<>";
+const char __block_chars[] = "(){}[]<>"; // /**/, <%%>
 bool Lexer::is_block_char( int ch ) {
   return ( strchr( __block_chars, ch ))? true : false;
 }
 
-const char __oper_chars[] = "+-*/%!~|&^=<>?";
+const char __oper_chars[] = "+-*/%!~|&^=<>?:";
 bool Lexer::is_oper_char( int ch ) {
   return ( strchr( __oper_chars, ch ))? true : false;
 }
@@ -156,6 +190,100 @@ bool Lexer::is_special_char( int ch ) {
   return ( strchr( __special_chars, ch ))? true : false;
 }
 
+const char *__operation_keys[] = {
+  "++","--",
+  "<=",">=","==","!=",
+  "||","&&",
+  "<<=",">>=",
+  "<<",">>",
+  "::",
+  "+","-","*","/","%","?",
+  "=","+=","-=","*=","/=","%=","^=","|=","&=","^=",
+  "|","&","^",
+  NULL
+};
+
+bool _comp_str_charp( std::string& str, size_t at, const char *chs ) {
+  if( !chs ) 
+    return false;
+
+  size_t len = str.length();
+  if( at >= len) 
+    return false;
+
+  size_t chl = strlen(chs);
+  if( (len - at) < chl ) 
+    return false;
+  
+  const char *p = str.c_str() + at;
+  while( *chs ) {
+    if( *chs++ != *p++ ) 
+      return false;
+  }
+  return true;
+}
+
+bool comp_str_charp(const std::string& str, size_t at, const char *chs) {
+    // 1. const char* (chs)의 nullptr 검사
+    if (chs == nullptr) {
+        return false;
+    }
+
+    size_t str_len = str.length();
+    size_t chs_len = strlen(chs);
+
+    // 2. 비교하려는 범위가 원본 문자열의 경계를 벗어나는지 검사
+    //    at이 str_len보다 크거나 같으면, 시작 위치 자체가 유효하지 않음
+    //    (at + chs_len)이 str_len보다 크면, chs가 str의 끝을 넘어감
+    if (at >= str_len || (at + chs_len) > str_len) {
+        return false;
+    }
+
+    // 3. std::string의 내부 데이터에 접근하기 위해 .data() 사용
+    //    .data()는 C++11부터 null-terminated C-string을 반환함을 보장
+    const char* p_str = str.data() + at; // str의 시작 지점 + at 만큼 이동한 포인터
+
+    // chs 문자열을 순회하기 위한 임시 포인터
+    const char* p_chs = chs;
+
+    // 4. 문자열 비교 루프
+    while (*p_chs != '\0') { // chs의 끝(null-terminator)에 도달할 때까지
+        if (*p_str != *p_chs) {
+            return false; // 문자가 다르면 바로 false 반환
+        }
+        p_str++; // 다음 문자로 이동
+        p_chs++; // 다음 문자로 이동
+    }
+
+    return true; // 모든 문자가 일치했으므로 true 반환
+}
+
+int find_operation_key_at_pos(const std::string& str, size_t idx) {
+    // 1. 시작 위치 (idx) 유효성 검사
+    if (idx >= str.length()) {
+        return -1; // 시작 위치가 문자열 범위를 벗어나면 바로 실패
+    }
+
+    // 2. __operation_keys 배열 순회
+    for (int i = 0; __operation_keys[i] != NULL; ++i) {
+        const char* op_key = __operation_keys[i];
+        size_t op_len = strlen(op_key); // 연산자 문자열의 길이
+
+        // 3. str의 남은 길이가 현재 연산자 문자열보다 짧으면 비교 불가능
+        if ((str.length() - idx) < op_len) {
+            continue; // 다음 연산자 키로 넘어감
+        }
+
+        // 4. std::string::compare를 사용하여 부분 문자열 비교
+        //    str.compare(pos, len, c_str) : str의 pos부터 len 길이만큼의 부분 문자열과 c_str 비교
+        //    같으면 0을 반환합니다.
+        if (str.compare(idx, op_len, op_key) == 0) {
+            return i; // 일치하는 연산자 키를 찾았으므로 해당 인덱스 반환
+        }
+    }
+
+    return -1; // 모든 연산자 키를 검사했지만 일치하는 것을 찾지 못함
+}
 
 #include <stdio.h> // for static keywords map
 Token Lexer::getToken() {
@@ -164,8 +292,16 @@ Token Lexer::getToken() {
   int start_col = m_column; // 토큰 시작 컬럼 저장
   char c = peek();
 
-  if ( (m_pos+1) > (int)m_str.length() ||  c == '\0' ) {
-    return Token(TokenType::END_OF_FILE, "", m_line, m_column);
+  if ( (m_pos+1) > m_str.length() ||  c == '\0' ) {
+    return Token(TokenType::END_OF_FILE, "", m_line, m_column,"");
+  }
+  if ( c == '\\' ) {
+    std::string sval;
+    sval += c;
+    sval += npeek();
+    m_column += 2;
+    m_pos += 2;
+    return Token(TokenType:: SCHAR, sval, m_line, start_col, sval );
   }
   if( (c == '#') 
     || ( c == '/' && npeek() == '/') 
@@ -187,25 +323,34 @@ Token Lexer::getToken() {
   if ( is_block_char(c) ) {
     //return parseBlock();
     advance();
-    return Token( TokenType::BLOCK, std::string(1,c), m_line, start_col);
+    return Token( TokenType::BLOCK, std::string(1,c), m_line, start_col, {c} );
   }
   if ( is_oper_char(c) ) {
-    advance();
-    return Token( TokenType::OPERATOR, std::string(1,c), m_line, start_col);
+    int ok = find_operation_key_at_pos(m_str, m_pos);
+    if ( ok == -1 ) {
+      // error
+      advance();
+      return Token( TokenType::OPERATOR, std::string(1,c), m_line, start_col,{c});
+    }
+    size_t len = strlen( __operation_keys[ok] );
+    size_t pp = m_pos;
+    m_pos += len; // advance();
+    m_column += len;
+    return Token( TokenType::OPERATOR, m_str.substr(pp, len), m_line, start_col,{c});
   }
   if ( is_special_char(c) ) {
     advance();
-    return Token( TokenType::SCHAR, std::string(1,c), m_line, start_col);
+    return Token( TokenType::SCHAR, std::string(1,c), m_line, start_col,{c});
   }
   
   std::string str_val;
-  while( m_pos < (int)m_str.length() ) {
+  while( m_pos < m_str.length() ) {
     if ( peek() < ' ' || peek() > '~' ) {
       str_val += advance();
     } else break;
   }
 
-  return Token(TokenType:: UNDEF, str_val, m_line, m_column );
+  return Token(TokenType:: UNDEF, str_val, m_line, start_col, "" );
 
   // 알 수 없는 문자
 //  throw std::runtime_error("Unexpected character \'" + std::string(1, c) + "\' at line " + std::to_string(m_line) + ", column " + std::to_string(m_column));
@@ -214,13 +359,14 @@ Token Lexer::getToken() {
 
 std::vector<Token> Lexer::tokenize() {
   int cnt=0;
-  while (m_token.m_type != TokenType::END_OF_FILE) {
-    m_token = getToken();
-    
-    std::cout << std::format("{:04} {:04} {:<12} : {}\n", cnt++,m_token.m_line, tokentype_names.at(m_token.m_type), m_token.m_value );
+  Token tok;
+  do {
+    tok = getToken();
+    std::cout << std::format("{:04} {:04} {:<12}.{:3} : {}\n", 
+      cnt++,tok.m_line, tokentype_names.at(tok.m_type), tok.m_subtype, tok.m_value );
     if(cnt > 2800) break;
-    m_toks.push_back(m_token);
-  }
+    m_toks.push_back(tok);
+  } while (tok.m_type != TokenType::END_OF_FILE);
   return m_toks;
 }
  
