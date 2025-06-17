@@ -18,6 +18,7 @@ namespace GLexer {
 enum class TokenType : int {
     UNDEF = 0,
     KEYWORD,  // X 
+    VARTYPE,
     NAME,     // X
     STRING,   // 
     ALPA,     // constant, name, IDENTIFIER,, KEYWORD, STRING_LITERAL,

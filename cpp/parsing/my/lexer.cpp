@@ -13,13 +13,38 @@ const std::unordered_map<std::string, TokenType> Lexer::keywords = {
   {"if", TokenType::KEYWORD},
   {"else", TokenType::KEYWORD},
   {"while", TokenType::KEYWORD},
-  {"func", TokenType::KEYWORD},
+  {"function", TokenType::KEYWORD},
+  {"switch", TokenType::KEYWORD},
+  {"case", TokenType::KEYWORD},
+  {"break", TokenType::KEYWORD},
+  {"for", TokenType::KEYWORD},
+  {"default", TokenType::KEYWORD},
+  {"auto", TokenType::KEYWORD},
+
+  {"char", TokenType::VARTYPE},
+  {"int", TokenType::VARTYPE},
+  {"long", TokenType::VARTYPE},
+  {"float", TokenType::VARTYPE},
+  {"double", TokenType::VARTYPE},
+  {"bool", TokenType::VARTYPE},
+  {"true", TokenType::VARTYPE},
+  {"false", TokenType::VARTYPE},
+  {"struct", TokenType::VARTYPE},
+  {"class", TokenType::VARTYPE},
+  {"enum", TokenType::VARTYPE},
+  {"typedef", TokenType::VARTYPE},
+  {"const", TokenType::VARTYPE},
+  {"static", TokenType::VARTYPE},
+  {"unsigned", TokenType::VARTYPE},
+  {"namespace", TokenType::VARTYPE},
+
   {"return", TokenType::KEYWORD} // 예시에 return 추가
 };
 
 const std::map<TokenType, std::string> Lexer::tokentype_names = {
   { TokenType:: UNDEF, "undef" },
   { TokenType:: KEYWORD,"keyword" },
+  { TokenType:: VARTYPE,"vartype" },
   { TokenType:: NAME, "name" },
   { TokenType:: STRING, "string" },
   { TokenType:: ALPA, "alpa" },
@@ -132,6 +157,7 @@ Token Lexer::parseName() {
 
   // 키워드인지 확인
   auto it = keywords.find(ident_str);
+//  std::cout << "===========<>" << ident_str << std::endl;
   if (it != keywords.end()) {
     return Token(it->second, ident_str, m_line, start_col,""); // 키워드 토큰
   } else {
