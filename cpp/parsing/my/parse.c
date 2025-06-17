@@ -75,7 +75,7 @@ int instrs(const char *s,const char **dest) {
 	}
 	return -1;
 }
-
+/*
 
 #define isodigit(a) ((a) >= '0' && (a) <= '7')
 #define isbdigit(a) ((a) == '0' || (a) == '1')
@@ -202,7 +202,7 @@ double stof(const char *s) {
 
 	return (minus == -1)? -v : v;
 }
-
+*/
 // return field number, -1 when error or not effective field
 int chop_str(char *msg, char **dest, size_t num, const char *dil) {
 	int cnt=0;
@@ -490,7 +490,7 @@ printf("begin step=%d bt(%d|%s)\n",step,bi.bt->etype,bi.bt->start);
 		const char *s = strchr(*str, '\n');
 		n = (const char*)strstr(*str,bi.bt->end);
 		if( s < n && s ) { n = s; }
-		if( !n ) {
+		if( !n ) { 
 			n = *str + strlen(*str);
 		} 
 		*str = n + 1;

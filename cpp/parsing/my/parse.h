@@ -50,10 +50,10 @@ typedef struct {
 } block_info_t;
 
 #if 0
-/*
+  */ 
 Postfix	() [] -> . ++ - -	Left to right
 Unary	+ - ! ~ ++ - - (type)* & sizeof	Right to left
-*/
+
 typedef struct {
    eop_type etype;
    const char*opstr;

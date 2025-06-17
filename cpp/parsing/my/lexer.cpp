@@ -21,22 +21,28 @@ const std::unordered_map<std::string, TokenType> Lexer::keywords = {
   {"default", TokenType::KEYWORD},
   {"auto", TokenType::KEYWORD},
 
+  {"void", TokenType::VARTYPE},
   {"char", TokenType::VARTYPE},
+  {"unsigned", TokenType::VARTYPE},
   {"int", TokenType::VARTYPE},
   {"long", TokenType::VARTYPE},
   {"float", TokenType::VARTYPE},
   {"double", TokenType::VARTYPE},
   {"bool", TokenType::VARTYPE},
+
   {"true", TokenType::VARTYPE},
   {"false", TokenType::VARTYPE},
+
   {"struct", TokenType::VARTYPE},
   {"class", TokenType::VARTYPE},
   {"enum", TokenType::VARTYPE},
   {"typedef", TokenType::VARTYPE},
+
   {"const", TokenType::VARTYPE},
   {"static", TokenType::VARTYPE},
-  {"unsigned", TokenType::VARTYPE},
   {"namespace", TokenType::VARTYPE},
+  {"extern", TokenType::VARTYPE},
+  {"inline", TokenType::VARTYPE},
 
   {"return", TokenType::KEYWORD} // 예시에 return 추가
 };
@@ -114,6 +120,24 @@ char Lexer::nchar() {
   return c;
 }
 
+//////////////////////////////////////////////////////////////////////////
+#if 0
+#include <stdint.h>
+
+#define isodigit(a) ((a) >= '0' && (a) <= '7')
+#define isbdigit(a) ((a) == '0' || (a) == '1')
+
+const char __default_white_space[] = " \t\n\r";
+
+const char* whitespace_skip(const char *str) {
+  if( !str )
+    return (const char*)0;
+
+  while( *str && strchr(__default_white_space,*str) ) str++;
+
+  return str;
+}
+
 //  return lines
 void Lexer::skipWhitespace() {
   while (m_pos < m_str.length() && std::isspace(peek())) {
@@ -121,11 +145,138 @@ void Lexer::skipWhitespace() {
   }
 }
 
+int stoi(const char *s) {
+	s = whitespace_skip(s);
+	if(!s) return 0;
+
+	int minus = 1;
+	uint32_t val = 0;
+
+	if(*s == '-' || *s == '+')  {
+		if(*s++ == '-') minus = -1;
+	}
+
+	for(;*s >= '0' && *s <= '9'; s++) {
+		val = (val * 10) + (*s - '0');
+	}
+	//if( val & 0x80000000 ) // error
+
+	return (minus ==-1)? -(int)val : (int)val;
+}
+
+int64_t stol(const char *s) {
+	s = whitespace_skip(s);
+	if(!s) return 0;
+
+	int minus = 1;
+	uint64_t val = 0;
+
+	if(*s == '-' || *s == '+')  {
+		if(*s++ == '-') minus = -1;
+	}
+
+	for(;*s >= '0' && *s <= '9'; s++) {
+		val = (val * 10) + (*s - '0');
+	}
+
+	return (minus == -1)? -(int64_t)val : (uint64_t)val;
+}
+
+uint32_t stob(const char *s) {
+	s = whitespace_skip(s);
+	if(!s) return 0;
+
+	if(*s == '\0') {
+		s++;
+		if(*s == 'b' || *s == 'B') s++;
+	}
+
+	uint32_t val = 0;
+	const char *n = s;
+
+	while(isbdigit(*n)) n++;
+	n--;
+
+	for(uint32_t u=0; n>=s; n--, u <<= 1) {
+		if( *n == '1' ) val += u;
+	}
+
+	return val;
+}
+
+uint32_t stoo(const char *s) {
+	s = whitespace_skip(s);
+	if(!s) return 0;
+
+	uint32_t val = 0;
+	const char *n = s;
+
+	while(isodigit(*n)) n++;
+	n--;
+
+	for(uint32_t u=0; n>=s; n--, u <<= 3) {
+		val += (*n-'0') * u;
+	}
+	return val;
+}
+
+uint32_t stox(const char *s) {
+	s = whitespace_skip(s);
+	if(!s) return 0;
+
+	if(*s == '\0') {
+		s++;
+		if(*s == 'x' || *s == 'X') s++;
+	}
+
+	uint32_t val = 0;
+	const char *n = s;
+
+	while(isxdigit(*n)) n++;
+	n--;
+
+	for(uint32_t u=0; n>=s; n--, u <<= 4) {
+		val += (*n-'0') * u;
+	}
+	return val;
+}
+
+double stof(const char *s) {
+	s = whitespace_skip(s);
+	if(!s) return 0.;
+
+	int minus = 1;
+	double v = 0;
+
+	if(*s == '-' || *s == '+')  {
+		if(*s++ == '-') minus = -1;
+	}
+
+	for(;*s && (*s >= '0' && *s <= '9'); s++) {
+		v = (v * 10) + (*s - '0');
+	}
+
+	if(*s++ == '.') {
+		int c;
+		double d=1.0;
+		for(c = 0; *s >= '0' && *s <= '9'; s++,c++) {
+			d *= 0.1;
+			v += d * (*s - '0');
+		}
+	}
+
+	return (minus == -1)? -v : v;
+}
+#endif // 1
+////////////////////////////////////////////////////////////////////////////////
+
 // 이 함수를 부르기전에 comment문자임을 확인해야한다.
 // //, /*, <%과 같은 두자리 이상의 문자로 된 comment는?
 Token Lexer::parseComment() {
   // 한줄 주석 처리
-  int start_col = m_column;
+  size_t start_col = m_column;
+  size_t start_line = m_line;
+
   std::string str;
   char c = peek();
   if ((c == '#') || (c == '/' && npeek() == '/')) {
@@ -135,6 +286,20 @@ Token Lexer::parseComment() {
     return Token(TokenType::COMMENT, str, m_line, start_col, (c=='#')? std::string(1,c) : "//");
   } 
   // 여러줄 주석
+  if( c == '/' && npeek() == '*') {
+    str += advance();
+    str += advance();
+
+    while (m_pos < m_str.length() && !(peek() == '*' && npeek() == '/')) {
+      str += advance();
+    }
+    if ( (m_pos + 1) < m_str.length() ) {
+      str += advance();
+      str += advance();
+    }
+
+    return Token(TokenType::COMMENT, str, start_line, start_col, "/*");
+  }
   throw std::runtime_error("not comment [" +  std::to_string(start_col) + "]");
 }
 
@@ -229,26 +394,6 @@ const char *__operation_keys[] = {
   NULL
 };
 
-bool _comp_str_charp( std::string& str, size_t at, const char *chs ) {
-  if( !chs ) 
-    return false;
-
-  size_t len = str.length();
-  if( at >= len) 
-    return false;
-
-  size_t chl = strlen(chs);
-  if( (len - at) < chl ) 
-    return false;
-  
-  const char *p = str.c_str() + at;
-  while( *chs ) {
-    if( *chs++ != *p++ ) 
-      return false;
-  }
-  return true;
-}
-
 bool comp_str_charp(const std::string& str, size_t at, const char *chs) {
     // 1. const char* (chs)의 nullptr 검사
     if (chs == nullptr) {
@@ -331,8 +476,7 @@ Token Lexer::getToken() {
   }
   if( (c == '#') 
     || ( c == '/' && npeek() == '/') 
-    || ( c == '/' && npeek() == '*') 
-    || ( c == '*' && npeek() == '/')) {
+    || ( c == '/' && npeek() == '*')) { 
     
     return parseComment();
   }
@@ -390,7 +534,6 @@ std::vector<Token> Lexer::tokenize() {
     tok = getToken();
     std::cout << std::format("{:04} {:04} {:<12}.{:3} : {}\n", 
       cnt++,tok.m_line, tokentype_names.at(tok.m_type), tok.m_subtype, tok.m_value );
-    if(cnt > 2800) break;
     m_toks.push_back(tok);
   } while (tok.m_type != TokenType::END_OF_FILE);
   return m_toks;
