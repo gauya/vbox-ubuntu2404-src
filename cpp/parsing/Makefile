@@ -1,10 +1,27 @@
-parse:
-	gcc parse.c -I./ -lm -std=gnu2x -DTEST -o parse
+SRCS = lexer.cpp
+TARGET = lexer
+OBJS = $(patsubst %.cpp,%.o,$(SRCS))
 
-gstr:
-	g++ -std=c++23 -I./ -c gstr.cpp parse.c
+CXX = g++
+CXXFLAGS = -std=c++23 -Wall
+LDFLAGS = 
+
+INCDIR = -I.
+LIBDIR = 
+
+%.o: %.cpp
+	$(CXX) $(CXXFLAGS) $(INCDIR) -c $< -o $@
+
+$(TARGET): $(OBJS)
+	$(CXX) $(CXXFLAGS) $(INCDIR) $(LDFLAGS) $(SRCS) -o $(TARGET) 
 
 clean:
-	@rm -f *.o parse 2>/dev/null
-#	-@rm  *.o parse 2>/dev/null
+	@rm -f *.o lexer 2>/dev/null
+#	-@rm  *.o lexer 2>/dev/null
+
+test: 
+	g++ $(CXXFLAGS) $(INCDIR) $(LDFLAGS) -DTEST $(SRCS) -o $(TARGET) 
+
+all: $(TARGET)
+
 

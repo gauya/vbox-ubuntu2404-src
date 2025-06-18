@@ -87,21 +87,71 @@ int main(int argc,char *argv[]) {
         test_var = 123 + 456;
     )";
 
-    try {
     std::ifstream sourf(argv[1]);
     std::cout << "open file : " << std::string(argv[1]) << std::endl;
-
-    std::stringstream buffer;
-      buffer << sourf.rdbuf();
+    if( sourf ) {
+      std::stringstream buffer;
+      buffer = sourf.rdbuf();
       source_code = buffer.str();
       sourf.close();
-    } catch (const std::exception& e) {
-        std::cout << "예외 발생: " << e.what() << std::endl;
     }
-    catch (...) {
-        std::cout << "알 수 없는 예외 발생!" << std::endl;
+
+    std::cout << "--- Source Code ---" << std::endl;
+    std::cout << source_code << std::endl;
+    std::cout << "-------------------" << std::endl << std::endl;
+
+    try {
+        // 2. 렉싱 단계: 소스 코드를 토큰 리스트로 변환
+        MyLang::Lexer lexer(source_code);
+        std::vector<MyLang::Token> tokens = lexer.tokenize();
+
+        std::cout << "--- Tokens ---" << std::endl;
+        for (const auto& token : tokens) {
+            std::cout << token.toString() << std::endl;
+        }
+        std::cout << "--------------" << std::endl << std::endl;
+
+        // 3. 파싱 단계: 토큰 리스트를 AST로 변환
+        MyLang::Parser parser(tokens);
+        std::unique_ptr<MyLang::ProgramNode> ast_root = parser.parseProgram();
+
+        std::cout << "--- Abstract Syntax Tree (AST) ---" << std::endl;
+        printAST(ast_root.get());
+        std::cout << "----------------------------------" << std::endl;
+
+    } catch (const std::runtime_error& e) {
+        std::cerr << "Error: " << e.what() << std::endl;
+        return 1;
+    } catch (...) {
+        std::cerr << "An unknown error occurred." << std::endl;
+        return 1;
     }
-      std::cout << "load file" << std::endl;
+
+    return 0;
+}
+
+// ++ -std=c++17 -Wall lexer.cpp parser.cpp main.cpp -o mylang_parser
+
+int _imain() {
+    // 1. 테스트할 소스 코드 정의
+    std::string source_code = R"(
+        func add(a, b) {
+            # This is a comment
+            if (a > b) {
+                return a + b;
+            } else {
+                return a - b;
+            }
+        }
+
+        while (x < 10) {
+            x = x + 1;
+            if (x == 5) {
+                y = y * 2;
+            }
+        }
+        test_var = 123 + 456;
+    )";
 
     std::cout << "--- Source Code ---" << std::endl;
     std::cout << source_code << std::endl;

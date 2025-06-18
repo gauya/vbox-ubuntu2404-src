@@ -69,9 +69,6 @@ public:
   bool is_oper_char(int ch);
   bool is_block_char(int ch);
   bool is_special_char(int ch);
-  inline size_t length() const { return m_str.length(); }
-  inline size_t tokens() const { return m_toks.size(); }
-  inline size_t line() const { return m_line; }
 
   // 다음 토큰을 반환하고 내부 포인터 이동
   Token getToken();
@@ -99,6 +96,7 @@ public:
   // 토큰 타입 맵 (문자열 -> TokenType)
   static const std::unordered_map<std::string, TokenType> keywords; // 키워드 맵 (정적 멤버)
   static const std::map<TokenType, std::string> tokentype_names;
+
   int load_file(const char * fn);
 };
 

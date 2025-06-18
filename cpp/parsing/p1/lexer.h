@@ -18,6 +18,8 @@ enum class TokenType {
     PAREN_CLOSE,  // )
     BRACE_OPEN,   // {
     BRACE_CLOSE,  // }
+    SQUAREB_OPEN,
+    SQUAREB_CLOSE,
     SEMICOLON,    // ;
     STRING_LITERAL, // "hello"
     COMMA, //

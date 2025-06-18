@@ -538,28 +538,39 @@ std::vector<Token> Lexer::tokenize() {
   } while (tok.m_type != TokenType::END_OF_FILE);
   return m_toks;
 }
-
-int Lexer::load_file(const char* fn) {
-    std::ifstream file(fn);
-    std::stringstream buffer;
-    buffer << file.rdbuf();
-    m_str = buffer.str();
-    
-    return (int)m_str.length();
-}
  
+int Lexer::load_file(const char *fn) {
+  std::string path = fn;
+  std::ifstream ifile(path);
+
+  if ( ! ifile.is_open()) {    // !ifile.is_open()
+      std::cerr << "Failed to open " << path << "\n";
+      return -1;
+  }
+
+  std::stringstream buffer;
+  buffer << ifile.rdbuf();
+  m_str = buffer.str();
+  
+  ifile.close();
+  
+
+  std::cout << m_str;
+  std::cout << "Load file(" << path << ") size = " << std::to_string(m_str.length()) << std::endl;
+  std::cout << "=======================================================" << std::endl;
+
+  return (int)m_str.length();
+}
+
 } // namespace GLexer
 
 #ifdef TEST
-
 int main(int argc, const char*argv[]) {
   GLexer::Lexer lex;
   lex.load_file(argv[1]);
 
+
   lex.tokenize();
-  std::cout << "=======================================================" << std::endl;
-  std::cout << std::format("file size={}, lines={}, tokens={}\n", lex.length(), lex.line(), lex.tokens());
-  std::cout << "=======================================================" << std::endl;
 }
 #endif // TEST
 
