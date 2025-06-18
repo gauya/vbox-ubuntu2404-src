@@ -7,6 +7,7 @@
 #include <string>
 #include "lexer.h"
 
+using namespace GLexer;
 namespace MyLang {
 
 struct ASTNode {

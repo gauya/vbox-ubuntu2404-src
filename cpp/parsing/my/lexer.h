@@ -17,6 +17,19 @@ namespace GLexer {
 
 enum class TokenType : int {
     UNDEF = 0,
+    NAME,     // X
+    STRING,   // 
+    NUMBER,   // constant,
+    OPERATOR, // +-*/?=!~^%&
+    SCHAR,    // ,.:;@$#
+    SPACE,    // isspace()
+    COMMENT,  // #, //, --, /* */, <% %>, ;, 
+    BLOCK,    // (, {, [, <, ", ', """, ''', /**/, #,
+    END_OF_FILE = -1  // EOF
+};
+
+enum class TokenSubtype : int {
+    UNDEF = 0,
     KEYWORD,  // X 
     VARTYPE,
     NAME,     // X
@@ -97,7 +110,7 @@ public:
   const std::vector<Token>& getTokens() const { return m_toks; }
 
   // 토큰 타입 맵 (문자열 -> TokenType)
-  static const std::unordered_map<std::string, TokenType> keywords; // 키워드 맵 (정적 멤버)
+  static const std::unordered_map<std::string, TokenSubtype> keywords; // 키워드 맵 (정적 멤버)
   static const std::map<TokenType, std::string> tokentype_names;
   int load_file(const char * fn);
 };

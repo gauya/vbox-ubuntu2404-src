@@ -1,59 +1,56 @@
-#include <lexer.h>
 #include <iostream>  // std::cerr, std::cout 등
 #include <fstream>   // std::ifstream
 #include <string>    // std::string
 #include <sstream>   // std::stringstream
 #include <format>
 #include <string.h>
+#include "lexer.h"
 
 namespace GLexer {
 
 // Lexer 클래스 멤버 변수 초기화
-const std::unordered_map<std::string, TokenType> Lexer::keywords = {
-  {"if", TokenType::KEYWORD},
-  {"else", TokenType::KEYWORD},
-  {"while", TokenType::KEYWORD},
-  {"function", TokenType::KEYWORD},
-  {"switch", TokenType::KEYWORD},
-  {"case", TokenType::KEYWORD},
-  {"break", TokenType::KEYWORD},
-  {"for", TokenType::KEYWORD},
-  {"default", TokenType::KEYWORD},
-  {"auto", TokenType::KEYWORD},
+const std::unordered_map<std::string, TokenSubtype> Lexer::keywords = {
+  {"if", TokenSubtype::KEYWORD},
+  {"else", TokenSubtype::KEYWORD},
+  {"while", TokenSubtype::KEYWORD},
+  {"function", TokenSubtype::KEYWORD},
+  {"switch", TokenSubtype::KEYWORD},
+  {"case", TokenSubtype::KEYWORD},
+  {"break", TokenSubtype::KEYWORD},
+  {"for", TokenSubtype::KEYWORD},
+  {"default", TokenSubtype::KEYWORD},
+  {"auto", TokenSubtype::KEYWORD},
 
-  {"void", TokenType::VARTYPE},
-  {"char", TokenType::VARTYPE},
-  {"unsigned", TokenType::VARTYPE},
-  {"int", TokenType::VARTYPE},
-  {"long", TokenType::VARTYPE},
-  {"float", TokenType::VARTYPE},
-  {"double", TokenType::VARTYPE},
-  {"bool", TokenType::VARTYPE},
+  {"void", TokenSubtype::VARTYPE},
+  {"char", TokenSubtype::VARTYPE},
+  {"unsigned", TokenSubtype::VARTYPE},
+  {"int", TokenSubtype::VARTYPE},
+  {"long", TokenSubtype::VARTYPE},
+  {"float", TokenSubtype::VARTYPE},
+  {"double", TokenSubtype::VARTYPE},
+  {"bool", TokenSubtype::VARTYPE},
 
-  {"true", TokenType::VARTYPE},
-  {"false", TokenType::VARTYPE},
+  {"true", TokenSubtype::VARTYPE},
+  {"false", TokenSubtype::VARTYPE},
 
-  {"struct", TokenType::VARTYPE},
-  {"class", TokenType::VARTYPE},
-  {"enum", TokenType::VARTYPE},
-  {"typedef", TokenType::VARTYPE},
+  {"struct", TokenSubtype::VARTYPE},
+  {"class", TokenSubtype::VARTYPE},
+  {"enum", TokenSubtype::VARTYPE},
+  {"typedef", TokenSubtype::VARTYPE},
 
-  {"const", TokenType::VARTYPE},
-  {"static", TokenType::VARTYPE},
-  {"namespace", TokenType::VARTYPE},
-  {"extern", TokenType::VARTYPE},
-  {"inline", TokenType::VARTYPE},
+  {"const", TokenSubtype::VARTYPE},
+  {"static", TokenSubtype::VARTYPE},
+  {"namespace", TokenSubtype::VARTYPE},
+  {"extern", TokenSubtype::VARTYPE},
+  {"inline", TokenSubtype::VARTYPE},
 
-  {"return", TokenType::KEYWORD} // 예시에 return 추가
+  {"return", TokenSubtype::KEYWORD} // 예시에 return 추가
 };
 
 const std::map<TokenType, std::string> Lexer::tokentype_names = {
   { TokenType:: UNDEF, "undef" },
-  { TokenType:: KEYWORD,"keyword" },
-  { TokenType:: VARTYPE,"vartype" },
   { TokenType:: NAME, "name" },
   { TokenType:: STRING, "string" },
-  { TokenType:: ALPA, "alpa" },
   { TokenType:: NUMBER, "number" },
   { TokenType:: OPERATOR,"operator" },
   { TokenType:: SCHAR, "sp_char" },
@@ -320,6 +317,8 @@ Token Lexer::parseName() {
     ident_str += advance();
   }
 
+  return Token(TokenType::NAME, ident_str, m_line, start_col, ""); // 식별자 토큰
+R"(  
   // 키워드인지 확인
   auto it = keywords.find(ident_str);
 //  std::cout << "===========<>" << ident_str << std::endl;
@@ -328,6 +327,7 @@ Token Lexer::parseName() {
   } else {
     return Token(TokenType::NAME, ident_str, m_line, start_col, ""); // 식별자 토큰
   }
+  )";
 }
 
 Token Lexer::parseBlock() {
