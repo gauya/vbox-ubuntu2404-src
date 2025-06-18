@@ -3,7 +3,7 @@ TARGET = lexer
 OBJS = $(patsubst %.cpp,%.o,$(SRCS))
 
 CXX = g++
-CXXFLAGS = -std=c++23 -Wall
+CXXFLAGS = -std=c++23 -Wall -O3
 LDFLAGS = 
 
 INCDIR = -I.
@@ -21,6 +21,9 @@ clean:
 
 test: 
 	g++ $(CXXFLAGS) $(INCDIR) $(LDFLAGS) -DTEST $(SRCS) -o $(TARGET) 
+
+testg: 
+	g++ $(CXXFLAGS) $(INCDIR) $(LDFLAGS) -g -DTEST $(SRCS) -o $(TARGET) 
 
 all: $(TARGET)
 
