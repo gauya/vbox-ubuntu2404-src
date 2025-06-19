@@ -22,7 +22,7 @@ clean:
 	@rm -f *.o lexer 2>/dev/null
 #	-@rm  *.o lexer 2>/dev/null
 
-lexer:  
+lexer: lexer.cpp lexer.h 
 	g++ $(CXXFLAGS) $(INCDIR) $(LDFLAGS) -DTEST lexer.cpp -o lexer 
 
 test: 

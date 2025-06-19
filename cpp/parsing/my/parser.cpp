@@ -9,28 +9,13 @@ namespace MyLang {
 // ... (Parser 생성자 및 expect, currentToken, advance 함수는 동일) ...
 
 std::string tokenTypeToString(TokenType type) {
-    switch (type) {
-        case TokenType::KEYWORD: return "KEYWORD";
-        case TokenType::IDENTIFIER: return "IDENTIFIER";
-        case TokenType::NUMBER: return "NUMBER";
-        case TokenType::OPERATOR: return "OPERATOR";
-        case TokenType::PAREN_OPEN: return "PAREN_OPEN";
-        case TokenType::PAREN_CLOSE: return "PAREN_CLOSE";
-        case TokenType::SQUAREB_OPEN: return "SQUAREB_OPEN";
-        case TokenType::SQUAREB_CLOSE: return "SQUAREB_CLOSE";
-        case TokenType::BRACE_OPEN: return "BRACE_OPEN";
-        case TokenType::BRACE_CLOSE: return "BRACE_CLOSE";
-        case TokenType::SEMICOLON: return "SEMICOLON";
-        case TokenType::STRING_LITERAL: return "STRING_LITERAL";
-        case TokenType::END_OF_FILE: return "END_OF_FILE";
-        default: return "UNKNOWN_TOKEN_TYPE";
-    }
+  return "";
 }
 
 // ... (parseProgram 함수는 동일) ...
 
 std::unique_ptr<ASTNode> Parser::parseStatement() {
-    if (currentToken().type == TokenType::KEYWORD) {
+    if (currentToken().subtype == TokenSubtype::KEYWORD) {
         if (currentToken().value == "if") {
             return parseIfStatement();
         } else if (currentToken().value == "while") {
@@ -38,44 +23,44 @@ std::unique_ptr<ASTNode> Parser::parseStatement() {
         } else if (currentToken().value == "func") {
             return parseFunctionDeclaration();
         } else if (currentToken().value == "return") {
-            expect(TokenType::KEYWORD, "return");
+            expect(TokenSubtype::KEYWORD, "return");
             auto expr = parseExpression();
-            expect(TokenType::SEMICOLON);
+            expect(TokenType::SCHAR,";");
             return std::make_unique<ReturnStatementNode>(std::move(expr));
         } else {
           // error 
         }
     }
     auto expr = parseExpression();
-    expect(TokenType::SEMICOLON);
+    expect(TokenType::SCHAR, ";");
     return std::make_unique<ExpressionStatementNode>(std::move(expr));
 }
 
 // --- 변경: parseBlock()의 반환 타입을 일치시킴 ---
 std::unique_ptr<BlockNode> Parser::parseBlock() {
-    expect(TokenType::BRACE_OPEN); // '{'
+    expect(TokenSubtype::BRACE_OPEN); // '{'
     auto block_node = std::make_unique<BlockNode>();
-    while (currentToken().type != TokenType::BRACE_CLOSE &&
+    while (currentToken().subtype != TokenSubtype::BRACE_CLOSE &&
            currentToken().type != TokenType::END_OF_FILE) {
         block_node->statements.push_back(parseStatement());
     }
-    expect(TokenType::BRACE_CLOSE); // '}'
+    expect(TokenSubtype::BRACE_CLOSE); // '}'
     return block_node;
 }
 // --- 여기까지 변경 ---
 
 std::unique_ptr<ASTNode> Parser::parseIfStatement() {
-    expect(TokenType::KEYWORD, "if");
-    expect(TokenType::PAREN_OPEN);
+    expect(TokenSubtype::KEYWORD, "if");
+    expect(TokenSubtype::PAREN_OPEN);
     auto condition = parseExpression();
-    expect(TokenType::PAREN_CLOSE);
+    expect(TokenSubtype::PAREN_CLOSE);
 
     // --- 변경: body와 else_body에 직접 할당 가능 ---
     auto body = parseBlock(); // 이제 unique_ptr<BlockNode>를 반환
     
     std::unique_ptr<BlockNode> else_body = nullptr;
-    if (currentToken().type == TokenType::KEYWORD && currentToken().value == "else") {
-        expect(TokenType::KEYWORD, "else");
+    if (currentToken().subtype == TokenSubtype::KEYWORD && currentToken().value == "else") {
+        expect(TokenSubtype::KEYWORD, "else");
         else_body = parseBlock(); // 이제 unique_ptr<BlockNode>를 반환
     }
 
@@ -87,10 +72,10 @@ std::unique_ptr<ASTNode> Parser::parseIfStatement() {
 }
 
 std::unique_ptr<ASTNode> Parser::parseWhileStatement() {
-    expect(TokenType::KEYWORD, "while");
-    expect(TokenType::PAREN_OPEN);
+    expect(TokenSubtype::KEYWORD, "while");
+    expect(TokenSubtype::PAREN_OPEN);
     auto condition = parseExpression();
-    expect(TokenType::PAREN_CLOSE);
+    expect(TokenSubtype::PAREN_CLOSE);
 
     // --- 변경: body에 직접 할당 가능 ---
     auto body = parseBlock();
@@ -102,19 +87,19 @@ std::unique_ptr<ASTNode> Parser::parseWhileStatement() {
 }
 
 std::unique_ptr<ASTNode> Parser::parseFunctionDeclaration() {
-    expect(TokenType::KEYWORD, "func");
-    Token name_token = expect(TokenType::IDENTIFIER);
-    expect(TokenType::PAREN_OPEN);
+    expect(TokenSubtype::KEYWORD, "func");
+    Token name_token = expect(TokenSubtype::IDENTIFIER);
+    expect(TokenSubtype::PAREN_OPEN);
     
     std::vector<std::string> params;
-    if (currentToken().type == TokenType::IDENTIFIER) {
-        params.push_back(expect(TokenType::IDENTIFIER).value);
+    if (currentToken().subtype == TokenSubtype::IDENTIFIER) {
+        params.push_back(expect(TokenSubtype::IDENTIFIER).value);
         while (currentToken().type == TokenType::OPERATOR && currentToken().value == ",") {
             expect(TokenType::OPERATOR, ",");
-            params.push_back(expect(TokenType::IDENTIFIER).value);
+            params.push_back(expect(TokenSubtype::IDENTIFIER).value);
         }
     }
-    expect(TokenType::PAREN_CLOSE);
+    expect(TokenSubtype::PAREN_CLOSE);
 
     // --- 변경: body에 직접 할당 가능 ---
     auto body = parseBlock();
@@ -132,7 +117,7 @@ std::unique_ptr<ASTNode> Parser::parseFunctionDeclaration() {
 Parser::Parser(std::vector<Token> tokens)
     : tokens(std::move(tokens)), current_token_index(0) {
     if (this->tokens.empty()) {
-        this->tokens.push_back(Token(TokenType::END_OF_FILE, "", 0, 0));
+        this->tokens.push_back(Token(TokenType::END_OF_FILE, "", 0, 0, {}));
     }
 }
 
@@ -171,6 +156,20 @@ Token Parser::expect(TokenType type, const std::string& value) {
         return consumed_token;
     } else {
         throw std::runtime_error("Syntax Error: Expected '" + value + "' (type " + tokenTypeToString(type) +
+                                 "), got " + current.toString() +
+                                 " at line " + std::to_string(current.line) +
+                                 ", column " + std::to_string(current.column));
+    }
+}
+
+Token Parser::expect(TokenSubtype type, const std::string& value) {
+    const Token& current = currentToken();
+    if (current.subtype == type && (value == "" || current.value == value)) {
+        Token consumed_token = current;
+        advance();
+        return consumed_token;
+    } else {
+        throw std::runtime_error("Syntax Error: Expected '" + value + "' (type " + tokenTypeToString(current.type) +
                                  "), got " + current.toString() +
                                  " at line " + std::to_string(current.line) +
                                  ", column " + std::to_string(current.column));
@@ -222,17 +221,17 @@ std::unique_ptr<ASTNode> Parser::parsePrimaryExpression() {
     if (current.type == TokenType::NUMBER) {
         // NumberLiteralNode의 생성자에 int 인자를 전달
         return std::make_unique<NumberLiteralNode>(std::stoi(expect(TokenType::NUMBER).value));
-    } else if (current.type == TokenType::IDENTIFIER) {
+    } else if (current.subtype == TokenSubtype::IDENTIFIER) {
         // IdentifierNode의 생성자에 std::string 인자를 전달
-        return std::make_unique<IdentifierNode>(expect(TokenType::IDENTIFIER).value);
-    } else if (current.type == TokenType::PAREN_OPEN) {
-        expect(TokenType::PAREN_OPEN);
+        return std::make_unique<IdentifierNode>(expect(TokenSubtype::IDENTIFIER).value);
+    } else if (current.subtype == TokenSubtype::PAREN_OPEN) {
+        expect(TokenSubtype::PAREN_OPEN);
         auto expr = parseExpression();
-        expect(TokenType::PAREN_CLOSE);
+        expect(TokenSubtype::PAREN_CLOSE);
         return expr;
-    } else if (current.type == TokenType::STRING_LITERAL) { // 문자열 리터럴 추가
+    } else if (current.subtype == TokenSubtype::STRING_LITERAL) { // 문자열 리터럴 추가
         // StringLiteralNode 정의 필요. 여기서는 임시로 IdentifierNode 사용
-        return std::make_unique<IdentifierNode>(expect(TokenType::STRING_LITERAL).value); // TODO: StringLiteralNode로 변경
+        return std::make_unique<IdentifierNode>(expect(TokenSubtype::STRING_LITERAL).value); // TODO: StringLiteralNode로 변경
     }
     // TODO: 함수 호출 등 추가
 

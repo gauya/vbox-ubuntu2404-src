@@ -30,17 +30,35 @@ enum class TokenType : int {
 
 enum class TokenSubtype : int {
     UNDEF = 0,
-    KEYWORD,  // X 
-    VARTYPE,
     NAME,     // X
+    KEYWORD,  // if, while
+    IDENTIFIER, // function, variable name
+    DATTYPE,  // int
+    PREKEY,   // #include
+
     STRING,   // 
-    ALPA,     // constant, name, IDENTIFIER,, KEYWORD, STRING_LITERAL,
+    STRING_LITERAL,
+    
     NUMBER,   // constant,
+    
     OPERATOR, // +-*/?=!~^%&
+    
     SCHAR,    // ,.:;@$#
+    
     SPACE,    // isspace()
+    
     COMMENT,  // #, //, --, /* */, <% %>, ;, 
+    
     BLOCK,    // (, {, [, <, ", ', """, ''', /**/, #,
+    PAREN_OPEN,
+    PAREN_CLOSE,
+    BRACE_OPEN,
+    BRACE_CLOSE,
+    SQUARE_BRACKET_OPEN,
+    SQUARE_BRACKET_CLOSE,
+    ANGLE_BRACKET_OPEN,
+    ANGLE_BRACKET_CLOSE,
+    
     END_OF_FILE = -1  // EOF
 };
 
@@ -48,19 +66,20 @@ enum class TokenSubtype : int {
 // eof, comment, space, alpa, number, block, oper, schar 
 
 struct Token {
-    TokenType   m_type;
-    std::string m_value;
-    size_t m_line;
-    size_t m_column;
-    std::string m_subtype;
+    TokenType   type;
+    TokenSubtype subtype;
+    std::string typestr;
+    std::string value;
+    size_t line;
+    size_t column;
 
     // 생성자
-    Token() : m_type(TokenType::UNDEF), m_line(0), m_column(0) {}
+    Token() : type(TokenType::UNDEF), subtype(TokenSubtype::UNDEF), line(0), column(0) {}
     Token(TokenType type, const std::string& value, size_t line, size_t column, const std::string st )
-      : m_type(type), m_value(value), m_line(line), m_column(column), m_subtype(st) {}
+      : type(type), subtype((TokenSubtype)type), value(value), line(line), column(column), typestr(st) {}
 
     // 디버깅을 위한 출력 (선택 사항)
-    inline std::string toString() const { return m_value; }
+    inline std::string toString() const { return value; }
 };
 
 

@@ -12,37 +12,45 @@ namespace GLexer {
 const std::unordered_map<std::string, TokenSubtype> Lexer::keywords = {
   {"if", TokenSubtype::KEYWORD},
   {"else", TokenSubtype::KEYWORD},
+  {"do", TokenSubtype::KEYWORD},
   {"while", TokenSubtype::KEYWORD},
-  {"function", TokenSubtype::KEYWORD},
+  {"for", TokenSubtype::KEYWORD},
   {"switch", TokenSubtype::KEYWORD},
   {"case", TokenSubtype::KEYWORD},
   {"break", TokenSubtype::KEYWORD},
-  {"for", TokenSubtype::KEYWORD},
   {"default", TokenSubtype::KEYWORD},
   {"auto", TokenSubtype::KEYWORD},
+  {"def", TokenSubtype::KEYWORD},
+  {"function", TokenSubtype::KEYWORD},
 
-  {"void", TokenSubtype::VARTYPE},
-  {"char", TokenSubtype::VARTYPE},
-  {"unsigned", TokenSubtype::VARTYPE},
-  {"int", TokenSubtype::VARTYPE},
-  {"long", TokenSubtype::VARTYPE},
-  {"float", TokenSubtype::VARTYPE},
-  {"double", TokenSubtype::VARTYPE},
-  {"bool", TokenSubtype::VARTYPE},
+  {"include", TokenSubtype::PREKEY},
+  {"define", TokenSubtype::PREKEY},
+  {"undef", TokenSubtype::PREKEY},
+  {"ifdef", TokenSubtype::PREKEY},
+  {"endif", TokenSubtype::PREKEY},
 
-  {"true", TokenSubtype::VARTYPE},
-  {"false", TokenSubtype::VARTYPE},
+  {"void", TokenSubtype::DATTYPE},
+  {"char", TokenSubtype::DATTYPE},
+  {"unsigned", TokenSubtype::DATTYPE},
+  {"int", TokenSubtype::DATTYPE},
+  {"long", TokenSubtype::DATTYPE},
+  {"float", TokenSubtype::DATTYPE},
+  {"double", TokenSubtype::DATTYPE},
+  {"bool", TokenSubtype::DATTYPE},
 
-  {"struct", TokenSubtype::VARTYPE},
-  {"class", TokenSubtype::VARTYPE},
-  {"enum", TokenSubtype::VARTYPE},
-  {"typedef", TokenSubtype::VARTYPE},
+  {"true", TokenSubtype::DATTYPE},
+  {"false", TokenSubtype::DATTYPE},
 
-  {"const", TokenSubtype::VARTYPE},
-  {"static", TokenSubtype::VARTYPE},
-  {"namespace", TokenSubtype::VARTYPE},
-  {"extern", TokenSubtype::VARTYPE},
-  {"inline", TokenSubtype::VARTYPE},
+  {"struct", TokenSubtype::DATTYPE},
+  {"class", TokenSubtype::DATTYPE},
+  {"enum", TokenSubtype::DATTYPE},
+  {"typedef", TokenSubtype::DATTYPE},
+
+  {"const", TokenSubtype::DATTYPE},
+  {"static", TokenSubtype::DATTYPE},
+  {"namespace", TokenSubtype::DATTYPE},
+  {"extern", TokenSubtype::DATTYPE},
+  {"inline", TokenSubtype::DATTYPE},
 
   {"return", TokenSubtype::KEYWORD} // 예시에 return 추가
 };
@@ -533,9 +541,9 @@ std::vector<Token> Lexer::tokenize() {
   do {
     tok = getToken();
     std::cout << std::format("{:04} {:04} {:<12}.{:3} : {}\n", 
-      cnt++,tok.m_line, tokentype_names.at(tok.m_type), tok.m_subtype, tok.m_value );
+      cnt++,tok.line, tokentype_names.at(tok.type), tok.typestr, tok.value );
     m_toks.push_back(tok);
-  } while (tok.m_type != TokenType::END_OF_FILE);
+  } while (tok.type != TokenType::END_OF_FILE);
   return m_toks;
 }
 

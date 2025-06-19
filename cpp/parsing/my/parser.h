@@ -95,6 +95,7 @@ private:
     void advance();
     Token expect(TokenType type);
     Token expect(TokenType type, const std::string& value);
+    Token expect(TokenSubtype type, const std::string& value="");
 
     std::unique_ptr<ASTNode> parseStatement();
     // --- 변경: parseBlock()의 선언을 일치시킴 ---

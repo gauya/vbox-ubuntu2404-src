@@ -109,8 +109,8 @@ int main(int argc,char *argv[]) {
 
     try {
         // 2. 렉싱 단계: 소스 코드를 토큰 리스트로 변환
-        MyLang::Lexer lexer(source_code);
-        std::vector<MyLang::Token> tokens = lexer.tokenize();
+        Lexer lexer(source_code);
+        std::vector<GLexer::Token> tokens = lexer.tokenize();
 
         std::cout << "--- Tokens ---" << std::endl;
         for (const auto& token : tokens) {
