@@ -6,7 +6,7 @@
 #include <string.h>
 #include "lexer.h"
 
-namespace GLexer {
+namespace MyLang {
 
 // Lexer 클래스 멤버 변수 초기화
 const std::unordered_map<std::string, TokenSubtype> Lexer::keywords = {
@@ -68,6 +68,101 @@ const std::map<TokenType, std::string> Lexer::tokentype_names = {
   { TokenType:: END_OF_FILE, "endoffile" }
 };
 
+/*
+python
+
+b = --copy/paste-- TokenSubtype split('\n')
+
+for l in b:
+  r=l.split(',')[0].strip()
+  if len(r) == 0: continue
+  u = r.lower()
+  print( "\t{ TokenSubtype::" + r + f", \"{u}\"" +" }," ) 
+*/
+
+const std::map<TokenSubtype, std::string> Lexer::tokenSubtype_names = {
+	{ TokenSubtype::UNDEF, "undef" },
+	{ TokenSubtype::NAME, "name" },
+	{ TokenSubtype::KEYWORD, "keyword" },
+	{ TokenSubtype::IDENTIFIER, "identifier" },
+	{ TokenSubtype::DATTYPE, "dattype" },
+	{ TokenSubtype::PREKEY, "prekey" },
+	{ TokenSubtype::STRING, "string" },
+	{ TokenSubtype::STRING_LITERAL, "string_literal" },
+	{ TokenSubtype::NUMBER, "number" },
+	{ TokenSubtype::INTEGER, "integer" },
+	{ TokenSubtype::FLOAT, "float" },
+	{ TokenSubtype::BIN_NUM, "bin_num" },
+	{ TokenSubtype::OCT_NUM, "oct_num" },
+	{ TokenSubtype::HEX_NUM, "hex_num" },
+	{ TokenSubtype::OPERATOR, "operator" },
+	{ TokenSubtype::ARTHMETIC_OP, "arthmetic_op" },
+	{ TokenSubtype::ASSIGN_OP, "assign_op" },
+	{ TokenSubtype::SIGN_OP, "sign_op" },
+	{ TokenSubtype::INCRE_OP, "incre_op" },
+	{ TokenSubtype::RELATION_OP, "relation_op" },
+	{ TokenSubtype::LOGIC_OP, "logic_op" },
+	{ TokenSubtype::BITWISE_OP, "bitwise_op" },
+	{ TokenSubtype::STRUCT_OP, "struct_op" },
+	{ TokenSubtype::SCOPE_OP, "scope_op" },
+	{ TokenSubtype::ETC_OP, "etc_op" },
+	{ TokenSubtype::SCHAR, "schar" },
+	{ TokenSubtype::SPACE, "space" },
+	{ TokenSubtype::COMMENT, "comment" },
+	{ TokenSubtype::LINE_COMMENT, "line_comment" },
+	{ TokenSubtype::BLOCK_COMMENT, "block_comment" },
+	{ TokenSubtype::BLOCK, "block" },
+	{ TokenSubtype::PAREN_OPEN, "paren_open" },
+	{ TokenSubtype::PAREN_CLOSE, "paren_close" },
+	{ TokenSubtype::BRACE_OPEN, "brace_open" },
+	{ TokenSubtype::BRACE_CLOSE, "brace_close" },
+	{ TokenSubtype::SQUARE_BRACKET_OPEN, "square_bracket_open" },
+	{ TokenSubtype::SQUARE_BRACKET_CLOSE, "square_bracket_close" },
+	{ TokenSubtype::ANGLE_BRACKET_OPEN, "angle_bracket_open" },
+	{ TokenSubtype::ANGLE_BRACKET_CLOSE, "angle_bracket_close" },
+	{ TokenSubtype::END_OF_FILE,""}  // EOF, "end_of_file = -1  // eof" },
+};
+
+TokenSubtype Token::set_subtype() {
+  switch(type) {
+  case TokenType::NAME:
+    subtype = Lexer::keywords.at(value);
+    break;
+  case TokenType::NUMBER:
+    subtype = TokenSubtype::NUMBER;
+    break;
+  case TokenType::OPERATOR:
+    subtype = TokenSubtype::OPERATOR;
+    break;
+  case TokenType::SCHAR:
+    subtype = TokenSubtype::SCHAR;
+    break;
+  case TokenType::COMMENT:
+    subtype = TokenSubtype::COMMENT;
+    break;
+  case TokenType::BLOCK:
+    subtype = TokenSubtype::BLOCK;
+    if (typestr.at(0) == '(') { subtype = TokenSubtype::PAREN_OPEN; } 
+    else if ( typestr.at(0) == ')') { subtype = TokenSubtype::PAREN_CLOSE; }
+    else if ( typestr.at(0) == '{') { subtype = TokenSubtype::BRACE_OPEN; }
+    else if ( typestr.at(0) == '}') { subtype = TokenSubtype::BRACE_CLOSE; }
+    else if ( typestr.at(0) == '[') { subtype = TokenSubtype::SQUARE_BRACKET_OPEN; }
+    else if ( typestr.at(0) == ']') { subtype = TokenSubtype::SQUARE_BRACKET_CLOSE; }
+    else if ( typestr.at(0) == '<') { subtype = TokenSubtype::ANGLE_BRACKET_OPEN; }
+    else if ( typestr.at(0) == '>') { subtype = TokenSubtype::ANGLE_BRACKET_CLOSE; }
+    else {
+    }
+    break;
+  case TokenType::STRING:
+    subtype = TokenSubtype::STRING;
+    break;
+  case TokenType::SPACE:
+    subtype = TokenSubtype::SPACE;
+    break;
+  }
+
+  return subtype;
+}
 // peek()에서 '\' 를 처리해야할까
 char Lexer::peek() const {
   if (m_pos < m_str.length()) {
@@ -540,8 +635,10 @@ std::vector<Token> Lexer::tokenize() {
   Token tok;
   do {
     tok = getToken();
+#ifdef TEST    
     std::cout << std::format("{:04} {:04} {:<12}.{:3} : {}\n", 
       cnt++,tok.line, tokentype_names.at(tok.type), tok.typestr, tok.value );
+#endif
     m_toks.push_back(tok);
   } while (tok.type != TokenType::END_OF_FILE);
   return m_toks;
@@ -565,9 +662,11 @@ int main(int argc, const char*argv[]) {
   lex.load_file(argv[1]);
 
   lex.tokenize();
+#ifdef TEST  
   std::cout << "=======================================================" << std::endl;
   std::cout << std::format("file size={}, lines={}, tokens={}\n", lex.length(), lex.line(), lex.tokens());
   std::cout << "=======================================================" << std::endl;
+#endif
 }
 #endif // TEST
 

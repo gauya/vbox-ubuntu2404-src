@@ -2,6 +2,7 @@
 #include <vector>
 #include <string>
 #include <memory>
+#include <format>
 
 // 직접 만든 렉서와 파서 헤더 파일 포함
 #include "lexer.h"
@@ -109,11 +110,12 @@ int main(int argc,char *argv[]) {
 
     try {
         // 2. 렉싱 단계: 소스 코드를 토큰 리스트로 변환
-        Lexer lexer(source_code);
-        std::vector<GLexer::Token> tokens = lexer.tokenize();
+        MyLang::Lexer lexer(source_code);
+        std::vector<MyLang::Token> tokens = lexer.tokenize();
 
         std::cout << "--- Tokens ---" << std::endl;
         for (const auto& token : tokens) {
+            std::cout << std::format("{:4} {:<12} {:3}:",token.line, MyLang::Lexer::tokentype_names.at(token.type), token.typestr);
             std::cout << token.toString() << std::endl;
         }
         std::cout << "--------------" << std::endl << std::endl;

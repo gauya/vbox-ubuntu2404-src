@@ -11,7 +11,7 @@
 #include <iostream>
 #endif // TEST
 
-namespace GLexer {
+namespace MyLang {
 
 // 토큰이 겹칠수도 있어 차례대로 해석
 
@@ -30,26 +30,43 @@ enum class TokenType : int {
 
 enum class TokenSubtype : int {
     UNDEF = 0,
-    NAME,     // X
+    NAME,     // ============================================
     KEYWORD,  // if, while
     IDENTIFIER, // function, variable name
     DATTYPE,  // int
     PREKEY,   // #include
 
-    STRING,   // 
+    STRING,   //           =================================================== 
     STRING_LITERAL,
     
-    NUMBER,   // constant,
+    NUMBER,   // constant, =====================================================
+    INTEGER,  // decimal, 
+    FLOAT,    // 
+    BIN_NUM,  // 0b
+    OCT_NUM,  // 0
+    HEX_NUM,  // 0x
     
-    OPERATOR, // +-*/?=!~^%&
+    OPERATOR, // +-*/?=!~^%& ================================================
+    ARTHMETIC_OP,
+    ASSIGN_OP,  // =, -=, +=, *=. /=, %=
+    SIGN_OP,    // +, -
+    INCRE_OP,   // ++,--
+    RELATION_OP,
+    LOGIC_OP,
+    BITWISE_OP,
+    STRUCT_OP,  // ., ->
+    SCOPE_OP,   // ::
+    ETC_OP,  // sizeof, new, delete 
     
-    SCHAR,    // ,.:;@$#
+    SCHAR,    // ,.:;@$# =======================================================
     
-    SPACE,    // isspace()
+    SPACE,    // isspace() \b, \t, \n, \r, , \f,   
     
-    COMMENT,  // #, //, --, /* */, <% %>, ;, 
+    COMMENT,  // #, //, --, /* */, <% %>, ;, ========================================
+    LINE_COMMENT,  // #, //, --
+    BLOCK_COMMENT, // /**/
     
-    BLOCK,    // (, {, [, <, ", ', """, ''', /**/, #,
+    BLOCK,    // (, {, [, <, ", ', , ''', /**/, #, ================================
     PAREN_OPEN,
     PAREN_CLOSE,
     BRACE_OPEN,
@@ -78,6 +95,7 @@ struct Token {
     Token(TokenType type, const std::string& value, size_t line, size_t column, const std::string st )
       : type(type), subtype((TokenSubtype)type), value(value), line(line), column(column), typestr(st) {}
 
+    TokenSubtype set_subtype();
     // 디버깅을 위한 출력 (선택 사항)
     inline std::string toString() const { return value; }
 };
@@ -131,6 +149,7 @@ public:
   // 토큰 타입 맵 (문자열 -> TokenType)
   static const std::unordered_map<std::string, TokenSubtype> keywords; // 키워드 맵 (정적 멤버)
   static const std::map<TokenType, std::string> tokentype_names;
+  static const std::map<TokenSubtype, std::string> tokenSubtype_names;
   int load_file(const char * fn);
 };
 
