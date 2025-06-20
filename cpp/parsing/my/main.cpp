@@ -108,14 +108,14 @@ int main(int argc,char *argv[]) {
     std::cout << source_code << std::endl;
     std::cout << "-------------------" << std::endl << std::endl;
 
-    try {
-        // 2. 렉싱 단계: 소스 코드를 토큰 리스트로 변환
-        MyLang::Lexer lexer(source_code);
-        std::vector<MyLang::Token> tokens = lexer.tokenize();
+    // 2. 렉싱 단계: 소스 코드를 토큰 리스트로 변환
+    MyLang::Lexer lexer(source_code);
+    std::vector<MyLang::Token> tokens = lexer.tokenize();
 
-        std::cout << "--- Tokens ---" << std::endl;
+    std::cout << "--- Tokens ---" << std::endl;
+    try {
         for (const auto& token : tokens) {
-            std::cout << std::format("{:4} {:<12} {:3}:",token.line, MyLang::Lexer::tokentype_names.at(token.type), token.typestr);
+            std::cout << std::format("{:4} {:<12} {:3} {:<15} :",token.line, MyLang::Lexer::tokentype_names.at(token.type), token.typestr, std::format("<{}>",MyLang::Lexer::tokenSubtype_names.at(token.subtype)));
             std::cout << token.toString() << std::endl;
         }
         std::cout << "--------------" << std::endl << std::endl;
@@ -131,8 +131,8 @@ int main(int argc,char *argv[]) {
     } catch (const std::runtime_error& e) {
         std::cerr << "Error: " << e.what() << std::endl;
         return 1;
-    } catch (...) {
-        std::cerr << "An unknown error occurred." << std::endl;
+    } catch (const std::exception & e) {
+        std::cerr << "<Error :" << e.what() << ">" << std::endl;
         return 1;
     }
 

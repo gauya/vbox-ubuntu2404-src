@@ -120,13 +120,13 @@ const std::map<TokenSubtype, std::string> Lexer::tokenSubtype_names = {
 	{ TokenSubtype::SQUARE_BRACKET_CLOSE, "square_bracket_close" },
 	{ TokenSubtype::ANGLE_BRACKET_OPEN, "angle_bracket_open" },
 	{ TokenSubtype::ANGLE_BRACKET_CLOSE, "angle_bracket_close" },
-	{ TokenSubtype::END_OF_FILE,""}  // EOF, "end_of_file = -1  // eof" },
+	{ TokenSubtype::END_OF_FILE,"end_of_file"}  // EOF, "end_of_file = -1  // eof" },
 };
 
 TokenSubtype Token::set_subtype() {
   switch(type) {
   case TokenType::NAME:
-    subtype = Lexer::keywords.at(value);
+    subtype = MyLang::Lexer::Lexer::keywords.at(value);
     break;
   case TokenType::NUMBER:
     subtype = TokenSubtype::NUMBER;
@@ -159,10 +159,17 @@ TokenSubtype Token::set_subtype() {
   case TokenType::SPACE:
     subtype = TokenSubtype::SPACE;
     break;
+  default:
+    subtype = TokenSubtype::UNDEF;
   }
 
   return subtype;
 }
+
+Token::Token( TokenType type, const std::string& value, size_t line, size_t column, const std::string st ) : type(type), subtype((TokenSubtype)type), typestr(st), value(value), line(line), column(column) {
+  //set_subtype();
+}
+
 // peek()에서 '\' 를 처리해야할까
 char Lexer::peek() const {
   if (m_pos < m_str.length()) {
@@ -421,6 +428,8 @@ Token Lexer::parseName() {
   }
 
   return Token(TokenType::NAME, ident_str, m_line, start_col, ""); // 식별자 토큰
+}
+/*
 R"(  
   // 키워드인지 확인
   auto it = keywords.find(ident_str);
@@ -432,6 +441,7 @@ R"(
   }
   )";
 }
+*/
 
 Token Lexer::parseBlock() {
   int start_col = m_column;
@@ -631,7 +641,6 @@ Token Lexer::getToken() {
 
 
 std::vector<Token> Lexer::tokenize() {
-  int cnt=0;
   Token tok;
   do {
     tok = getToken();

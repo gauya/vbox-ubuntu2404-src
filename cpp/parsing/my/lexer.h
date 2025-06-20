@@ -92,8 +92,7 @@ struct Token {
 
     // 생성자
     Token() : type(TokenType::UNDEF), subtype(TokenSubtype::UNDEF), line(0), column(0) {}
-    Token(TokenType type, const std::string& value, size_t line, size_t column, const std::string st )
-      : type(type), subtype((TokenSubtype)type), value(value), line(line), column(column), typestr(st) {}
+    Token(TokenType type, const std::string& value, size_t line, size_t column, const std::string st );
 
     TokenSubtype set_subtype();
     // 디버깅을 위한 출력 (선택 사항)

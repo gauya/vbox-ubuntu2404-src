@@ -15,7 +15,7 @@ LIBDIR =
 $(TARGET): $(OBJS)
 	$(CXX) $(CXXFLAGS) $(INCDIR) $(LDFLAGS) $(SRCS) -o $(TARGET) 
 
-all: $(TARGET)
+all: $(TARGET) $(SRCS)
 	g++ $(CXXFLAGS) $(SRCS) -o $(TARGET)
 
 clean:
