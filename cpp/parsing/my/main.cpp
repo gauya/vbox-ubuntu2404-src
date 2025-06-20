@@ -115,7 +115,7 @@ int main(int argc,char *argv[]) {
     std::cout << "--- Tokens ---" << std::endl;
     try {
         for (const auto& token : tokens) {
-            std::cout << std::format("{:4} {:<12} {:3} {:<15} :",token.line, MyLang::Lexer::tokentype_names.at(token.type), token.typestr, std::format("<{}>",MyLang::Lexer::tokenSubtype_names.at(token.subtype)));
+            std::cout << format("{:4} {:<12} {:3} {:<15} :",token.line, MyLang::Lexer::tokentype_names.at(token.type), token.typestr, format("<{}>",MyLang::Lexer::tokenSubtype_names.at(token.subtype)));
             std::cout << token.toString() << std::endl;
         }
         std::cout << "--------------" << std::endl << std::endl;

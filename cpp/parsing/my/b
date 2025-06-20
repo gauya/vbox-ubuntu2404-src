@@ -1,0 +1,3674 @@
+open file : parser.cpp
+load file
+--- Source Code ---
+// parser.cpp
+#include "parser.h"
+#include <iostream>
+#include <stdexcept>
+#include <utility> // std::move를 위해
+
+namespace MyLang {
+
+// ... (Parser 생성자 및 expect, currentToken, advance 함수는 동일) ...
+
+std::string tokenTypeToString(TokenType type) {
+  return "";
+}
+
+// ... (parseProgram 함수는 동일) ...
+
+std::unique_ptr<ASTNode> Parser::parseStatement() {
+    if (currentToken().subtype == TokenSubtype::KEYWORD) {
+        if (currentToken().value == "if") {
+            return parseIfStatement();
+        } else if (currentToken().value == "while") {
+            return parseWhileStatement();
+        } else if (currentToken().value == "func") {
+            return parseFunctionDeclaration();
+        } else if (currentToken().value == "return") {
+            expect(TokenSubtype::KEYWORD, "return");
+            auto expr = parseExpression();
+            expect(TokenType::SCHAR,";");
+            return std::make_unique<ReturnStatementNode>(std::move(expr));
+        } else {
+          // error 
+        }
+    }
+    auto expr = parseExpression();
+    expect(TokenType::SCHAR, ";");
+    return std::make_unique<ExpressionStatementNode>(std::move(expr));
+}
+
+// --- 변경: parseBlock()의 반환 타입을 일치시킴 ---
+std::unique_ptr<BlockNode> Parser::parseBlock() {
+    expect(TokenSubtype::BRACE_OPEN); // '{'
+    auto block_node = std::make_unique<BlockNode>();
+    while (currentToken().subtype != TokenSubtype::BRACE_CLOSE &&
+           currentToken().type != TokenType::END_OF_FILE) {
+        block_node->statements.push_back(parseStatement());
+    }
+    expect(TokenSubtype::BRACE_CLOSE); // '}'
+    return block_node;
+}
+// --- 여기까지 변경 ---
+
+std::unique_ptr<ASTNode> Parser::parseIfStatement() {
+    expect(TokenSubtype::KEYWORD, "if");
+    expect(TokenSubtype::PAREN_OPEN);
+    auto condition = parseExpression();
+    expect(TokenSubtype::PAREN_CLOSE);
+
+    // --- 변경: body와 else_body에 직접 할당 가능 ---
+    auto body = parseBlock(); // 이제 unique_ptr<BlockNode>를 반환
+    
+    std::unique_ptr<BlockNode> else_body = nullptr;
+    if (currentToken().subtype == TokenSubtype::KEYWORD && currentToken().value == "else") {
+        expect(TokenSubtype::KEYWORD, "else");
+        else_body = parseBlock(); // 이제 unique_ptr<BlockNode>를 반환
+    }
+
+    auto if_node = std::make_unique<IfStatementNode>();
+    if_node->condition = std::move(condition);
+    if_node->body = std::move(body);
+    if_node->else_body = std::move(else_body);
+    return if_node;
+}
+
+std::unique_ptr<ASTNode> Parser::parseWhileStatement() {
+    expect(TokenSubtype::KEYWORD, "while");
+    expect(TokenSubtype::PAREN_OPEN);
+    auto condition = parseExpression();
+    expect(TokenSubtype::PAREN_CLOSE);
+
+    // --- 변경: body에 직접 할당 가능 ---
+    auto body = parseBlock();
+
+    auto while_node = std::make_unique<WhileStatementNode>();
+    while_node->condition = std::move(condition);
+    while_node->body = std::move(body);
+    return while_node;
+}
+
+std::unique_ptr<ASTNode> Parser::parseFunctionDeclaration() {
+    expect(TokenSubtype::KEYWORD, "func");
+    Token name_token = expect(TokenSubtype::IDENTIFIER);
+    expect(TokenSubtype::PAREN_OPEN);
+    
+    std::vector<std::string> params;
+    if (currentToken().subtype == TokenSubtype::IDENTIFIER) {
+        params.push_back(expect(TokenSubtype::IDENTIFIER).value);
+        while (currentToken().type == TokenType::OPERATOR && currentToken().value == ",") {
+            expect(TokenType::OPERATOR, ",");
+            params.push_back(expect(TokenSubtype::IDENTIFIER).value);
+        }
+    }
+    expect(TokenSubtype::PAREN_CLOSE);
+
+    // --- 변경: body에 직접 할당 가능 ---
+    auto body = parseBlock();
+
+    auto func_node = std::make_unique<FunctionDeclarationNode>();
+    func_node->name = name_token.value;
+    func_node->params = std::move(params);
+    func_node->body = std::move(body);
+    return func_node;
+}
+
+// ASTNode::getNodeType()은 virtual이므로, dynamic_cast를 대체하는 데 유용합니다.
+// (main.cpp의 printAST 함수에서 활용)
+
+Parser::Parser(std::vector<Token> tokens)
+    : tokens(std::move(tokens)), current_token_index(0) {
+    if (this->tokens.empty()) {
+        this->tokens.push_back(Token(TokenType::END_OF_FILE, "", 0, 0, {}));
+    }
+}
+
+const Token& Parser::currentToken() const {
+    if (current_token_index >= tokens.size()) {
+        return tokens.back();
+    }
+    return tokens[current_token_index];
+}
+
+void Parser::advance() {
+    if (current_token_index < tokens.size()) {
+        current_token_index++;
+    }
+}
+
+Token Parser::expect(TokenType type) {
+    const Token& current = currentToken();
+    if (current.type == type) {
+        Token consumed_token = current;
+        advance();
+        return consumed_token;
+    } else {
+        throw std::runtime_error("Syntax Error: Expected " + tokenTypeToString(type) +
+                                 ", got " + current.toString() +
+                                 " at line " + std::to_string(current.line) +
+                                 ", column " + std::to_string(current.column));
+    }
+}
+
+Token Parser::expect(TokenType type, const std::string& value) {
+    const Token& current = currentToken();
+    if (current.type == type && current.value == value) {
+        Token consumed_token = current;
+        advance();
+        return consumed_token;
+    } else {
+        throw std::runtime_error("Syntax Error: Expected '" + value + "' (type " + tokenTypeToString(type) +
+                                 "), got " + current.toString() +
+                                 " at line " + std::to_string(current.line) +
+                                 ", column " + std::to_string(current.column));
+    }
+}
+
+Token Parser::expect(TokenSubtype type, const std::string& value) {
+    const Token& current = currentToken();
+    if (current.subtype == type && (value == "" || current.value == value)) {
+        Token consumed_token = current;
+        advance();
+        return consumed_token;
+    } else {
+        throw std::runtime_error("Syntax Error: Expected '" + value + "' (type " + tokenTypeToString(current.type) +
+                                 "), got " + current.toString() +
+                                 " at line " + std::to_string(current.line) +
+                                 ", column " + std::to_string(current.column));
+    }
+}
+
+
+std::unique_ptr<ProgramNode> Parser::parseProgram() {
+    auto program = std::make_unique<ProgramNode>();
+    while (currentToken().type != TokenType::END_OF_FILE) {
+        program->statements.push_back(parseStatement());
+    }
+    return program;
+}
+
+int getOperatorPrecedence(const std::string& op) {
+    if (op == "+" || op == "-") return 1;
+    if (op == "*" || op == "/") return 2;
+    if (op == "==" || op == ">" || op == "<" || op == "=") return 0; // 할당 연산자 우선순위 추가
+    return -1;
+}
+
+std::unique_ptr<ASTNode> Parser::parseExpression() {
+    return parseBinaryExpression(0);
+}
+
+std::unique_ptr<ASTNode> Parser::parseBinaryExpression(int precedence) {
+    auto left = parsePrimaryExpression();
+
+    while (currentToken().type == TokenType::OPERATOR &&
+           getOperatorPrecedence(currentToken().value) >= precedence) {
+        std::string op = expect(TokenType::OPERATOR).value;
+        int next_precedence = getOperatorPrecedence(op);
+        // 왼쪽 결합성 연산자 (대부분의 이진 연산자: +, -, *, /)
+        // 같은 우선순위의 다음 연산자는 현재 연산자와 같거나 낮은 우선순위로 파싱
+        auto right = parseBinaryExpression(next_precedence + 1);
+
+        auto binary_node = std::make_unique<BinaryExpressionNode>();
+        binary_node->left = std::move(left);
+        binary_node->op = op;
+        binary_node->right = std::move(right);
+        left = std::move(binary_node);
+    }
+    return left;
+}
+
+std::unique_ptr<ASTNode> Parser::parsePrimaryExpression() {
+    const Token& current = currentToken();
+    if (current.type == TokenType::NUMBER) {
+        // NumberLiteralNode의 생성자에 int 인자를 전달
+        return std::make_unique<NumberLiteralNode>(std::stoi(expect(TokenType::NUMBER).value));
+    } else if (current.subtype == TokenSubtype::IDENTIFIER) {
+        // IdentifierNode의 생성자에 std::string 인자를 전달
+        return std::make_unique<IdentifierNode>(expect(TokenSubtype::IDENTIFIER).value);
+    } else if (current.subtype == TokenSubtype::PAREN_OPEN) {
+        expect(TokenSubtype::PAREN_OPEN);
+        auto expr = parseExpression();
+        expect(TokenSubtype::PAREN_CLOSE);
+        return expr;
+    } else if (current.subtype == TokenSubtype::STRING_LITERAL) { // 문자열 리터럴 추가
+        // StringLiteralNode 정의 필요. 여기서는 임시로 IdentifierNode 사용
+        return std::make_unique<IdentifierNode>(expect(TokenSubtype::STRING_LITERAL).value); // TODO: StringLiteralNode로 변경
+    }
+    // TODO: 함수 호출 등 추가
+
+    throw std::runtime_error("Syntax Error: Unexpected token in primary expression: " + current.toString());
+}
+
+// ... (getOperatorPrecedence, parseExpression, parseBinaryExpression, parsePrimaryExpression 함수는 동일) ...
+
+} // namespace MyLang
+
+-------------------
+
+[// parser.cpp] 28:line_comment
+[#include "parser.h"] 28:line_comment
+[#include <iostream>] 28:line_comment
+[#include <stdexcept>] 28:line_comment
+[#include <utility> // std::move를 위해] 28:line_comment
+[namespace] 4:dattype
+[MyLang] 1:name
+[{] 33:brace_open
+[// ... (Parser 생성자 및 expect, currentToken, advance 함수는 동일) ...] 28:line_comment
+[std] 1:name
+(::) ::
+[::] 25:schar
+[string] 1:name
+[tokenTypeToString] 1:name
+[(] 31:paren_open
+[TokenType] 1:name
+[type] 1:name
+[)] 32:paren_close
+[{] 33:brace_open
+[return] 2:keyword
+[] 6:string
+[;] 25:schar
+[}] 34:brace_close
+[// ... (parseProgram 함수는 동일) ...] 28:line_comment
+[std] 1:name
+(::) ::
+[::] 25:schar
+[unique_ptr] 1:name
+[<] 37:angle_bracket_open
+[ASTNode] 1:name
+[>] 38:angle_bracket_close
+[Parser] 1:name
+(::) ::
+[::] 25:schar
+[parseStatement] 1:name
+[(] 31:paren_open
+[)] 32:paren_close
+[{] 33:brace_open
+[if] 2:keyword
+[(] 31:paren_open
+[currentToken] 1:name
+[(] 31:paren_open
+[)] 32:paren_close
+[.] 25:schar
+[subtype] 1:name
+(==) ::
+[==] 25:schar
+[TokenSubtype] 1:name
+(::) ::
+[::] 25:schar
+[KEYWORD] 1:name
+[)] 32:paren_close
+[{] 33:brace_open
+[if] 2:keyword
+[(] 31:paren_open
+[currentToken] 1:name
+[(] 31:paren_open
+[)] 32:paren_close
+[.] 25:schar
+[value] 1:name
+(==) ::
+[==] 25:schar
+[if] 6:string
+[)] 32:paren_close
+[{] 33:brace_open
+[return] 2:keyword
+[parseIfStatement] 1:name
+[(] 31:paren_open
+[)] 32:paren_close
+[;] 25:schar
+[}] 34:brace_close
+[else] 2:keyword
+[if] 2:keyword
+[(] 31:paren_open
+[currentToken] 1:name
+[(] 31:paren_open
+[)] 32:paren_close
+[.] 25:schar
+[value] 1:name
+(==) ::
+[==] 25:schar
+[while] 6:string
+[)] 32:paren_close
+[{] 33:brace_open
+[return] 2:keyword
+[parseWhileStatement] 1:name
+[(] 31:paren_open
+[)] 32:paren_close
+[;] 25:schar
+[}] 34:brace_close
+[else] 2:keyword
+[if] 2:keyword
+[(] 31:paren_open
+[currentToken] 1:name
+[(] 31:paren_open
+[)] 32:paren_close
+[.] 25:schar
+[value] 1:name
+(==) ::
+[==] 25:schar
+[func] 6:string
+[)] 32:paren_close
+[{] 33:brace_open
+[return] 2:keyword
+[parseFunctionDeclaration] 1:name
+[(] 31:paren_open
+[)] 32:paren_close
+[;] 25:schar
+[}] 34:brace_close
+[else] 2:keyword
+[if] 2:keyword
+[(] 31:paren_open
+[currentToken] 1:name
+[(] 31:paren_open
+[)] 32:paren_close
+[.] 25:schar
+[value] 1:name
+(==) ::
+[==] 25:schar
+[return] 6:string
+[)] 32:paren_close
+[{] 33:brace_open
+[expect] 1:name
+[(] 31:paren_open
+[TokenSubtype] 1:name
+(::) ::
+[::] 25:schar
+[KEYWORD] 1:name
+[,] 25:schar
+[return] 6:string
+[)] 32:paren_close
+[;] 25:schar
+[auto] 2:keyword
+[expr] 1:name
+(=) ::
+[=] 25:schar
+[parseExpression] 1:name
+[(] 31:paren_open
+[)] 32:paren_close
+[;] 25:schar
+[expect] 1:name
+[(] 31:paren_open
+[TokenType] 1:name
+(::) ::
+[::] 25:schar
+[SCHAR] 1:name
+[,] 25:schar
+[;] 6:string
+[)] 32:paren_close
+[;] 25:schar
+[return] 2:keyword
+[std] 1:name
+(::) ::
+[::] 25:schar
+[make_unique] 1:name
+[<] 37:angle_bracket_open
+[ReturnStatementNode] 1:name
+[>] 38:angle_bracket_close
+[(] 31:paren_open
+[std] 1:name
+(::) ::
+[::] 25:schar
+[move] 1:name
+[(] 31:paren_open
+[expr] 1:name
+[)] 32:paren_close
+[)] 32:paren_close
+[;] 25:schar
+[}] 34:brace_close
+[else] 2:keyword
+[{] 33:brace_open
+[// error ] 28:line_comment
+[}] 34:brace_close
+[}] 34:brace_close
+[auto] 2:keyword
+[expr] 1:name
+(=) ::
+[=] 25:schar
+[parseExpression] 1:name
+[(] 31:paren_open
+[)] 32:paren_close
+[;] 25:schar
+[expect] 1:name
+[(] 31:paren_open
+[TokenType] 1:name
+(::) ::
+[::] 25:schar
+[SCHAR] 1:name
+[,] 25:schar
+[;] 6:string
+[)] 32:paren_close
+[;] 25:schar
+[return] 2:keyword
+[std] 1:name
+(::) ::
+[::] 25:schar
+[make_unique] 1:name
+[<] 37:angle_bracket_open
+[ExpressionStatementNode] 1:name
+[>] 38:angle_bracket_close
+[(] 31:paren_open
+[std] 1:name
+(::) ::
+[::] 25:schar
+[move] 1:name
+[(] 31:paren_open
+[expr] 1:name
+[)] 32:paren_close
+[)] 32:paren_close
+[;] 25:schar
+[}] 34:brace_close
+[// --- 변경: parseBlock()의 반환 타입을 일치시킴 ---] 28:line_comment
+[std] 1:name
+(::) ::
+[::] 25:schar
+[unique_ptr] 1:name
+[<] 37:angle_bracket_open
+[BlockNode] 1:name
+[>] 38:angle_bracket_close
+[Parser] 1:name
+(::) ::
+[::] 25:schar
+[parseBlock] 1:name
+[(] 31:paren_open
+[)] 32:paren_close
+[{] 33:brace_open
+[expect] 1:name
+[(] 31:paren_open
+[TokenSubtype] 1:name
+(::) ::
+[::] 25:schar
+[BRACE_OPEN] 1:name
+[)] 32:paren_close
+[;] 25:schar
+[// '{'] 28:line_comment
+[auto] 2:keyword
+[block_node] 1:name
+(=) ::
+[=] 25:schar
+[std] 1:name
+(::) ::
+[::] 25:schar
+[make_unique] 1:name
+[<] 37:angle_bracket_open
+[BlockNode] 1:name
+[>] 38:angle_bracket_close
+[(] 31:paren_open
+[)] 32:paren_close
+[;] 25:schar
+[while] 2:keyword
+[(] 31:paren_open
+[currentToken] 1:name
+[(] 31:paren_open
+[)] 32:paren_close
+[.] 25:schar
+[subtype] 1:name
+(!=) ::
+[!=] 25:schar
+[TokenSubtype] 1:name
+(::) ::
+[::] 25:schar
+[BRACE_CLOSE] 1:name
+(&&) ::
+[&&] 25:schar
+[currentToken] 1:name
+[(] 31:paren_open
+[)] 32:paren_close
+[.] 25:schar
+[type] 1:name
+(!=) ::
+[!=] 25:schar
+[TokenType] 1:name
+(::) ::
+[::] 25:schar
+[END_OF_FILE] 1:name
+[)] 32:paren_close
+[{] 33:brace_open
+[block_node] 1:name
+(-) ::
+[-] 25:schar
+[>] 38:angle_bracket_close
+[statements] 1:name
+[.] 25:schar
+[push_back] 1:name
+[(] 31:paren_open
+[parseStatement] 1:name
+[(] 31:paren_open
+[)] 32:paren_close
+[)] 32:paren_close
+[;] 25:schar
+[}] 34:brace_close
+[expect] 1:name
+[(] 31:paren_open
+[TokenSubtype] 1:name
+(::) ::
+[::] 25:schar
+[BRACE_CLOSE] 1:name
+[)] 32:paren_close
+[;] 25:schar
+[// '}'] 28:line_comment
+[return] 2:keyword
+[block_node] 1:name
+[;] 25:schar
+[}] 34:brace_close
+[// --- 여기까지 변경 ---] 28:line_comment
+[std] 1:name
+(::) ::
+[::] 25:schar
+[unique_ptr] 1:name
+[<] 37:angle_bracket_open
+[ASTNode] 1:name
+[>] 38:angle_bracket_close
+[Parser] 1:name
+(::) ::
+[::] 25:schar
+[parseIfStatement] 1:name
+[(] 31:paren_open
+[)] 32:paren_close
+[{] 33:brace_open
+[expect] 1:name
+[(] 31:paren_open
+[TokenSubtype] 1:name
+(::) ::
+[::] 25:schar
+[KEYWORD] 1:name
+[,] 25:schar
+[if] 6:string
+[)] 32:paren_close
+[;] 25:schar
+[expect] 1:name
+[(] 31:paren_open
+[TokenSubtype] 1:name
+(::) ::
+[::] 25:schar
+[PAREN_OPEN] 1:name
+[)] 32:paren_close
+[;] 25:schar
+[auto] 2:keyword
+[condition] 1:name
+(=) ::
+[=] 25:schar
+[parseExpression] 1:name
+[(] 31:paren_open
+[)] 32:paren_close
+[;] 25:schar
+[expect] 1:name
+[(] 31:paren_open
+[TokenSubtype] 1:name
+(::) ::
+[::] 25:schar
+[PAREN_CLOSE] 1:name
+[)] 32:paren_close
+[;] 25:schar
+[// --- 변경: body와 else_body에 직접 할당 가능 ---] 28:line_comment
+[auto] 2:keyword
+[body] 1:name
+(=) ::
+[=] 25:schar
+[parseBlock] 1:name
+[(] 31:paren_open
+[)] 32:paren_close
+[;] 25:schar
+[// 이제 unique_ptr<BlockNode>를 반환] 28:line_comment
+[std] 1:name
+(::) ::
+[::] 25:schar
+[unique_ptr] 1:name
+[<] 37:angle_bracket_open
+[BlockNode] 1:name
+[>] 38:angle_bracket_close
+[else_body] 1:name
+(=) ::
+[=] 25:schar
+[nullptr] 1:name
+[;] 25:schar
+[if] 2:keyword
+[(] 31:paren_open
+[currentToken] 1:name
+[(] 31:paren_open
+[)] 32:paren_close
+[.] 25:schar
+[subtype] 1:name
+(==) ::
+[==] 25:schar
+[TokenSubtype] 1:name
+(::) ::
+[::] 25:schar
+[KEYWORD] 1:name
+(&&) ::
+[&&] 25:schar
+[currentToken] 1:name
+[(] 31:paren_open
+[)] 32:paren_close
+[.] 25:schar
+[value] 1:name
+(==) ::
+[==] 25:schar
+[else] 6:string
+[)] 32:paren_close
+[{] 33:brace_open
+[expect] 1:name
+[(] 31:paren_open
+[TokenSubtype] 1:name
+(::) ::
+[::] 25:schar
+[KEYWORD] 1:name
+[,] 25:schar
+[else] 6:string
+[)] 32:paren_close
+[;] 25:schar
+[else_body] 1:name
+(=) ::
+[=] 25:schar
+[parseBlock] 1:name
+[(] 31:paren_open
+[)] 32:paren_close
+[;] 25:schar
+[// 이제 unique_ptr<BlockNode>를 반환] 28:line_comment
+[}] 34:brace_close
+[auto] 2:keyword
+[if_node] 1:name
+(=) ::
+[=] 25:schar
+[std] 1:name
+(::) ::
+[::] 25:schar
+[make_unique] 1:name
+[<] 37:angle_bracket_open
+[IfStatementNode] 1:name
+[>] 38:angle_bracket_close
+[(] 31:paren_open
+[)] 32:paren_close
+[;] 25:schar
+[if_node] 1:name
+(-) ::
+[-] 25:schar
+[>] 38:angle_bracket_close
+[condition] 1:name
+(=) ::
+[=] 25:schar
+[std] 1:name
+(::) ::
+[::] 25:schar
+[move] 1:name
+[(] 31:paren_open
+[condition] 1:name
+[)] 32:paren_close
+[;] 25:schar
+[if_node] 1:name
+(-) ::
+[-] 25:schar
+[>] 38:angle_bracket_close
+[body] 1:name
+(=) ::
+[=] 25:schar
+[std] 1:name
+(::) ::
+[::] 25:schar
+[move] 1:name
+[(] 31:paren_open
+[body] 1:name
+[)] 32:paren_close
+[;] 25:schar
+[if_node] 1:name
+(-) ::
+[-] 25:schar
+[>] 38:angle_bracket_close
+[else_body] 1:name
+(=) ::
+[=] 25:schar
+[std] 1:name
+(::) ::
+[::] 25:schar
+[move] 1:name
+[(] 31:paren_open
+[else_body] 1:name
+[)] 32:paren_close
+[;] 25:schar
+[return] 2:keyword
+[if_node] 1:name
+[;] 25:schar
+[}] 34:brace_close
+[std] 1:name
+(::) ::
+[::] 25:schar
+[unique_ptr] 1:name
+[<] 37:angle_bracket_open
+[ASTNode] 1:name
+[>] 38:angle_bracket_close
+[Parser] 1:name
+(::) ::
+[::] 25:schar
+[parseWhileStatement] 1:name
+[(] 31:paren_open
+[)] 32:paren_close
+[{] 33:brace_open
+[expect] 1:name
+[(] 31:paren_open
+[TokenSubtype] 1:name
+(::) ::
+[::] 25:schar
+[KEYWORD] 1:name
+[,] 25:schar
+[while] 6:string
+[)] 32:paren_close
+[;] 25:schar
+[expect] 1:name
+[(] 31:paren_open
+[TokenSubtype] 1:name
+(::) ::
+[::] 25:schar
+[PAREN_OPEN] 1:name
+[)] 32:paren_close
+[;] 25:schar
+[auto] 2:keyword
+[condition] 1:name
+(=) ::
+[=] 25:schar
+[parseExpression] 1:name
+[(] 31:paren_open
+[)] 32:paren_close
+[;] 25:schar
+[expect] 1:name
+[(] 31:paren_open
+[TokenSubtype] 1:name
+(::) ::
+[::] 25:schar
+[PAREN_CLOSE] 1:name
+[)] 32:paren_close
+[;] 25:schar
+[// --- 변경: body에 직접 할당 가능 ---] 28:line_comment
+[auto] 2:keyword
+[body] 1:name
+(=) ::
+[=] 25:schar
+[parseBlock] 1:name
+[(] 31:paren_open
+[)] 32:paren_close
+[;] 25:schar
+[auto] 2:keyword
+[while_node] 1:name
+(=) ::
+[=] 25:schar
+[std] 1:name
+(::) ::
+[::] 25:schar
+[make_unique] 1:name
+[<] 37:angle_bracket_open
+[WhileStatementNode] 1:name
+[>] 38:angle_bracket_close
+[(] 31:paren_open
+[)] 32:paren_close
+[;] 25:schar
+[while_node] 1:name
+(-) ::
+[-] 25:schar
+[>] 38:angle_bracket_close
+[condition] 1:name
+(=) ::
+[=] 25:schar
+[std] 1:name
+(::) ::
+[::] 25:schar
+[move] 1:name
+[(] 31:paren_open
+[condition] 1:name
+[)] 32:paren_close
+[;] 25:schar
+[while_node] 1:name
+(-) ::
+[-] 25:schar
+[>] 38:angle_bracket_close
+[body] 1:name
+(=) ::
+[=] 25:schar
+[std] 1:name
+(::) ::
+[::] 25:schar
+[move] 1:name
+[(] 31:paren_open
+[body] 1:name
+[)] 32:paren_close
+[;] 25:schar
+[return] 2:keyword
+[while_node] 1:name
+[;] 25:schar
+[}] 34:brace_close
+[std] 1:name
+(::) ::
+[::] 25:schar
+[unique_ptr] 1:name
+[<] 37:angle_bracket_open
+[ASTNode] 1:name
+[>] 38:angle_bracket_close
+[Parser] 1:name
+(::) ::
+[::] 25:schar
+[parseFunctionDeclaration] 1:name
+[(] 31:paren_open
+[)] 32:paren_close
+[{] 33:brace_open
+[expect] 1:name
+[(] 31:paren_open
+[TokenSubtype] 1:name
+(::) ::
+[::] 25:schar
+[KEYWORD] 1:name
+[,] 25:schar
+[func] 6:string
+[)] 32:paren_close
+[;] 25:schar
+[Token] 1:name
+[name_token] 1:name
+(=) ::
+[=] 25:schar
+[expect] 1:name
+[(] 31:paren_open
+[TokenSubtype] 1:name
+(::) ::
+[::] 25:schar
+[IDENTIFIER] 1:name
+[)] 32:paren_close
+[;] 25:schar
+[expect] 1:name
+[(] 31:paren_open
+[TokenSubtype] 1:name
+(::) ::
+[::] 25:schar
+[PAREN_OPEN] 1:name
+[)] 32:paren_close
+[;] 25:schar
+[std] 1:name
+(::) ::
+[::] 25:schar
+[vector] 1:name
+[<] 37:angle_bracket_open
+[std] 1:name
+(::) ::
+[::] 25:schar
+[string] 1:name
+[>] 38:angle_bracket_close
+[params] 1:name
+[;] 25:schar
+[if] 2:keyword
+[(] 31:paren_open
+[currentToken] 1:name
+[(] 31:paren_open
+[)] 32:paren_close
+[.] 25:schar
+[subtype] 1:name
+(==) ::
+[==] 25:schar
+[TokenSubtype] 1:name
+(::) ::
+[::] 25:schar
+[IDENTIFIER] 1:name
+[)] 32:paren_close
+[{] 33:brace_open
+[params] 1:name
+[.] 25:schar
+[push_back] 1:name
+[(] 31:paren_open
+[expect] 1:name
+[(] 31:paren_open
+[TokenSubtype] 1:name
+(::) ::
+[::] 25:schar
+[IDENTIFIER] 1:name
+[)] 32:paren_close
+[.] 25:schar
+[value] 1:name
+[)] 32:paren_close
+[;] 25:schar
+[while] 2:keyword
+[(] 31:paren_open
+[currentToken] 1:name
+[(] 31:paren_open
+[)] 32:paren_close
+[.] 25:schar
+[type] 1:name
+(==) ::
+[==] 25:schar
+[TokenType] 1:name
+(::) ::
+[::] 25:schar
+[OPERATOR] 1:name
+(&&) ::
+[&&] 25:schar
+[currentToken] 1:name
+[(] 31:paren_open
+[)] 32:paren_close
+[.] 25:schar
+[value] 1:name
+(==) ::
+[==] 25:schar
+[,] 6:string
+[)] 32:paren_close
+[{] 33:brace_open
+[expect] 1:name
+[(] 31:paren_open
+[TokenType] 1:name
+(::) ::
+[::] 25:schar
+[OPERATOR] 1:name
+[,] 25:schar
+[,] 6:string
+[)] 32:paren_close
+[;] 25:schar
+[params] 1:name
+[.] 25:schar
+[push_back] 1:name
+[(] 31:paren_open
+[expect] 1:name
+[(] 31:paren_open
+[TokenSubtype] 1:name
+(::) ::
+[::] 25:schar
+[IDENTIFIER] 1:name
+[)] 32:paren_close
+[.] 25:schar
+[value] 1:name
+[)] 32:paren_close
+[;] 25:schar
+[}] 34:brace_close
+[}] 34:brace_close
+[expect] 1:name
+[(] 31:paren_open
+[TokenSubtype] 1:name
+(::) ::
+[::] 25:schar
+[PAREN_CLOSE] 1:name
+[)] 32:paren_close
+[;] 25:schar
+[// --- 변경: body에 직접 할당 가능 ---] 28:line_comment
+[auto] 2:keyword
+[body] 1:name
+(=) ::
+[=] 25:schar
+[parseBlock] 1:name
+[(] 31:paren_open
+[)] 32:paren_close
+[;] 25:schar
+[auto] 2:keyword
+[func_node] 1:name
+(=) ::
+[=] 25:schar
+[std] 1:name
+(::) ::
+[::] 25:schar
+[make_unique] 1:name
+[<] 37:angle_bracket_open
+[FunctionDeclarationNode] 1:name
+[>] 38:angle_bracket_close
+[(] 31:paren_open
+[)] 32:paren_close
+[;] 25:schar
+[func_node] 1:name
+(-) ::
+[-] 25:schar
+[>] 38:angle_bracket_close
+[name] 1:name
+(=) ::
+[=] 25:schar
+[name_token] 1:name
+[.] 25:schar
+[value] 1:name
+[;] 25:schar
+[func_node] 1:name
+(-) ::
+[-] 25:schar
+[>] 38:angle_bracket_close
+[params] 1:name
+(=) ::
+[=] 25:schar
+[std] 1:name
+(::) ::
+[::] 25:schar
+[move] 1:name
+[(] 31:paren_open
+[params] 1:name
+[)] 32:paren_close
+[;] 25:schar
+[func_node] 1:name
+(-) ::
+[-] 25:schar
+[>] 38:angle_bracket_close
+[body] 1:name
+(=) ::
+[=] 25:schar
+[std] 1:name
+(::) ::
+[::] 25:schar
+[move] 1:name
+[(] 31:paren_open
+[body] 1:name
+[)] 32:paren_close
+[;] 25:schar
+[return] 2:keyword
+[func_node] 1:name
+[;] 25:schar
+[}] 34:brace_close
+[// ASTNode::getNodeType()은 virtual이므로, dynamic_cast를 대체하는 데 유용합니다.] 28:line_comment
+[// (main.cpp의 printAST 함수에서 활용)] 28:line_comment
+[Parser] 1:name
+(::) ::
+[::] 25:schar
+[Parser] 1:name
+[(] 31:paren_open
+[std] 1:name
+(::) ::
+[::] 25:schar
+[vector] 1:name
+[<] 37:angle_bracket_open
+[Token] 1:name
+[>] 38:angle_bracket_close
+[tokens] 1:name
+[)] 32:paren_close
+(:) ::
+[:] 14:operator
+[tokens] 1:name
+[(] 31:paren_open
+[std] 1:name
+(::) ::
+[::] 25:schar
+[move] 1:name
+[(] 31:paren_open
+[tokens] 1:name
+[)] 32:paren_close
+[)] 32:paren_close
+[,] 25:schar
+[current_token_index] 1:name
+[(] 31:paren_open
+[0] 8:number
+[)] 32:paren_close
+[{] 33:brace_open
+[if] 2:keyword
+[(] 31:paren_open
+[this] 1:name
+(-) ::
+[-] 25:schar
+[>] 38:angle_bracket_close
+[tokens] 1:name
+[.] 25:schar
+[empty] 1:name
+[(] 31:paren_open
+[)] 32:paren_close
+[)] 32:paren_close
+[{] 33:brace_open
+[this] 1:name
+(-) ::
+[-] 25:schar
+[>] 38:angle_bracket_close
+[tokens] 1:name
+[.] 25:schar
+[push_back] 1:name
+[(] 31:paren_open
+[Token] 1:name
+[(] 31:paren_open
+[TokenType] 1:name
+(::) ::
+[::] 25:schar
+[END_OF_FILE] 1:name
+[,] 25:schar
+[] 6:string
+[,] 25:schar
+[0] 8:number
+[,] 25:schar
+[0] 8:number
+[,] 25:schar
+[{] 33:brace_open
+[}] 34:brace_close
+[)] 32:paren_close
+[)] 32:paren_close
+[;] 25:schar
+[}] 34:brace_close
+[}] 34:brace_close
+[const] 4:dattype
+[Token] 1:name
+(&) ::
+[&] 25:schar
+[Parser] 1:name
+(::) ::
+[::] 25:schar
+[currentToken] 1:name
+[(] 31:paren_open
+[)] 32:paren_close
+[const] 4:dattype
+[{] 33:brace_open
+[if] 2:keyword
+[(] 31:paren_open
+[current_token_index] 1:name
+[>] 38:angle_bracket_close
+(=) ::
+[=] 25:schar
+[tokens] 1:name
+[.] 25:schar
+[size] 1:name
+[(] 31:paren_open
+[)] 32:paren_close
+[)] 32:paren_close
+[{] 33:brace_open
+[return] 2:keyword
+[tokens] 1:name
+[.] 25:schar
+[back] 1:name
+[(] 31:paren_open
+[)] 32:paren_close
+[;] 25:schar
+[}] 34:brace_close
+[return] 2:keyword
+[tokens] 1:name
+[[] 35:square_bracket_open
+[current_token_index] 1:name
+[]] 36:square_bracket_close
+[;] 25:schar
+[}] 34:brace_close
+[void] 4:dattype
+[Parser] 1:name
+(::) ::
+[::] 25:schar
+[advance] 1:name
+[(] 31:paren_open
+[)] 32:paren_close
+[{] 33:brace_open
+[if] 2:keyword
+[(] 31:paren_open
+[current_token_index] 1:name
+[<] 37:angle_bracket_open
+[tokens] 1:name
+[.] 25:schar
+[size] 1:name
+[(] 31:paren_open
+[)] 32:paren_close
+[)] 32:paren_close
+[{] 33:brace_open
+[current_token_index] 1:name
+(+) ::
+[+] 25:schar
+(+) ::
+[+] 25:schar
+[;] 25:schar
+[}] 34:brace_close
+[}] 34:brace_close
+[Token] 1:name
+[Parser] 1:name
+(::) ::
+[::] 25:schar
+[expect] 1:name
+[(] 31:paren_open
+[TokenType] 1:name
+[type] 1:name
+[)] 32:paren_close
+[{] 33:brace_open
+[const] 4:dattype
+[Token] 1:name
+(&) ::
+[&] 25:schar
+[current] 1:name
+(=) ::
+[=] 25:schar
+[currentToken] 1:name
+[(] 31:paren_open
+[)] 32:paren_close
+[;] 25:schar
+[if] 2:keyword
+[(] 31:paren_open
+[current] 1:name
+[.] 25:schar
+[type] 1:name
+(==) ::
+[==] 25:schar
+[type] 1:name
+[)] 32:paren_close
+[{] 33:brace_open
+[Token] 1:name
+[consumed_token] 1:name
+(=) ::
+[=] 25:schar
+[current] 1:name
+[;] 25:schar
+[advance] 1:name
+[(] 31:paren_open
+[)] 32:paren_close
+[;] 25:schar
+[return] 2:keyword
+[consumed_token] 1:name
+[;] 25:schar
+[}] 34:brace_close
+[else] 2:keyword
+[{] 33:brace_open
+[throw] 1:name
+[std] 1:name
+(::) ::
+[::] 25:schar
+[runtime_error] 1:name
+[(] 31:paren_open
+[Syntax Error: Expected ] 6:string
+(+) ::
+[+] 25:schar
+[tokenTypeToString] 1:name
+[(] 31:paren_open
+[type] 1:name
+[)] 32:paren_close
+(+) ::
+[+] 25:schar
+[, got ] 6:string
+(+) ::
+[+] 25:schar
+[current] 1:name
+[.] 25:schar
+[toString] 1:name
+[(] 31:paren_open
+[)] 32:paren_close
+(+) ::
+[+] 25:schar
+[ at line ] 6:string
+(+) ::
+[+] 25:schar
+[std] 1:name
+(::) ::
+[::] 25:schar
+[to_string] 1:name
+[(] 31:paren_open
+[current] 1:name
+[.] 25:schar
+[line] 1:name
+[)] 32:paren_close
+(+) ::
+[+] 25:schar
+[, column ] 6:string
+(+) ::
+[+] 25:schar
+[std] 1:name
+(::) ::
+[::] 25:schar
+[to_string] 1:name
+[(] 31:paren_open
+[current] 1:name
+[.] 25:schar
+[column] 1:name
+[)] 32:paren_close
+[)] 32:paren_close
+[;] 25:schar
+[}] 34:brace_close
+[}] 34:brace_close
+[Token] 1:name
+[Parser] 1:name
+(::) ::
+[::] 25:schar
+[expect] 1:name
+[(] 31:paren_open
+[TokenType] 1:name
+[type] 1:name
+[,] 25:schar
+[const] 4:dattype
+[std] 1:name
+(::) ::
+[::] 25:schar
+[string] 1:name
+(&) ::
+[&] 25:schar
+[value] 1:name
+[)] 32:paren_close
+[{] 33:brace_open
+[const] 4:dattype
+[Token] 1:name
+(&) ::
+[&] 25:schar
+[current] 1:name
+(=) ::
+[=] 25:schar
+[currentToken] 1:name
+[(] 31:paren_open
+[)] 32:paren_close
+[;] 25:schar
+[if] 2:keyword
+[(] 31:paren_open
+[current] 1:name
+[.] 25:schar
+[type] 1:name
+(==) ::
+[==] 25:schar
+[type] 1:name
+(&&) ::
+[&&] 25:schar
+[current] 1:name
+[.] 25:schar
+[value] 1:name
+(==) ::
+[==] 25:schar
+[value] 1:name
+[)] 32:paren_close
+[{] 33:brace_open
+[Token] 1:name
+[consumed_token] 1:name
+(=) ::
+[=] 25:schar
+[current] 1:name
+[;] 25:schar
+[advance] 1:name
+[(] 31:paren_open
+[)] 32:paren_close
+[;] 25:schar
+[return] 2:keyword
+[consumed_token] 1:name
+[;] 25:schar
+[}] 34:brace_close
+[else] 2:keyword
+[{] 33:brace_open
+[throw] 1:name
+[std] 1:name
+(::) ::
+[::] 25:schar
+[runtime_error] 1:name
+[(] 31:paren_open
+[Syntax Error: Expected '] 6:string
+(+) ::
+[+] 25:schar
+[value] 1:name
+(+) ::
+[+] 25:schar
+[' (type ] 6:string
+(+) ::
+[+] 25:schar
+[tokenTypeToString] 1:name
+[(] 31:paren_open
+[type] 1:name
+[)] 32:paren_close
+(+) ::
+[+] 25:schar
+[), got ] 6:string
+(+) ::
+[+] 25:schar
+[current] 1:name
+[.] 25:schar
+[toString] 1:name
+[(] 31:paren_open
+[)] 32:paren_close
+(+) ::
+[+] 25:schar
+[ at line ] 6:string
+(+) ::
+[+] 25:schar
+[std] 1:name
+(::) ::
+[::] 25:schar
+[to_string] 1:name
+[(] 31:paren_open
+[current] 1:name
+[.] 25:schar
+[line] 1:name
+[)] 32:paren_close
+(+) ::
+[+] 25:schar
+[, column ] 6:string
+(+) ::
+[+] 25:schar
+[std] 1:name
+(::) ::
+[::] 25:schar
+[to_string] 1:name
+[(] 31:paren_open
+[current] 1:name
+[.] 25:schar
+[column] 1:name
+[)] 32:paren_close
+[)] 32:paren_close
+[;] 25:schar
+[}] 34:brace_close
+[}] 34:brace_close
+[Token] 1:name
+[Parser] 1:name
+(::) ::
+[::] 25:schar
+[expect] 1:name
+[(] 31:paren_open
+[TokenSubtype] 1:name
+[type] 1:name
+[,] 25:schar
+[const] 4:dattype
+[std] 1:name
+(::) ::
+[::] 25:schar
+[string] 1:name
+(&) ::
+[&] 25:schar
+[value] 1:name
+[)] 32:paren_close
+[{] 33:brace_open
+[const] 4:dattype
+[Token] 1:name
+(&) ::
+[&] 25:schar
+[current] 1:name
+(=) ::
+[=] 25:schar
+[currentToken] 1:name
+[(] 31:paren_open
+[)] 32:paren_close
+[;] 25:schar
+[if] 2:keyword
+[(] 31:paren_open
+[current] 1:name
+[.] 25:schar
+[subtype] 1:name
+(==) ::
+[==] 25:schar
+[type] 1:name
+(&&) ::
+[&&] 25:schar
+[(] 31:paren_open
+[value] 1:name
+(==) ::
+[==] 25:schar
+[] 6:string
+(||) ::
+[||] 25:schar
+[current] 1:name
+[.] 25:schar
+[value] 1:name
+(==) ::
+[==] 25:schar
+[value] 1:name
+[)] 32:paren_close
+[)] 32:paren_close
+[{] 33:brace_open
+[Token] 1:name
+[consumed_token] 1:name
+(=) ::
+[=] 25:schar
+[current] 1:name
+[;] 25:schar
+[advance] 1:name
+[(] 31:paren_open
+[)] 32:paren_close
+[;] 25:schar
+[return] 2:keyword
+[consumed_token] 1:name
+[;] 25:schar
+[}] 34:brace_close
+[else] 2:keyword
+[{] 33:brace_open
+[throw] 1:name
+[std] 1:name
+(::) ::
+[::] 25:schar
+[runtime_error] 1:name
+[(] 31:paren_open
+[Syntax Error: Expected '] 6:string
+(+) ::
+[+] 25:schar
+[value] 1:name
+(+) ::
+[+] 25:schar
+[' (type ] 6:string
+(+) ::
+[+] 25:schar
+[tokenTypeToString] 1:name
+[(] 31:paren_open
+[current] 1:name
+[.] 25:schar
+[type] 1:name
+[)] 32:paren_close
+(+) ::
+[+] 25:schar
+[), got ] 6:string
+(+) ::
+[+] 25:schar
+[current] 1:name
+[.] 25:schar
+[toString] 1:name
+[(] 31:paren_open
+[)] 32:paren_close
+(+) ::
+[+] 25:schar
+[ at line ] 6:string
+(+) ::
+[+] 25:schar
+[std] 1:name
+(::) ::
+[::] 25:schar
+[to_string] 1:name
+[(] 31:paren_open
+[current] 1:name
+[.] 25:schar
+[line] 1:name
+[)] 32:paren_close
+(+) ::
+[+] 25:schar
+[, column ] 6:string
+(+) ::
+[+] 25:schar
+[std] 1:name
+(::) ::
+[::] 25:schar
+[to_string] 1:name
+[(] 31:paren_open
+[current] 1:name
+[.] 25:schar
+[column] 1:name
+[)] 32:paren_close
+[)] 32:paren_close
+[;] 25:schar
+[}] 34:brace_close
+[}] 34:brace_close
+[std] 1:name
+(::) ::
+[::] 25:schar
+[unique_ptr] 1:name
+[<] 37:angle_bracket_open
+[ProgramNode] 1:name
+[>] 38:angle_bracket_close
+[Parser] 1:name
+(::) ::
+[::] 25:schar
+[parseProgram] 1:name
+[(] 31:paren_open
+[)] 32:paren_close
+[{] 33:brace_open
+[auto] 2:keyword
+[program] 1:name
+(=) ::
+[=] 25:schar
+[std] 1:name
+(::) ::
+[::] 25:schar
+[make_unique] 1:name
+[<] 37:angle_bracket_open
+[ProgramNode] 1:name
+[>] 38:angle_bracket_close
+[(] 31:paren_open
+[)] 32:paren_close
+[;] 25:schar
+[while] 2:keyword
+[(] 31:paren_open
+[currentToken] 1:name
+[(] 31:paren_open
+[)] 32:paren_close
+[.] 25:schar
+[type] 1:name
+(!=) ::
+[!=] 25:schar
+[TokenType] 1:name
+(::) ::
+[::] 25:schar
+[END_OF_FILE] 1:name
+[)] 32:paren_close
+[{] 33:brace_open
+[program] 1:name
+(-) ::
+[-] 25:schar
+[>] 38:angle_bracket_close
+[statements] 1:name
+[.] 25:schar
+[push_back] 1:name
+[(] 31:paren_open
+[parseStatement] 1:name
+[(] 31:paren_open
+[)] 32:paren_close
+[)] 32:paren_close
+[;] 25:schar
+[}] 34:brace_close
+[return] 2:keyword
+[program] 1:name
+[;] 25:schar
+[}] 34:brace_close
+[int] 4:dattype
+[getOperatorPrecedence] 1:name
+[(] 31:paren_open
+[const] 4:dattype
+[std] 1:name
+(::) ::
+[::] 25:schar
+[string] 1:name
+(&) ::
+[&] 25:schar
+[op] 1:name
+[)] 32:paren_close
+[{] 33:brace_open
+[if] 2:keyword
+[(] 31:paren_open
+[op] 1:name
+(==) ::
+[==] 25:schar
+[+] 6:string
+(||) ::
+[||] 25:schar
+[op] 1:name
+(==) ::
+[==] 25:schar
+[-] 6:string
+[)] 32:paren_close
+[return] 2:keyword
+[1] 8:number
+[;] 25:schar
+[if] 2:keyword
+[(] 31:paren_open
+[op] 1:name
+(==) ::
+[==] 25:schar
+[*] 6:string
+(||) ::
+[||] 25:schar
+[op] 1:name
+(==) ::
+[==] 25:schar
+[/] 6:string
+[)] 32:paren_close
+[return] 2:keyword
+[2] 8:number
+[;] 25:schar
+[if] 2:keyword
+[(] 31:paren_open
+[op] 1:name
+(==) ::
+[==] 25:schar
+[==] 6:string
+(||) ::
+[||] 25:schar
+[op] 1:name
+(==) ::
+[==] 25:schar
+[>] 6:string
+(||) ::
+[||] 25:schar
+[op] 1:name
+(==) ::
+[==] 25:schar
+[<] 6:string
+(||) ::
+[||] 25:schar
+[op] 1:name
+(==) ::
+[==] 25:schar
+[=] 6:string
+[)] 32:paren_close
+[return] 2:keyword
+[0] 8:number
+[;] 25:schar
+[// 할당 연산자 우선순위 추가] 28:line_comment
+[return] 2:keyword
+(-) ::
+[-] 25:schar
+[1] 8:number
+[;] 25:schar
+[}] 34:brace_close
+[std] 1:name
+(::) ::
+[::] 25:schar
+[unique_ptr] 1:name
+[<] 37:angle_bracket_open
+[ASTNode] 1:name
+[>] 38:angle_bracket_close
+[Parser] 1:name
+(::) ::
+[::] 25:schar
+[parseExpression] 1:name
+[(] 31:paren_open
+[)] 32:paren_close
+[{] 33:brace_open
+[return] 2:keyword
+[parseBinaryExpression] 1:name
+[(] 31:paren_open
+[0] 8:number
+[)] 32:paren_close
+[;] 25:schar
+[}] 34:brace_close
+[std] 1:name
+(::) ::
+[::] 25:schar
+[unique_ptr] 1:name
+[<] 37:angle_bracket_open
+[ASTNode] 1:name
+[>] 38:angle_bracket_close
+[Parser] 1:name
+(::) ::
+[::] 25:schar
+[parseBinaryExpression] 1:name
+[(] 31:paren_open
+[int] 4:dattype
+[precedence] 1:name
+[)] 32:paren_close
+[{] 33:brace_open
+[auto] 2:keyword
+[left] 1:name
+(=) ::
+[=] 25:schar
+[parsePrimaryExpression] 1:name
+[(] 31:paren_open
+[)] 32:paren_close
+[;] 25:schar
+[while] 2:keyword
+[(] 31:paren_open
+[currentToken] 1:name
+[(] 31:paren_open
+[)] 32:paren_close
+[.] 25:schar
+[type] 1:name
+(==) ::
+[==] 25:schar
+[TokenType] 1:name
+(::) ::
+[::] 25:schar
+[OPERATOR] 1:name
+(&&) ::
+[&&] 25:schar
+[getOperatorPrecedence] 1:name
+[(] 31:paren_open
+[currentToken] 1:name
+[(] 31:paren_open
+[)] 32:paren_close
+[.] 25:schar
+[value] 1:name
+[)] 32:paren_close
+[>] 38:angle_bracket_close
+(=) ::
+[=] 25:schar
+[precedence] 1:name
+[)] 32:paren_close
+[{] 33:brace_open
+[std] 1:name
+(::) ::
+[::] 25:schar
+[string] 1:name
+[op] 1:name
+(=) ::
+[=] 25:schar
+[expect] 1:name
+[(] 31:paren_open
+[TokenType] 1:name
+(::) ::
+[::] 25:schar
+[OPERATOR] 1:name
+[)] 32:paren_close
+[.] 25:schar
+[value] 1:name
+[;] 25:schar
+[int] 4:dattype
+[next_precedence] 1:name
+(=) ::
+[=] 25:schar
+[getOperatorPrecedence] 1:name
+[(] 31:paren_open
+[op] 1:name
+[)] 32:paren_close
+[;] 25:schar
+[// 왼쪽 결합성 연산자 (대부분의 이진 연산자: +, -, *, /)] 28:line_comment
+[// 같은 우선순위의 다음 연산자는 현재 연산자와 같거나 낮은 우선순위로 파싱] 28:line_comment
+[auto] 2:keyword
+[right] 1:name
+(=) ::
+[=] 25:schar
+[parseBinaryExpression] 1:name
+[(] 31:paren_open
+[next_precedence] 1:name
+(+) ::
+[+] 25:schar
+[1] 8:number
+[)] 32:paren_close
+[;] 25:schar
+[auto] 2:keyword
+[binary_node] 1:name
+(=) ::
+[=] 25:schar
+[std] 1:name
+(::) ::
+[::] 25:schar
+[make_unique] 1:name
+[<] 37:angle_bracket_open
+[BinaryExpressionNode] 1:name
+[>] 38:angle_bracket_close
+[(] 31:paren_open
+[)] 32:paren_close
+[;] 25:schar
+[binary_node] 1:name
+(-) ::
+[-] 25:schar
+[>] 38:angle_bracket_close
+[left] 1:name
+(=) ::
+[=] 25:schar
+[std] 1:name
+(::) ::
+[::] 25:schar
+[move] 1:name
+[(] 31:paren_open
+[left] 1:name
+[)] 32:paren_close
+[;] 25:schar
+[binary_node] 1:name
+(-) ::
+[-] 25:schar
+[>] 38:angle_bracket_close
+[op] 1:name
+(=) ::
+[=] 25:schar
+[op] 1:name
+[;] 25:schar
+[binary_node] 1:name
+(-) ::
+[-] 25:schar
+[>] 38:angle_bracket_close
+[right] 1:name
+(=) ::
+[=] 25:schar
+[std] 1:name
+(::) ::
+[::] 25:schar
+[move] 1:name
+[(] 31:paren_open
+[right] 1:name
+[)] 32:paren_close
+[;] 25:schar
+[left] 1:name
+(=) ::
+[=] 25:schar
+[std] 1:name
+(::) ::
+[::] 25:schar
+[move] 1:name
+[(] 31:paren_open
+[binary_node] 1:name
+[)] 32:paren_close
+[;] 25:schar
+[}] 34:brace_close
+[return] 2:keyword
+[left] 1:name
+[;] 25:schar
+[}] 34:brace_close
+[std] 1:name
+(::) ::
+[::] 25:schar
+[unique_ptr] 1:name
+[<] 37:angle_bracket_open
+[ASTNode] 1:name
+[>] 38:angle_bracket_close
+[Parser] 1:name
+(::) ::
+[::] 25:schar
+[parsePrimaryExpression] 1:name
+[(] 31:paren_open
+[)] 32:paren_close
+[{] 33:brace_open
+[const] 4:dattype
+[Token] 1:name
+(&) ::
+[&] 25:schar
+[current] 1:name
+(=) ::
+[=] 25:schar
+[currentToken] 1:name
+[(] 31:paren_open
+[)] 32:paren_close
+[;] 25:schar
+[if] 2:keyword
+[(] 31:paren_open
+[current] 1:name
+[.] 25:schar
+[type] 1:name
+(==) ::
+[==] 25:schar
+[TokenType] 1:name
+(::) ::
+[::] 25:schar
+[NUMBER] 1:name
+[)] 32:paren_close
+[{] 33:brace_open
+[// NumberLiteralNode의 생성자에 int 인자를 전달] 28:line_comment
+[return] 2:keyword
+[std] 1:name
+(::) ::
+[::] 25:schar
+[make_unique] 1:name
+[<] 37:angle_bracket_open
+[NumberLiteralNode] 1:name
+[>] 38:angle_bracket_close
+[(] 31:paren_open
+[std] 1:name
+(::) ::
+[::] 25:schar
+[stoi] 1:name
+[(] 31:paren_open
+[expect] 1:name
+[(] 31:paren_open
+[TokenType] 1:name
+(::) ::
+[::] 25:schar
+[NUMBER] 1:name
+[)] 32:paren_close
+[.] 25:schar
+[value] 1:name
+[)] 32:paren_close
+[)] 32:paren_close
+[;] 25:schar
+[}] 34:brace_close
+[else] 2:keyword
+[if] 2:keyword
+[(] 31:paren_open
+[current] 1:name
+[.] 25:schar
+[subtype] 1:name
+(==) ::
+[==] 25:schar
+[TokenSubtype] 1:name
+(::) ::
+[::] 25:schar
+[IDENTIFIER] 1:name
+[)] 32:paren_close
+[{] 33:brace_open
+[// IdentifierNode의 생성자에 std::string 인자를 전달] 28:line_comment
+[return] 2:keyword
+[std] 1:name
+(::) ::
+[::] 25:schar
+[make_unique] 1:name
+[<] 37:angle_bracket_open
+[IdentifierNode] 1:name
+[>] 38:angle_bracket_close
+[(] 31:paren_open
+[expect] 1:name
+[(] 31:paren_open
+[TokenSubtype] 1:name
+(::) ::
+[::] 25:schar
+[IDENTIFIER] 1:name
+[)] 32:paren_close
+[.] 25:schar
+[value] 1:name
+[)] 32:paren_close
+[;] 25:schar
+[}] 34:brace_close
+[else] 2:keyword
+[if] 2:keyword
+[(] 31:paren_open
+[current] 1:name
+[.] 25:schar
+[subtype] 1:name
+(==) ::
+[==] 25:schar
+[TokenSubtype] 1:name
+(::) ::
+[::] 25:schar
+[PAREN_OPEN] 1:name
+[)] 32:paren_close
+[{] 33:brace_open
+[expect] 1:name
+[(] 31:paren_open
+[TokenSubtype] 1:name
+(::) ::
+[::] 25:schar
+[PAREN_OPEN] 1:name
+[)] 32:paren_close
+[;] 25:schar
+[auto] 2:keyword
+[expr] 1:name
+(=) ::
+[=] 25:schar
+[parseExpression] 1:name
+[(] 31:paren_open
+[)] 32:paren_close
+[;] 25:schar
+[expect] 1:name
+[(] 31:paren_open
+[TokenSubtype] 1:name
+(::) ::
+[::] 25:schar
+[PAREN_CLOSE] 1:name
+[)] 32:paren_close
+[;] 25:schar
+[return] 2:keyword
+[expr] 1:name
+[;] 25:schar
+[}] 34:brace_close
+[else] 2:keyword
+[if] 2:keyword
+[(] 31:paren_open
+[current] 1:name
+[.] 25:schar
+[subtype] 1:name
+(==) ::
+[==] 25:schar
+[TokenSubtype] 1:name
+(::) ::
+[::] 25:schar
+[STRING_LITERAL] 1:name
+[)] 32:paren_close
+[{] 33:brace_open
+[// 문자열 리터럴 추가] 28:line_comment
+[// StringLiteralNode 정의 필요. 여기서는 임시로 IdentifierNode 사용] 28:line_comment
+[return] 2:keyword
+[std] 1:name
+(::) ::
+[::] 25:schar
+[make_unique] 1:name
+[<] 37:angle_bracket_open
+[IdentifierNode] 1:name
+[>] 38:angle_bracket_close
+[(] 31:paren_open
+[expect] 1:name
+[(] 31:paren_open
+[TokenSubtype] 1:name
+(::) ::
+[::] 25:schar
+[STRING_LITERAL] 1:name
+[)] 32:paren_close
+[.] 25:schar
+[value] 1:name
+[)] 32:paren_close
+[;] 25:schar
+[// TODO: StringLiteralNode로 변경] 28:line_comment
+[}] 34:brace_close
+[// TODO: 함수 호출 등 추가] 28:line_comment
+[throw] 1:name
+[std] 1:name
+(::) ::
+[::] 25:schar
+[runtime_error] 1:name
+[(] 31:paren_open
+[Syntax Error: Unexpected token in primary expression: ] 6:string
+(+) ::
+[+] 25:schar
+[current] 1:name
+[.] 25:schar
+[toString] 1:name
+[(] 31:paren_open
+[)] 32:paren_close
+[)] 32:paren_close
+[;] 25:schar
+[}] 34:brace_close
+[// ... (getOperatorPrecedence, parseExpression, parseBinaryExpression, parsePrimaryExpression 함수는 동일) ...] 28:line_comment
+[}] 34:brace_close
+[// namespace MyLang] 28:line_comment
+[] 0:undef
+[] 0:undef
+--- Tokens ---
+   1 comment      //  <line_comment>  :// parser.cpp
+   2 comment      #   <line_comment>  :#include "parser.h"
+   3 comment      #   <line_comment>  :#include <iostream>
+   4 comment      #   <line_comment>  :#include <stdexcept>
+   5 comment      #   <line_comment>  :#include <utility> // std::move를 위해
+   7 name             <dattype>       :namespace
+   7 name             <name>          :MyLang
+   7 block        {   <brace_open>    :{
+   9 comment      //  <line_comment>  :// ... (Parser 생성자 및 expect, currentToken, advance 함수는 동일) ...
+  11 name             <name>          :std
+  11 operator     ::  <schar>         :::
+  11 name             <name>          :string
+  11 name             <name>          :tokenTypeToString
+  11 block        (   <paren_open>    :(
+  11 name             <name>          :TokenType
+  11 name             <name>          :type
+  11 block        )   <paren_close>   :)
+  11 block        {   <brace_open>    :{
+  12 name             <keyword>       :return
+  12 string       "   <string>        :
+  12 sp_char      ;   <schar>         :;
+  13 block        }   <brace_close>   :}
+  15 comment      //  <line_comment>  :// ... (parseProgram 함수는 동일) ...
+  17 name             <name>          :std
+  17 operator     ::  <schar>         :::
+  17 name             <name>          :unique_ptr
+  17 block        <   <angle_bracket_open> :<
+  17 name             <name>          :ASTNode
+  17 block        >   <angle_bracket_close> :>
+  17 name             <name>          :Parser
+  17 operator     ::  <schar>         :::
+  17 name             <name>          :parseStatement
+  17 block        (   <paren_open>    :(
+  17 block        )   <paren_close>   :)
+  17 block        {   <brace_open>    :{
+  18 name             <keyword>       :if
+  18 block        (   <paren_open>    :(
+  18 name             <name>          :currentToken
+  18 block        (   <paren_open>    :(
+  18 block        )   <paren_close>   :)
+  18 sp_char      .   <schar>         :.
+  18 name             <name>          :subtype
+  18 operator     ==  <schar>         :==
+  18 name             <name>          :TokenSubtype
+  18 operator     ::  <schar>         :::
+  18 name             <name>          :KEYWORD
+  18 block        )   <paren_close>   :)
+  18 block        {   <brace_open>    :{
+  19 name             <keyword>       :if
+  19 block        (   <paren_open>    :(
+  19 name             <name>          :currentToken
+  19 block        (   <paren_open>    :(
+  19 block        )   <paren_close>   :)
+  19 sp_char      .   <schar>         :.
+  19 name             <name>          :value
+  19 operator     ==  <schar>         :==
+  19 string       "   <string>        :if
+  19 block        )   <paren_close>   :)
+  19 block        {   <brace_open>    :{
+  20 name             <keyword>       :return
+  20 name             <name>          :parseIfStatement
+  20 block        (   <paren_open>    :(
+  20 block        )   <paren_close>   :)
+  20 sp_char      ;   <schar>         :;
+  21 block        }   <brace_close>   :}
+  21 name             <keyword>       :else
+  21 name             <keyword>       :if
+  21 block        (   <paren_open>    :(
+  21 name             <name>          :currentToken
+  21 block        (   <paren_open>    :(
+  21 block        )   <paren_close>   :)
+  21 sp_char      .   <schar>         :.
+  21 name             <name>          :value
+  21 operator     ==  <schar>         :==
+  21 string       "   <string>        :while
+  21 block        )   <paren_close>   :)
+  21 block        {   <brace_open>    :{
+  22 name             <keyword>       :return
+  22 name             <name>          :parseWhileStatement
+  22 block        (   <paren_open>    :(
+  22 block        )   <paren_close>   :)
+  22 sp_char      ;   <schar>         :;
+  23 block        }   <brace_close>   :}
+  23 name             <keyword>       :else
+  23 name             <keyword>       :if
+  23 block        (   <paren_open>    :(
+  23 name             <name>          :currentToken
+  23 block        (   <paren_open>    :(
+  23 block        )   <paren_close>   :)
+  23 sp_char      .   <schar>         :.
+  23 name             <name>          :value
+  23 operator     ==  <schar>         :==
+  23 string       "   <string>        :func
+  23 block        )   <paren_close>   :)
+  23 block        {   <brace_open>    :{
+  24 name             <keyword>       :return
+  24 name             <name>          :parseFunctionDeclaration
+  24 block        (   <paren_open>    :(
+  24 block        )   <paren_close>   :)
+  24 sp_char      ;   <schar>         :;
+  25 block        }   <brace_close>   :}
+  25 name             <keyword>       :else
+  25 name             <keyword>       :if
+  25 block        (   <paren_open>    :(
+  25 name             <name>          :currentToken
+  25 block        (   <paren_open>    :(
+  25 block        )   <paren_close>   :)
+  25 sp_char      .   <schar>         :.
+  25 name             <name>          :value
+  25 operator     ==  <schar>         :==
+  25 string       "   <string>        :return
+  25 block        )   <paren_close>   :)
+  25 block        {   <brace_open>    :{
+  26 name             <name>          :expect
+  26 block        (   <paren_open>    :(
+  26 name             <name>          :TokenSubtype
+  26 operator     ::  <schar>         :::
+  26 name             <name>          :KEYWORD
+  26 sp_char      ,   <schar>         :,
+  26 string       "   <string>        :return
+  26 block        )   <paren_close>   :)
+  26 sp_char      ;   <schar>         :;
+  27 name             <keyword>       :auto
+  27 name             <name>          :expr
+  27 operator     =   <schar>         :=
+  27 name             <name>          :parseExpression
+  27 block        (   <paren_open>    :(
+  27 block        )   <paren_close>   :)
+  27 sp_char      ;   <schar>         :;
+  28 name             <name>          :expect
+  28 block        (   <paren_open>    :(
+  28 name             <name>          :TokenType
+  28 operator     ::  <schar>         :::
+  28 name             <name>          :SCHAR
+  28 sp_char      ,   <schar>         :,
+  28 string       "   <string>        :;
+  28 block        )   <paren_close>   :)
+  28 sp_char      ;   <schar>         :;
+  29 name             <keyword>       :return
+  29 name             <name>          :std
+  29 operator     ::  <schar>         :::
+  29 name             <name>          :make_unique
+  29 block        <   <angle_bracket_open> :<
+  29 name             <name>          :ReturnStatementNode
+  29 block        >   <angle_bracket_close> :>
+  29 block        (   <paren_open>    :(
+  29 name             <name>          :std
+  29 operator     ::  <schar>         :::
+  29 name             <name>          :move
+  29 block        (   <paren_open>    :(
+  29 name             <name>          :expr
+  29 block        )   <paren_close>   :)
+  29 block        )   <paren_close>   :)
+  29 sp_char      ;   <schar>         :;
+  30 block        }   <brace_close>   :}
+  30 name             <keyword>       :else
+  30 block        {   <brace_open>    :{
+  31 comment      //  <line_comment>  :// error 
+  32 block        }   <brace_close>   :}
+  33 block        }   <brace_close>   :}
+  34 name             <keyword>       :auto
+  34 name             <name>          :expr
+  34 operator     =   <schar>         :=
+  34 name             <name>          :parseExpression
+  34 block        (   <paren_open>    :(
+  34 block        )   <paren_close>   :)
+  34 sp_char      ;   <schar>         :;
+  35 name             <name>          :expect
+  35 block        (   <paren_open>    :(
+  35 name             <name>          :TokenType
+  35 operator     ::  <schar>         :::
+  35 name             <name>          :SCHAR
+  35 sp_char      ,   <schar>         :,
+  35 string       "   <string>        :;
+  35 block        )   <paren_close>   :)
+  35 sp_char      ;   <schar>         :;
+  36 name             <keyword>       :return
+  36 name             <name>          :std
+  36 operator     ::  <schar>         :::
+  36 name             <name>          :make_unique
+  36 block        <   <angle_bracket_open> :<
+  36 name             <name>          :ExpressionStatementNode
+  36 block        >   <angle_bracket_close> :>
+  36 block        (   <paren_open>    :(
+  36 name             <name>          :std
+  36 operator     ::  <schar>         :::
+  36 name             <name>          :move
+  36 block        (   <paren_open>    :(
+  36 name             <name>          :expr
+  36 block        )   <paren_close>   :)
+  36 block        )   <paren_close>   :)
+  36 sp_char      ;   <schar>         :;
+  37 block        }   <brace_close>   :}
+  39 comment      //  <line_comment>  :// --- 변경: parseBlock()의 반환 타입을 일치시킴 ---
+  40 name             <name>          :std
+  40 operator     ::  <schar>         :::
+  40 name             <name>          :unique_ptr
+  40 block        <   <angle_bracket_open> :<
+  40 name             <name>          :BlockNode
+  40 block        >   <angle_bracket_close> :>
+  40 name             <name>          :Parser
+  40 operator     ::  <schar>         :::
+  40 name             <name>          :parseBlock
+  40 block        (   <paren_open>    :(
+  40 block        )   <paren_close>   :)
+  40 block        {   <brace_open>    :{
+  41 name             <name>          :expect
+  41 block        (   <paren_open>    :(
+  41 name             <name>          :TokenSubtype
+  41 operator     ::  <schar>         :::
+  41 name             <name>          :BRACE_OPEN
+  41 block        )   <paren_close>   :)
+  41 sp_char      ;   <schar>         :;
+  41 comment      //  <line_comment>  :// '{'
+  42 name             <keyword>       :auto
+  42 name             <name>          :block_node
+  42 operator     =   <schar>         :=
+  42 name             <name>          :std
+  42 operator     ::  <schar>         :::
+  42 name             <name>          :make_unique
+  42 block        <   <angle_bracket_open> :<
+  42 name             <name>          :BlockNode
+  42 block        >   <angle_bracket_close> :>
+  42 block        (   <paren_open>    :(
+  42 block        )   <paren_close>   :)
+  42 sp_char      ;   <schar>         :;
+  43 name             <keyword>       :while
+  43 block        (   <paren_open>    :(
+  43 name             <name>          :currentToken
+  43 block        (   <paren_open>    :(
+  43 block        )   <paren_close>   :)
+  43 sp_char      .   <schar>         :.
+  43 name             <name>          :subtype
+  43 operator     !=  <schar>         :!=
+  43 name             <name>          :TokenSubtype
+  43 operator     ::  <schar>         :::
+  43 name             <name>          :BRACE_CLOSE
+  43 operator     &&  <schar>         :&&
+  44 name             <name>          :currentToken
+  44 block        (   <paren_open>    :(
+  44 block        )   <paren_close>   :)
+  44 sp_char      .   <schar>         :.
+  44 name             <name>          :type
+  44 operator     !=  <schar>         :!=
+  44 name             <name>          :TokenType
+  44 operator     ::  <schar>         :::
+  44 name             <name>          :END_OF_FILE
+  44 block        )   <paren_close>   :)
+  44 block        {   <brace_open>    :{
+  45 name             <name>          :block_node
+  45 operator     -   <schar>         :-
+  45 block        >   <angle_bracket_close> :>
+  45 name             <name>          :statements
+  45 sp_char      .   <schar>         :.
+  45 name             <name>          :push_back
+  45 block        (   <paren_open>    :(
+  45 name             <name>          :parseStatement
+  45 block        (   <paren_open>    :(
+  45 block        )   <paren_close>   :)
+  45 block        )   <paren_close>   :)
+  45 sp_char      ;   <schar>         :;
+  46 block        }   <brace_close>   :}
+  47 name             <name>          :expect
+  47 block        (   <paren_open>    :(
+  47 name             <name>          :TokenSubtype
+  47 operator     ::  <schar>         :::
+  47 name             <name>          :BRACE_CLOSE
+  47 block        )   <paren_close>   :)
+  47 sp_char      ;   <schar>         :;
+  47 comment      //  <line_comment>  :// '}'
+  48 name             <keyword>       :return
+  48 name             <name>          :block_node
+  48 sp_char      ;   <schar>         :;
+  49 block        }   <brace_close>   :}
+  50 comment      //  <line_comment>  :// --- 여기까지 변경 ---
+  52 name             <name>          :std
+  52 operator     ::  <schar>         :::
+  52 name             <name>          :unique_ptr
+  52 block        <   <angle_bracket_open> :<
+  52 name             <name>          :ASTNode
+  52 block        >   <angle_bracket_close> :>
+  52 name             <name>          :Parser
+  52 operator     ::  <schar>         :::
+  52 name             <name>          :parseIfStatement
+  52 block        (   <paren_open>    :(
+  52 block        )   <paren_close>   :)
+  52 block        {   <brace_open>    :{
+  53 name             <name>          :expect
+  53 block        (   <paren_open>    :(
+  53 name             <name>          :TokenSubtype
+  53 operator     ::  <schar>         :::
+  53 name             <name>          :KEYWORD
+  53 sp_char      ,   <schar>         :,
+  53 string       "   <string>        :if
+  53 block        )   <paren_close>   :)
+  53 sp_char      ;   <schar>         :;
+  54 name             <name>          :expect
+  54 block        (   <paren_open>    :(
+  54 name             <name>          :TokenSubtype
+  54 operator     ::  <schar>         :::
+  54 name             <name>          :PAREN_OPEN
+  54 block        )   <paren_close>   :)
+  54 sp_char      ;   <schar>         :;
+  55 name             <keyword>       :auto
+  55 name             <name>          :condition
+  55 operator     =   <schar>         :=
+  55 name             <name>          :parseExpression
+  55 block        (   <paren_open>    :(
+  55 block        )   <paren_close>   :)
+  55 sp_char      ;   <schar>         :;
+  56 name             <name>          :expect
+  56 block        (   <paren_open>    :(
+  56 name             <name>          :TokenSubtype
+  56 operator     ::  <schar>         :::
+  56 name             <name>          :PAREN_CLOSE
+  56 block        )   <paren_close>   :)
+  56 sp_char      ;   <schar>         :;
+  58 comment      //  <line_comment>  :// --- 변경: body와 else_body에 직접 할당 가능 ---
+  59 name             <keyword>       :auto
+  59 name             <name>          :body
+  59 operator     =   <schar>         :=
+  59 name             <name>          :parseBlock
+  59 block        (   <paren_open>    :(
+  59 block        )   <paren_close>   :)
+  59 sp_char      ;   <schar>         :;
+  59 comment      //  <line_comment>  :// 이제 unique_ptr<BlockNode>를 반환
+  61 name             <name>          :std
+  61 operator     ::  <schar>         :::
+  61 name             <name>          :unique_ptr
+  61 block        <   <angle_bracket_open> :<
+  61 name             <name>          :BlockNode
+  61 block        >   <angle_bracket_close> :>
+  61 name             <name>          :else_body
+  61 operator     =   <schar>         :=
+  61 name             <name>          :nullptr
+  61 sp_char      ;   <schar>         :;
+  62 name             <keyword>       :if
+  62 block        (   <paren_open>    :(
+  62 name             <name>          :currentToken
+  62 block        (   <paren_open>    :(
+  62 block        )   <paren_close>   :)
+  62 sp_char      .   <schar>         :.
+  62 name             <name>          :subtype
+  62 operator     ==  <schar>         :==
+  62 name             <name>          :TokenSubtype
+  62 operator     ::  <schar>         :::
+  62 name             <name>          :KEYWORD
+  62 operator     &&  <schar>         :&&
+  62 name             <name>          :currentToken
+  62 block        (   <paren_open>    :(
+  62 block        )   <paren_close>   :)
+  62 sp_char      .   <schar>         :.
+  62 name             <name>          :value
+  62 operator     ==  <schar>         :==
+  62 string       "   <string>        :else
+  62 block        )   <paren_close>   :)
+  62 block        {   <brace_open>    :{
+  63 name             <name>          :expect
+  63 block        (   <paren_open>    :(
+  63 name             <name>          :TokenSubtype
+  63 operator     ::  <schar>         :::
+  63 name             <name>          :KEYWORD
+  63 sp_char      ,   <schar>         :,
+  63 string       "   <string>        :else
+  63 block        )   <paren_close>   :)
+  63 sp_char      ;   <schar>         :;
+  64 name             <name>          :else_body
+  64 operator     =   <schar>         :=
+  64 name             <name>          :parseBlock
+  64 block        (   <paren_open>    :(
+  64 block        )   <paren_close>   :)
+  64 sp_char      ;   <schar>         :;
+  64 comment      //  <line_comment>  :// 이제 unique_ptr<BlockNode>를 반환
+  65 block        }   <brace_close>   :}
+  67 name             <keyword>       :auto
+  67 name             <name>          :if_node
+  67 operator     =   <schar>         :=
+  67 name             <name>          :std
+  67 operator     ::  <schar>         :::
+  67 name             <name>          :make_unique
+  67 block        <   <angle_bracket_open> :<
+  67 name             <name>          :IfStatementNode
+  67 block        >   <angle_bracket_close> :>
+  67 block        (   <paren_open>    :(
+  67 block        )   <paren_close>   :)
+  67 sp_char      ;   <schar>         :;
+  68 name             <name>          :if_node
+  68 operator     -   <schar>         :-
+  68 block        >   <angle_bracket_close> :>
+  68 name             <name>          :condition
+  68 operator     =   <schar>         :=
+  68 name             <name>          :std
+  68 operator     ::  <schar>         :::
+  68 name             <name>          :move
+  68 block        (   <paren_open>    :(
+  68 name             <name>          :condition
+  68 block        )   <paren_close>   :)
+  68 sp_char      ;   <schar>         :;
+  69 name             <name>          :if_node
+  69 operator     -   <schar>         :-
+  69 block        >   <angle_bracket_close> :>
+  69 name             <name>          :body
+  69 operator     =   <schar>         :=
+  69 name             <name>          :std
+  69 operator     ::  <schar>         :::
+  69 name             <name>          :move
+  69 block        (   <paren_open>    :(
+  69 name             <name>          :body
+  69 block        )   <paren_close>   :)
+  69 sp_char      ;   <schar>         :;
+  70 name             <name>          :if_node
+  70 operator     -   <schar>         :-
+  70 block        >   <angle_bracket_close> :>
+  70 name             <name>          :else_body
+  70 operator     =   <schar>         :=
+  70 name             <name>          :std
+  70 operator     ::  <schar>         :::
+  70 name             <name>          :move
+  70 block        (   <paren_open>    :(
+  70 name             <name>          :else_body
+  70 block        )   <paren_close>   :)
+  70 sp_char      ;   <schar>         :;
+  71 name             <keyword>       :return
+  71 name             <name>          :if_node
+  71 sp_char      ;   <schar>         :;
+  72 block        }   <brace_close>   :}
+  74 name             <name>          :std
+  74 operator     ::  <schar>         :::
+  74 name             <name>          :unique_ptr
+  74 block        <   <angle_bracket_open> :<
+  74 name             <name>          :ASTNode
+  74 block        >   <angle_bracket_close> :>
+  74 name             <name>          :Parser
+  74 operator     ::  <schar>         :::
+  74 name             <name>          :parseWhileStatement
+  74 block        (   <paren_open>    :(
+  74 block        )   <paren_close>   :)
+  74 block        {   <brace_open>    :{
+  75 name             <name>          :expect
+  75 block        (   <paren_open>    :(
+  75 name             <name>          :TokenSubtype
+  75 operator     ::  <schar>         :::
+  75 name             <name>          :KEYWORD
+  75 sp_char      ,   <schar>         :,
+  75 string       "   <string>        :while
+  75 block        )   <paren_close>   :)
+  75 sp_char      ;   <schar>         :;
+  76 name             <name>          :expect
+  76 block        (   <paren_open>    :(
+  76 name             <name>          :TokenSubtype
+  76 operator     ::  <schar>         :::
+  76 name             <name>          :PAREN_OPEN
+  76 block        )   <paren_close>   :)
+  76 sp_char      ;   <schar>         :;
+  77 name             <keyword>       :auto
+  77 name             <name>          :condition
+  77 operator     =   <schar>         :=
+  77 name             <name>          :parseExpression
+  77 block        (   <paren_open>    :(
+  77 block        )   <paren_close>   :)
+  77 sp_char      ;   <schar>         :;
+  78 name             <name>          :expect
+  78 block        (   <paren_open>    :(
+  78 name             <name>          :TokenSubtype
+  78 operator     ::  <schar>         :::
+  78 name             <name>          :PAREN_CLOSE
+  78 block        )   <paren_close>   :)
+  78 sp_char      ;   <schar>         :;
+  80 comment      //  <line_comment>  :// --- 변경: body에 직접 할당 가능 ---
+  81 name             <keyword>       :auto
+  81 name             <name>          :body
+  81 operator     =   <schar>         :=
+  81 name             <name>          :parseBlock
+  81 block        (   <paren_open>    :(
+  81 block        )   <paren_close>   :)
+  81 sp_char      ;   <schar>         :;
+  83 name             <keyword>       :auto
+  83 name             <name>          :while_node
+  83 operator     =   <schar>         :=
+  83 name             <name>          :std
+  83 operator     ::  <schar>         :::
+  83 name             <name>          :make_unique
+  83 block        <   <angle_bracket_open> :<
+  83 name             <name>          :WhileStatementNode
+  83 block        >   <angle_bracket_close> :>
+  83 block        (   <paren_open>    :(
+  83 block        )   <paren_close>   :)
+  83 sp_char      ;   <schar>         :;
+  84 name             <name>          :while_node
+  84 operator     -   <schar>         :-
+  84 block        >   <angle_bracket_close> :>
+  84 name             <name>          :condition
+  84 operator     =   <schar>         :=
+  84 name             <name>          :std
+  84 operator     ::  <schar>         :::
+  84 name             <name>          :move
+  84 block        (   <paren_open>    :(
+  84 name             <name>          :condition
+  84 block        )   <paren_close>   :)
+  84 sp_char      ;   <schar>         :;
+  85 name             <name>          :while_node
+  85 operator     -   <schar>         :-
+  85 block        >   <angle_bracket_close> :>
+  85 name             <name>          :body
+  85 operator     =   <schar>         :=
+  85 name             <name>          :std
+  85 operator     ::  <schar>         :::
+  85 name             <name>          :move
+  85 block        (   <paren_open>    :(
+  85 name             <name>          :body
+  85 block        )   <paren_close>   :)
+  85 sp_char      ;   <schar>         :;
+  86 name             <keyword>       :return
+  86 name             <name>          :while_node
+  86 sp_char      ;   <schar>         :;
+  87 block        }   <brace_close>   :}
+  89 name             <name>          :std
+  89 operator     ::  <schar>         :::
+  89 name             <name>          :unique_ptr
+  89 block        <   <angle_bracket_open> :<
+  89 name             <name>          :ASTNode
+  89 block        >   <angle_bracket_close> :>
+  89 name             <name>          :Parser
+  89 operator     ::  <schar>         :::
+  89 name             <name>          :parseFunctionDeclaration
+  89 block        (   <paren_open>    :(
+  89 block        )   <paren_close>   :)
+  89 block        {   <brace_open>    :{
+  90 name             <name>          :expect
+  90 block        (   <paren_open>    :(
+  90 name             <name>          :TokenSubtype
+  90 operator     ::  <schar>         :::
+  90 name             <name>          :KEYWORD
+  90 sp_char      ,   <schar>         :,
+  90 string       "   <string>        :func
+  90 block        )   <paren_close>   :)
+  90 sp_char      ;   <schar>         :;
+  91 name             <name>          :Token
+  91 name             <name>          :name_token
+  91 operator     =   <schar>         :=
+  91 name             <name>          :expect
+  91 block        (   <paren_open>    :(
+  91 name             <name>          :TokenSubtype
+  91 operator     ::  <schar>         :::
+  91 name             <name>          :IDENTIFIER
+  91 block        )   <paren_close>   :)
+  91 sp_char      ;   <schar>         :;
+  92 name             <name>          :expect
+  92 block        (   <paren_open>    :(
+  92 name             <name>          :TokenSubtype
+  92 operator     ::  <schar>         :::
+  92 name             <name>          :PAREN_OPEN
+  92 block        )   <paren_close>   :)
+  92 sp_char      ;   <schar>         :;
+  94 name             <name>          :std
+  94 operator     ::  <schar>         :::
+  94 name             <name>          :vector
+  94 block        <   <angle_bracket_open> :<
+  94 name             <name>          :std
+  94 operator     ::  <schar>         :::
+  94 name             <name>          :string
+  94 block        >   <angle_bracket_close> :>
+  94 name             <name>          :params
+  94 sp_char      ;   <schar>         :;
+  95 name             <keyword>       :if
+  95 block        (   <paren_open>    :(
+  95 name             <name>          :currentToken
+  95 block        (   <paren_open>    :(
+  95 block        )   <paren_close>   :)
+  95 sp_char      .   <schar>         :.
+  95 name             <name>          :subtype
+  95 operator     ==  <schar>         :==
+  95 name             <name>          :TokenSubtype
+  95 operator     ::  <schar>         :::
+  95 name             <name>          :IDENTIFIER
+  95 block        )   <paren_close>   :)
+  95 block        {   <brace_open>    :{
+  96 name             <name>          :params
+  96 sp_char      .   <schar>         :.
+  96 name             <name>          :push_back
+  96 block        (   <paren_open>    :(
+  96 name             <name>          :expect
+  96 block        (   <paren_open>    :(
+  96 name             <name>          :TokenSubtype
+  96 operator     ::  <schar>         :::
+  96 name             <name>          :IDENTIFIER
+  96 block        )   <paren_close>   :)
+  96 sp_char      .   <schar>         :.
+  96 name             <name>          :value
+  96 block        )   <paren_close>   :)
+  96 sp_char      ;   <schar>         :;
+  97 name             <keyword>       :while
+  97 block        (   <paren_open>    :(
+  97 name             <name>          :currentToken
+  97 block        (   <paren_open>    :(
+  97 block        )   <paren_close>   :)
+  97 sp_char      .   <schar>         :.
+  97 name             <name>          :type
+  97 operator     ==  <schar>         :==
+  97 name             <name>          :TokenType
+  97 operator     ::  <schar>         :::
+  97 name             <name>          :OPERATOR
+  97 operator     &&  <schar>         :&&
+  97 name             <name>          :currentToken
+  97 block        (   <paren_open>    :(
+  97 block        )   <paren_close>   :)
+  97 sp_char      .   <schar>         :.
+  97 name             <name>          :value
+  97 operator     ==  <schar>         :==
+  97 string       "   <string>        :,
+  97 block        )   <paren_close>   :)
+  97 block        {   <brace_open>    :{
+  98 name             <name>          :expect
+  98 block        (   <paren_open>    :(
+  98 name             <name>          :TokenType
+  98 operator     ::  <schar>         :::
+  98 name             <name>          :OPERATOR
+  98 sp_char      ,   <schar>         :,
+  98 string       "   <string>        :,
+  98 block        )   <paren_close>   :)
+  98 sp_char      ;   <schar>         :;
+  99 name             <name>          :params
+  99 sp_char      .   <schar>         :.
+  99 name             <name>          :push_back
+  99 block        (   <paren_open>    :(
+  99 name             <name>          :expect
+  99 block        (   <paren_open>    :(
+  99 name             <name>          :TokenSubtype
+  99 operator     ::  <schar>         :::
+  99 name             <name>          :IDENTIFIER
+  99 block        )   <paren_close>   :)
+  99 sp_char      .   <schar>         :.
+  99 name             <name>          :value
+  99 block        )   <paren_close>   :)
+  99 sp_char      ;   <schar>         :;
+ 100 block        }   <brace_close>   :}
+ 101 block        }   <brace_close>   :}
+ 102 name             <name>          :expect
+ 102 block        (   <paren_open>    :(
+ 102 name             <name>          :TokenSubtype
+ 102 operator     ::  <schar>         :::
+ 102 name             <name>          :PAREN_CLOSE
+ 102 block        )   <paren_close>   :)
+ 102 sp_char      ;   <schar>         :;
+ 104 comment      //  <line_comment>  :// --- 변경: body에 직접 할당 가능 ---
+ 105 name             <keyword>       :auto
+ 105 name             <name>          :body
+ 105 operator     =   <schar>         :=
+ 105 name             <name>          :parseBlock
+ 105 block        (   <paren_open>    :(
+ 105 block        )   <paren_close>   :)
+ 105 sp_char      ;   <schar>         :;
+ 107 name             <keyword>       :auto
+ 107 name             <name>          :func_node
+ 107 operator     =   <schar>         :=
+ 107 name             <name>          :std
+ 107 operator     ::  <schar>         :::
+ 107 name             <name>          :make_unique
+ 107 block        <   <angle_bracket_open> :<
+ 107 name             <name>          :FunctionDeclarationNode
+ 107 block        >   <angle_bracket_close> :>
+ 107 block        (   <paren_open>    :(
+ 107 block        )   <paren_close>   :)
+ 107 sp_char      ;   <schar>         :;
+ 108 name             <name>          :func_node
+ 108 operator     -   <schar>         :-
+ 108 block        >   <angle_bracket_close> :>
+ 108 name             <name>          :name
+ 108 operator     =   <schar>         :=
+ 108 name             <name>          :name_token
+ 108 sp_char      .   <schar>         :.
+ 108 name             <name>          :value
+ 108 sp_char      ;   <schar>         :;
+ 109 name             <name>          :func_node
+ 109 operator     -   <schar>         :-
+ 109 block        >   <angle_bracket_close> :>
+ 109 name             <name>          :params
+ 109 operator     =   <schar>         :=
+ 109 name             <name>          :std
+ 109 operator     ::  <schar>         :::
+ 109 name             <name>          :move
+ 109 block        (   <paren_open>    :(
+ 109 name             <name>          :params
+ 109 block        )   <paren_close>   :)
+ 109 sp_char      ;   <schar>         :;
+ 110 name             <name>          :func_node
+ 110 operator     -   <schar>         :-
+ 110 block        >   <angle_bracket_close> :>
+ 110 name             <name>          :body
+ 110 operator     =   <schar>         :=
+ 110 name             <name>          :std
+ 110 operator     ::  <schar>         :::
+ 110 name             <name>          :move
+ 110 block        (   <paren_open>    :(
+ 110 name             <name>          :body
+ 110 block        )   <paren_close>   :)
+ 110 sp_char      ;   <schar>         :;
+ 111 name             <keyword>       :return
+ 111 name             <name>          :func_node
+ 111 sp_char      ;   <schar>         :;
+ 112 block        }   <brace_close>   :}
+ 114 comment      //  <line_comment>  :// ASTNode::getNodeType()은 virtual이므로, dynamic_cast를 대체하는 데 유용합니다.
+ 115 comment      //  <line_comment>  :// (main.cpp의 printAST 함수에서 활용)
+ 117 name             <name>          :Parser
+ 117 operator     ::  <schar>         :::
+ 117 name             <name>          :Parser
+ 117 block        (   <paren_open>    :(
+ 117 name             <name>          :std
+ 117 operator     ::  <schar>         :::
+ 117 name             <name>          :vector
+ 117 block        <   <angle_bracket_open> :<
+ 117 name             <name>          :Token
+ 117 block        >   <angle_bracket_close> :>
+ 117 name             <name>          :tokens
+ 117 block        )   <paren_close>   :)
+ 118 operator     :   <operator>      ::
+ 118 name             <name>          :tokens
+ 118 block        (   <paren_open>    :(
+ 118 name             <name>          :std
+ 118 operator     ::  <schar>         :::
+ 118 name             <name>          :move
+ 118 block        (   <paren_open>    :(
+ 118 name             <name>          :tokens
+ 118 block        )   <paren_close>   :)
+ 118 block        )   <paren_close>   :)
+ 118 sp_char      ,   <schar>         :,
+ 118 name             <name>          :current_token_index
+ 118 block        (   <paren_open>    :(
+ 118 number           <number>        :0
+ 118 block        )   <paren_close>   :)
+ 118 block        {   <brace_open>    :{
+ 119 name             <keyword>       :if
+ 119 block        (   <paren_open>    :(
+ 119 name             <name>          :this
+ 119 operator     -   <schar>         :-
+ 119 block        >   <angle_bracket_close> :>
+ 119 name             <name>          :tokens
+ 119 sp_char      .   <schar>         :.
+ 119 name             <name>          :empty
+ 119 block        (   <paren_open>    :(
+ 119 block        )   <paren_close>   :)
+ 119 block        )   <paren_close>   :)
+ 119 block        {   <brace_open>    :{
+ 120 name             <name>          :this
+ 120 operator     -   <schar>         :-
+ 120 block        >   <angle_bracket_close> :>
+ 120 name             <name>          :tokens
+ 120 sp_char      .   <schar>         :.
+ 120 name             <name>          :push_back
+ 120 block        (   <paren_open>    :(
+ 120 name             <name>          :Token
+ 120 block        (   <paren_open>    :(
+ 120 name             <name>          :TokenType
+ 120 operator     ::  <schar>         :::
+ 120 name             <name>          :END_OF_FILE
+ 120 sp_char      ,   <schar>         :,
+ 120 string       "   <string>        :
+ 120 sp_char      ,   <schar>         :,
+ 120 number           <number>        :0
+ 120 sp_char      ,   <schar>         :,
+ 120 number           <number>        :0
+ 120 sp_char      ,   <schar>         :,
+ 120 block        {   <brace_open>    :{
+ 120 block        }   <brace_close>   :}
+ 120 block        )   <paren_close>   :)
+ 120 block        )   <paren_close>   :)
+ 120 sp_char      ;   <schar>         :;
+ 121 block        }   <brace_close>   :}
+ 122 block        }   <brace_close>   :}
+ 124 name             <dattype>       :const
+ 124 name             <name>          :Token
+ 124 operator     &   <schar>         :&
+ 124 name             <name>          :Parser
+ 124 operator     ::  <schar>         :::
+ 124 name             <name>          :currentToken
+ 124 block        (   <paren_open>    :(
+ 124 block        )   <paren_close>   :)
+ 124 name             <dattype>       :const
+ 124 block        {   <brace_open>    :{
+ 125 name             <keyword>       :if
+ 125 block        (   <paren_open>    :(
+ 125 name             <name>          :current_token_index
+ 125 block        >   <angle_bracket_close> :>
+ 125 operator     =   <schar>         :=
+ 125 name             <name>          :tokens
+ 125 sp_char      .   <schar>         :.
+ 125 name             <name>          :size
+ 125 block        (   <paren_open>    :(
+ 125 block        )   <paren_close>   :)
+ 125 block        )   <paren_close>   :)
+ 125 block        {   <brace_open>    :{
+ 126 name             <keyword>       :return
+ 126 name             <name>          :tokens
+ 126 sp_char      .   <schar>         :.
+ 126 name             <name>          :back
+ 126 block        (   <paren_open>    :(
+ 126 block        )   <paren_close>   :)
+ 126 sp_char      ;   <schar>         :;
+ 127 block        }   <brace_close>   :}
+ 128 name             <keyword>       :return
+ 128 name             <name>          :tokens
+ 128 block        [   <square_bracket_open> :[
+ 128 name             <name>          :current_token_index
+ 128 block        ]   <square_bracket_close> :]
+ 128 sp_char      ;   <schar>         :;
+ 129 block        }   <brace_close>   :}
+ 131 name             <dattype>       :void
+ 131 name             <name>          :Parser
+ 131 operator     ::  <schar>         :::
+ 131 name             <name>          :advance
+ 131 block        (   <paren_open>    :(
+ 131 block        )   <paren_close>   :)
+ 131 block        {   <brace_open>    :{
+ 132 name             <keyword>       :if
+ 132 block        (   <paren_open>    :(
+ 132 name             <name>          :current_token_index
+ 132 block        <   <angle_bracket_open> :<
+ 132 name             <name>          :tokens
+ 132 sp_char      .   <schar>         :.
+ 132 name             <name>          :size
+ 132 block        (   <paren_open>    :(
+ 132 block        )   <paren_close>   :)
+ 132 block        )   <paren_close>   :)
+ 132 block        {   <brace_open>    :{
+ 133 name             <name>          :current_token_index
+ 133 operator     +   <schar>         :+
+ 133 operator     +   <schar>         :+
+ 133 sp_char      ;   <schar>         :;
+ 134 block        }   <brace_close>   :}
+ 135 block        }   <brace_close>   :}
+ 137 name             <name>          :Token
+ 137 name             <name>          :Parser
+ 137 operator     ::  <schar>         :::
+ 137 name             <name>          :expect
+ 137 block        (   <paren_open>    :(
+ 137 name             <name>          :TokenType
+ 137 name             <name>          :type
+ 137 block        )   <paren_close>   :)
+ 137 block        {   <brace_open>    :{
+ 138 name             <dattype>       :const
+ 138 name             <name>          :Token
+ 138 operator     &   <schar>         :&
+ 138 name             <name>          :current
+ 138 operator     =   <schar>         :=
+ 138 name             <name>          :currentToken
+ 138 block        (   <paren_open>    :(
+ 138 block        )   <paren_close>   :)
+ 138 sp_char      ;   <schar>         :;
+ 139 name             <keyword>       :if
+ 139 block        (   <paren_open>    :(
+ 139 name             <name>          :current
+ 139 sp_char      .   <schar>         :.
+ 139 name             <name>          :type
+ 139 operator     ==  <schar>         :==
+ 139 name             <name>          :type
+ 139 block        )   <paren_close>   :)
+ 139 block        {   <brace_open>    :{
+ 140 name             <name>          :Token
+ 140 name             <name>          :consumed_token
+ 140 operator     =   <schar>         :=
+ 140 name             <name>          :current
+ 140 sp_char      ;   <schar>         :;
+ 141 name             <name>          :advance
+ 141 block        (   <paren_open>    :(
+ 141 block        )   <paren_close>   :)
+ 141 sp_char      ;   <schar>         :;
+ 142 name             <keyword>       :return
+ 142 name             <name>          :consumed_token
+ 142 sp_char      ;   <schar>         :;
+ 143 block        }   <brace_close>   :}
+ 143 name             <keyword>       :else
+ 143 block        {   <brace_open>    :{
+ 144 name             <name>          :throw
+ 144 name             <name>          :std
+ 144 operator     ::  <schar>         :::
+ 144 name             <name>          :runtime_error
+ 144 block        (   <paren_open>    :(
+ 144 string       "   <string>        :Syntax Error: Expected 
+ 144 operator     +   <schar>         :+
+ 144 name             <name>          :tokenTypeToString
+ 144 block        (   <paren_open>    :(
+ 144 name             <name>          :type
+ 144 block        )   <paren_close>   :)
+ 144 operator     +   <schar>         :+
+ 145 string       "   <string>        :, got 
+ 145 operator     +   <schar>         :+
+ 145 name             <name>          :current
+ 145 sp_char      .   <schar>         :.
+ 145 name             <name>          :toString
+ 145 block        (   <paren_open>    :(
+ 145 block        )   <paren_close>   :)
+ 145 operator     +   <schar>         :+
+ 146 string       "   <string>        : at line 
+ 146 operator     +   <schar>         :+
+ 146 name             <name>          :std
+ 146 operator     ::  <schar>         :::
+ 146 name             <name>          :to_string
+ 146 block        (   <paren_open>    :(
+ 146 name             <name>          :current
+ 146 sp_char      .   <schar>         :.
+ 146 name             <name>          :line
+ 146 block        )   <paren_close>   :)
+ 146 operator     +   <schar>         :+
+ 147 string       "   <string>        :, column 
+ 147 operator     +   <schar>         :+
+ 147 name             <name>          :std
+ 147 operator     ::  <schar>         :::
+ 147 name             <name>          :to_string
+ 147 block        (   <paren_open>    :(
+ 147 name             <name>          :current
+ 147 sp_char      .   <schar>         :.
+ 147 name             <name>          :column
+ 147 block        )   <paren_close>   :)
+ 147 block        )   <paren_close>   :)
+ 147 sp_char      ;   <schar>         :;
+ 148 block        }   <brace_close>   :}
+ 149 block        }   <brace_close>   :}
+ 151 name             <name>          :Token
+ 151 name             <name>          :Parser
+ 151 operator     ::  <schar>         :::
+ 151 name             <name>          :expect
+ 151 block        (   <paren_open>    :(
+ 151 name             <name>          :TokenType
+ 151 name             <name>          :type
+ 151 sp_char      ,   <schar>         :,
+ 151 name             <dattype>       :const
+ 151 name             <name>          :std
+ 151 operator     ::  <schar>         :::
+ 151 name             <name>          :string
+ 151 operator     &   <schar>         :&
+ 151 name             <name>          :value
+ 151 block        )   <paren_close>   :)
+ 151 block        {   <brace_open>    :{
+ 152 name             <dattype>       :const
+ 152 name             <name>          :Token
+ 152 operator     &   <schar>         :&
+ 152 name             <name>          :current
+ 152 operator     =   <schar>         :=
+ 152 name             <name>          :currentToken
+ 152 block        (   <paren_open>    :(
+ 152 block        )   <paren_close>   :)
+ 152 sp_char      ;   <schar>         :;
+ 153 name             <keyword>       :if
+ 153 block        (   <paren_open>    :(
+ 153 name             <name>          :current
+ 153 sp_char      .   <schar>         :.
+ 153 name             <name>          :type
+ 153 operator     ==  <schar>         :==
+ 153 name             <name>          :type
+ 153 operator     &&  <schar>         :&&
+ 153 name             <name>          :current
+ 153 sp_char      .   <schar>         :.
+ 153 name             <name>          :value
+ 153 operator     ==  <schar>         :==
+ 153 name             <name>          :value
+ 153 block        )   <paren_close>   :)
+ 153 block        {   <brace_open>    :{
+ 154 name             <name>          :Token
+ 154 name             <name>          :consumed_token
+ 154 operator     =   <schar>         :=
+ 154 name             <name>          :current
+ 154 sp_char      ;   <schar>         :;
+ 155 name             <name>          :advance
+ 155 block        (   <paren_open>    :(
+ 155 block        )   <paren_close>   :)
+ 155 sp_char      ;   <schar>         :;
+ 156 name             <keyword>       :return
+ 156 name             <name>          :consumed_token
+ 156 sp_char      ;   <schar>         :;
+ 157 block        }   <brace_close>   :}
+ 157 name             <keyword>       :else
+ 157 block        {   <brace_open>    :{
+ 158 name             <name>          :throw
+ 158 name             <name>          :std
+ 158 operator     ::  <schar>         :::
+ 158 name             <name>          :runtime_error
+ 158 block        (   <paren_open>    :(
+ 158 string       "   <string>        :Syntax Error: Expected '
+ 158 operator     +   <schar>         :+
+ 158 name             <name>          :value
+ 158 operator     +   <schar>         :+
+ 158 string       "   <string>        :' (type 
+ 158 operator     +   <schar>         :+
+ 158 name             <name>          :tokenTypeToString
+ 158 block        (   <paren_open>    :(
+ 158 name             <name>          :type
+ 158 block        )   <paren_close>   :)
+ 158 operator     +   <schar>         :+
+ 159 string       "   <string>        :), got 
+ 159 operator     +   <schar>         :+
+ 159 name             <name>          :current
+ 159 sp_char      .   <schar>         :.
+ 159 name             <name>          :toString
+ 159 block        (   <paren_open>    :(
+ 159 block        )   <paren_close>   :)
+ 159 operator     +   <schar>         :+
+ 160 string       "   <string>        : at line 
+ 160 operator     +   <schar>         :+
+ 160 name             <name>          :std
+ 160 operator     ::  <schar>         :::
+ 160 name             <name>          :to_string
+ 160 block        (   <paren_open>    :(
+ 160 name             <name>          :current
+ 160 sp_char      .   <schar>         :.
+ 160 name             <name>          :line
+ 160 block        )   <paren_close>   :)
+ 160 operator     +   <schar>         :+
+ 161 string       "   <string>        :, column 
+ 161 operator     +   <schar>         :+
+ 161 name             <name>          :std
+ 161 operator     ::  <schar>         :::
+ 161 name             <name>          :to_string
+ 161 block        (   <paren_open>    :(
+ 161 name             <name>          :current
+ 161 sp_char      .   <schar>         :.
+ 161 name             <name>          :column
+ 161 block        )   <paren_close>   :)
+ 161 block        )   <paren_close>   :)
+ 161 sp_char      ;   <schar>         :;
+ 162 block        }   <brace_close>   :}
+ 163 block        }   <brace_close>   :}
+ 165 name             <name>          :Token
+ 165 name             <name>          :Parser
+ 165 operator     ::  <schar>         :::
+ 165 name             <name>          :expect
+ 165 block        (   <paren_open>    :(
+ 165 name             <name>          :TokenSubtype
+ 165 name             <name>          :type
+ 165 sp_char      ,   <schar>         :,
+ 165 name             <dattype>       :const
+ 165 name             <name>          :std
+ 165 operator     ::  <schar>         :::
+ 165 name             <name>          :string
+ 165 operator     &   <schar>         :&
+ 165 name             <name>          :value
+ 165 block        )   <paren_close>   :)
+ 165 block        {   <brace_open>    :{
+ 166 name             <dattype>       :const
+ 166 name             <name>          :Token
+ 166 operator     &   <schar>         :&
+ 166 name             <name>          :current
+ 166 operator     =   <schar>         :=
+ 166 name             <name>          :currentToken
+ 166 block        (   <paren_open>    :(
+ 166 block        )   <paren_close>   :)
+ 166 sp_char      ;   <schar>         :;
+ 167 name             <keyword>       :if
+ 167 block        (   <paren_open>    :(
+ 167 name             <name>          :current
+ 167 sp_char      .   <schar>         :.
+ 167 name             <name>          :subtype
+ 167 operator     ==  <schar>         :==
+ 167 name             <name>          :type
+ 167 operator     &&  <schar>         :&&
+ 167 block        (   <paren_open>    :(
+ 167 name             <name>          :value
+ 167 operator     ==  <schar>         :==
+ 167 string       "   <string>        :
+ 167 operator     ||  <schar>         :||
+ 167 name             <name>          :current
+ 167 sp_char      .   <schar>         :.
+ 167 name             <name>          :value
+ 167 operator     ==  <schar>         :==
+ 167 name             <name>          :value
+ 167 block        )   <paren_close>   :)
+ 167 block        )   <paren_close>   :)
+ 167 block        {   <brace_open>    :{
+ 168 name             <name>          :Token
+ 168 name             <name>          :consumed_token
+ 168 operator     =   <schar>         :=
+ 168 name             <name>          :current
+ 168 sp_char      ;   <schar>         :;
+ 169 name             <name>          :advance
+ 169 block        (   <paren_open>    :(
+ 169 block        )   <paren_close>   :)
+ 169 sp_char      ;   <schar>         :;
+ 170 name             <keyword>       :return
+ 170 name             <name>          :consumed_token
+ 170 sp_char      ;   <schar>         :;
+ 171 block        }   <brace_close>   :}
+ 171 name             <keyword>       :else
+ 171 block        {   <brace_open>    :{
+ 172 name             <name>          :throw
+ 172 name             <name>          :std
+ 172 operator     ::  <schar>         :::
+ 172 name             <name>          :runtime_error
+ 172 block        (   <paren_open>    :(
+ 172 string       "   <string>        :Syntax Error: Expected '
+ 172 operator     +   <schar>         :+
+ 172 name             <name>          :value
+ 172 operator     +   <schar>         :+
+ 172 string       "   <string>        :' (type 
+ 172 operator     +   <schar>         :+
+ 172 name             <name>          :tokenTypeToString
+ 172 block        (   <paren_open>    :(
+ 172 name             <name>          :current
+ 172 sp_char      .   <schar>         :.
+ 172 name             <name>          :type
+ 172 block        )   <paren_close>   :)
+ 172 operator     +   <schar>         :+
+ 173 string       "   <string>        :), got 
+ 173 operator     +   <schar>         :+
+ 173 name             <name>          :current
+ 173 sp_char      .   <schar>         :.
+ 173 name             <name>          :toString
+ 173 block        (   <paren_open>    :(
+ 173 block        )   <paren_close>   :)
+ 173 operator     +   <schar>         :+
+ 174 string       "   <string>        : at line 
+ 174 operator     +   <schar>         :+
+ 174 name             <name>          :std
+ 174 operator     ::  <schar>         :::
+ 174 name             <name>          :to_string
+ 174 block        (   <paren_open>    :(
+ 174 name             <name>          :current
+ 174 sp_char      .   <schar>         :.
+ 174 name             <name>          :line
+ 174 block        )   <paren_close>   :)
+ 174 operator     +   <schar>         :+
+ 175 string       "   <string>        :, column 
+ 175 operator     +   <schar>         :+
+ 175 name             <name>          :std
+ 175 operator     ::  <schar>         :::
+ 175 name             <name>          :to_string
+ 175 block        (   <paren_open>    :(
+ 175 name             <name>          :current
+ 175 sp_char      .   <schar>         :.
+ 175 name             <name>          :column
+ 175 block        )   <paren_close>   :)
+ 175 block        )   <paren_close>   :)
+ 175 sp_char      ;   <schar>         :;
+ 176 block        }   <brace_close>   :}
+ 177 block        }   <brace_close>   :}
+ 180 name             <name>          :std
+ 180 operator     ::  <schar>         :::
+ 180 name             <name>          :unique_ptr
+ 180 block        <   <angle_bracket_open> :<
+ 180 name             <name>          :ProgramNode
+ 180 block        >   <angle_bracket_close> :>
+ 180 name             <name>          :Parser
+ 180 operator     ::  <schar>         :::
+ 180 name             <name>          :parseProgram
+ 180 block        (   <paren_open>    :(
+ 180 block        )   <paren_close>   :)
+ 180 block        {   <brace_open>    :{
+ 181 name             <keyword>       :auto
+ 181 name             <name>          :program
+ 181 operator     =   <schar>         :=
+ 181 name             <name>          :std
+ 181 operator     ::  <schar>         :::
+ 181 name             <name>          :make_unique
+ 181 block        <   <angle_bracket_open> :<
+ 181 name             <name>          :ProgramNode
+ 181 block        >   <angle_bracket_close> :>
+ 181 block        (   <paren_open>    :(
+ 181 block        )   <paren_close>   :)
+ 181 sp_char      ;   <schar>         :;
+ 182 name             <keyword>       :while
+ 182 block        (   <paren_open>    :(
+ 182 name             <name>          :currentToken
+ 182 block        (   <paren_open>    :(
+ 182 block        )   <paren_close>   :)
+ 182 sp_char      .   <schar>         :.
+ 182 name             <name>          :type
+ 182 operator     !=  <schar>         :!=
+ 182 name             <name>          :TokenType
+ 182 operator     ::  <schar>         :::
+ 182 name             <name>          :END_OF_FILE
+ 182 block        )   <paren_close>   :)
+ 182 block        {   <brace_open>    :{
+ 183 name             <name>          :program
+ 183 operator     -   <schar>         :-
+ 183 block        >   <angle_bracket_close> :>
+ 183 name             <name>          :statements
+ 183 sp_char      .   <schar>         :.
+ 183 name             <name>          :push_back
+ 183 block        (   <paren_open>    :(
+ 183 name             <name>          :parseStatement
+ 183 block        (   <paren_open>    :(
+ 183 block        )   <paren_close>   :)
+ 183 block        )   <paren_close>   :)
+ 183 sp_char      ;   <schar>         :;
+ 184 block        }   <brace_close>   :}
+ 185 name             <keyword>       :return
+ 185 name             <name>          :program
+ 185 sp_char      ;   <schar>         :;
+ 186 block        }   <brace_close>   :}
+ 188 name             <dattype>       :int
+ 188 name             <name>          :getOperatorPrecedence
+ 188 block        (   <paren_open>    :(
+ 188 name             <dattype>       :const
+ 188 name             <name>          :std
+ 188 operator     ::  <schar>         :::
+ 188 name             <name>          :string
+ 188 operator     &   <schar>         :&
+ 188 name             <name>          :op
+ 188 block        )   <paren_close>   :)
+ 188 block        {   <brace_open>    :{
+ 189 name             <keyword>       :if
+ 189 block        (   <paren_open>    :(
+ 189 name             <name>          :op
+ 189 operator     ==  <schar>         :==
+ 189 string       "   <string>        :+
+ 189 operator     ||  <schar>         :||
+ 189 name             <name>          :op
+ 189 operator     ==  <schar>         :==
+ 189 string       "   <string>        :-
+ 189 block        )   <paren_close>   :)
+ 189 name             <keyword>       :return
+ 189 number           <number>        :1
+ 189 sp_char      ;   <schar>         :;
+ 190 name             <keyword>       :if
+ 190 block        (   <paren_open>    :(
+ 190 name             <name>          :op
+ 190 operator     ==  <schar>         :==
+ 190 string       "   <string>        :*
+ 190 operator     ||  <schar>         :||
+ 190 name             <name>          :op
+ 190 operator     ==  <schar>         :==
+ 190 string       "   <string>        :/
+ 190 block        )   <paren_close>   :)
+ 190 name             <keyword>       :return
+ 190 number           <number>        :2
+ 190 sp_char      ;   <schar>         :;
+ 191 name             <keyword>       :if
+ 191 block        (   <paren_open>    :(
+ 191 name             <name>          :op
+ 191 operator     ==  <schar>         :==
+ 191 string       "   <string>        :==
+ 191 operator     ||  <schar>         :||
+ 191 name             <name>          :op
+ 191 operator     ==  <schar>         :==
+ 191 string       "   <string>        :>
+ 191 operator     ||  <schar>         :||
+ 191 name             <name>          :op
+ 191 operator     ==  <schar>         :==
+ 191 string       "   <string>        :<
+ 191 operator     ||  <schar>         :||
+ 191 name             <name>          :op
+ 191 operator     ==  <schar>         :==
+ 191 string       "   <string>        :=
+ 191 block        )   <paren_close>   :)
+ 191 name             <keyword>       :return
+ 191 number           <number>        :0
+ 191 sp_char      ;   <schar>         :;
+ 191 comment      //  <line_comment>  :// 할당 연산자 우선순위 추가
+ 192 name             <keyword>       :return
+ 192 operator     -   <schar>         :-
+ 192 number           <number>        :1
+ 192 sp_char      ;   <schar>         :;
+ 193 block        }   <brace_close>   :}
+ 195 name             <name>          :std
+ 195 operator     ::  <schar>         :::
+ 195 name             <name>          :unique_ptr
+ 195 block        <   <angle_bracket_open> :<
+ 195 name             <name>          :ASTNode
+ 195 block        >   <angle_bracket_close> :>
+ 195 name             <name>          :Parser
+ 195 operator     ::  <schar>         :::
+ 195 name             <name>          :parseExpression
+ 195 block        (   <paren_open>    :(
+ 195 block        )   <paren_close>   :)
+ 195 block        {   <brace_open>    :{
+ 196 name             <keyword>       :return
+ 196 name             <name>          :parseBinaryExpression
+ 196 block        (   <paren_open>    :(
+ 196 number           <number>        :0
+ 196 block        )   <paren_close>   :)
+ 196 sp_char      ;   <schar>         :;
+ 197 block        }   <brace_close>   :}
+ 199 name             <name>          :std
+ 199 operator     ::  <schar>         :::
+ 199 name             <name>          :unique_ptr
+ 199 block        <   <angle_bracket_open> :<
+ 199 name             <name>          :ASTNode
+ 199 block        >   <angle_bracket_close> :>
+ 199 name             <name>          :Parser
+ 199 operator     ::  <schar>         :::
+ 199 name             <name>          :parseBinaryExpression
+ 199 block        (   <paren_open>    :(
+ 199 name             <dattype>       :int
+ 199 name             <name>          :precedence
+ 199 block        )   <paren_close>   :)
+ 199 block        {   <brace_open>    :{
+ 200 name             <keyword>       :auto
+ 200 name             <name>          :left
+ 200 operator     =   <schar>         :=
+ 200 name             <name>          :parsePrimaryExpression
+ 200 block        (   <paren_open>    :(
+ 200 block        )   <paren_close>   :)
+ 200 sp_char      ;   <schar>         :;
+ 202 name             <keyword>       :while
+ 202 block        (   <paren_open>    :(
+ 202 name             <name>          :currentToken
+ 202 block        (   <paren_open>    :(
+ 202 block        )   <paren_close>   :)
+ 202 sp_char      .   <schar>         :.
+ 202 name             <name>          :type
+ 202 operator     ==  <schar>         :==
+ 202 name             <name>          :TokenType
+ 202 operator     ::  <schar>         :::
+ 202 name             <name>          :OPERATOR
+ 202 operator     &&  <schar>         :&&
+ 203 name             <name>          :getOperatorPrecedence
+ 203 block        (   <paren_open>    :(
+ 203 name             <name>          :currentToken
+ 203 block        (   <paren_open>    :(
+ 203 block        )   <paren_close>   :)
+ 203 sp_char      .   <schar>         :.
+ 203 name             <name>          :value
+ 203 block        )   <paren_close>   :)
+ 203 block        >   <angle_bracket_close> :>
+ 203 operator     =   <schar>         :=
+ 203 name             <name>          :precedence
+ 203 block        )   <paren_close>   :)
+ 203 block        {   <brace_open>    :{
+ 204 name             <name>          :std
+ 204 operator     ::  <schar>         :::
+ 204 name             <name>          :string
+ 204 name             <name>          :op
+ 204 operator     =   <schar>         :=
+ 204 name             <name>          :expect
+ 204 block        (   <paren_open>    :(
+ 204 name             <name>          :TokenType
+ 204 operator     ::  <schar>         :::
+ 204 name             <name>          :OPERATOR
+ 204 block        )   <paren_close>   :)
+ 204 sp_char      .   <schar>         :.
+ 204 name             <name>          :value
+ 204 sp_char      ;   <schar>         :;
+ 205 name             <dattype>       :int
+ 205 name             <name>          :next_precedence
+ 205 operator     =   <schar>         :=
+ 205 name             <name>          :getOperatorPrecedence
+ 205 block        (   <paren_open>    :(
+ 205 name             <name>          :op
+ 205 block        )   <paren_close>   :)
+ 205 sp_char      ;   <schar>         :;
+ 206 comment      //  <line_comment>  :// 왼쪽 결합성 연산자 (대부분의 이진 연산자: +, -, *, /)
+ 207 comment      //  <line_comment>  :// 같은 우선순위의 다음 연산자는 현재 연산자와 같거나 낮은 우선순위로 파싱
+ 208 name             <keyword>       :auto
+ 208 name             <name>          :right
+ 208 operator     =   <schar>         :=
+ 208 name             <name>          :parseBinaryExpression
+ 208 block        (   <paren_open>    :(
+ 208 name             <name>          :next_precedence
+ 208 operator     +   <schar>         :+
+ 208 number           <number>        :1
+ 208 block        )   <paren_close>   :)
+ 208 sp_char      ;   <schar>         :;
+ 210 name             <keyword>       :auto
+ 210 name             <name>          :binary_node
+ 210 operator     =   <schar>         :=
+ 210 name             <name>          :std
+ 210 operator     ::  <schar>         :::
+ 210 name             <name>          :make_unique
+ 210 block        <   <angle_bracket_open> :<
+ 210 name             <name>          :BinaryExpressionNode
+ 210 block        >   <angle_bracket_close> :>
+ 210 block        (   <paren_open>    :(
+ 210 block        )   <paren_close>   :)
+ 210 sp_char      ;   <schar>         :;
+ 211 name             <name>          :binary_node
+ 211 operator     -   <schar>         :-
+ 211 block        >   <angle_bracket_close> :>
+ 211 name             <name>          :left
+ 211 operator     =   <schar>         :=
+ 211 name             <name>          :std
+ 211 operator     ::  <schar>         :::
+ 211 name             <name>          :move
+ 211 block        (   <paren_open>    :(
+ 211 name             <name>          :left
+ 211 block        )   <paren_close>   :)
+ 211 sp_char      ;   <schar>         :;
+ 212 name             <name>          :binary_node
+ 212 operator     -   <schar>         :-
+ 212 block        >   <angle_bracket_close> :>
+ 212 name             <name>          :op
+ 212 operator     =   <schar>         :=
+ 212 name             <name>          :op
+ 212 sp_char      ;   <schar>         :;
+ 213 name             <name>          :binary_node
+ 213 operator     -   <schar>         :-
+ 213 block        >   <angle_bracket_close> :>
+ 213 name             <name>          :right
+ 213 operator     =   <schar>         :=
+ 213 name             <name>          :std
+ 213 operator     ::  <schar>         :::
+ 213 name             <name>          :move
+ 213 block        (   <paren_open>    :(
+ 213 name             <name>          :right
+ 213 block        )   <paren_close>   :)
+ 213 sp_char      ;   <schar>         :;
+ 214 name             <name>          :left
+ 214 operator     =   <schar>         :=
+ 214 name             <name>          :std
+ 214 operator     ::  <schar>         :::
+ 214 name             <name>          :move
+ 214 block        (   <paren_open>    :(
+ 214 name             <name>          :binary_node
+ 214 block        )   <paren_close>   :)
+ 214 sp_char      ;   <schar>         :;
+ 215 block        }   <brace_close>   :}
+ 216 name             <keyword>       :return
+ 216 name             <name>          :left
+ 216 sp_char      ;   <schar>         :;
+ 217 block        }   <brace_close>   :}
+ 219 name             <name>          :std
+ 219 operator     ::  <schar>         :::
+ 219 name             <name>          :unique_ptr
+ 219 block        <   <angle_bracket_open> :<
+ 219 name             <name>          :ASTNode
+ 219 block        >   <angle_bracket_close> :>
+ 219 name             <name>          :Parser
+ 219 operator     ::  <schar>         :::
+ 219 name             <name>          :parsePrimaryExpression
+ 219 block        (   <paren_open>    :(
+ 219 block        )   <paren_close>   :)
+ 219 block        {   <brace_open>    :{
+ 220 name             <dattype>       :const
+ 220 name             <name>          :Token
+ 220 operator     &   <schar>         :&
+ 220 name             <name>          :current
+ 220 operator     =   <schar>         :=
+ 220 name             <name>          :currentToken
+ 220 block        (   <paren_open>    :(
+ 220 block        )   <paren_close>   :)
+ 220 sp_char      ;   <schar>         :;
+ 221 name             <keyword>       :if
+ 221 block        (   <paren_open>    :(
+ 221 name             <name>          :current
+ 221 sp_char      .   <schar>         :.
+ 221 name             <name>          :type
+ 221 operator     ==  <schar>         :==
+ 221 name             <name>          :TokenType
+ 221 operator     ::  <schar>         :::
+ 221 name             <name>          :NUMBER
+ 221 block        )   <paren_close>   :)
+ 221 block        {   <brace_open>    :{
+ 222 comment      //  <line_comment>  :// NumberLiteralNode의 생성자에 int 인자를 전달
+ 223 name             <keyword>       :return
+ 223 name             <name>          :std
+ 223 operator     ::  <schar>         :::
+ 223 name             <name>          :make_unique
+ 223 block        <   <angle_bracket_open> :<
+ 223 name             <name>          :NumberLiteralNode
+ 223 block        >   <angle_bracket_close> :>
+ 223 block        (   <paren_open>    :(
+ 223 name             <name>          :std
+ 223 operator     ::  <schar>         :::
+ 223 name             <name>          :stoi
+ 223 block        (   <paren_open>    :(
+ 223 name             <name>          :expect
+ 223 block        (   <paren_open>    :(
+ 223 name             <name>          :TokenType
+ 223 operator     ::  <schar>         :::
+ 223 name             <name>          :NUMBER
+ 223 block        )   <paren_close>   :)
+ 223 sp_char      .   <schar>         :.
+ 223 name             <name>          :value
+ 223 block        )   <paren_close>   :)
+ 223 block        )   <paren_close>   :)
+ 223 sp_char      ;   <schar>         :;
+ 224 block        }   <brace_close>   :}
+ 224 name             <keyword>       :else
+ 224 name             <keyword>       :if
+ 224 block        (   <paren_open>    :(
+ 224 name             <name>          :current
+ 224 sp_char      .   <schar>         :.
+ 224 name             <name>          :subtype
+ 224 operator     ==  <schar>         :==
+ 224 name             <name>          :TokenSubtype
+ 224 operator     ::  <schar>         :::
+ 224 name             <name>          :IDENTIFIER
+ 224 block        )   <paren_close>   :)
+ 224 block        {   <brace_open>    :{
+ 225 comment      //  <line_comment>  :// IdentifierNode의 생성자에 std::string 인자를 전달
+ 226 name             <keyword>       :return
+ 226 name             <name>          :std
+ 226 operator     ::  <schar>         :::
+ 226 name             <name>          :make_unique
+ 226 block        <   <angle_bracket_open> :<
+ 226 name             <name>          :IdentifierNode
+ 226 block        >   <angle_bracket_close> :>
+ 226 block        (   <paren_open>    :(
+ 226 name             <name>          :expect
+ 226 block        (   <paren_open>    :(
+ 226 name             <name>          :TokenSubtype
+ 226 operator     ::  <schar>         :::
+ 226 name             <name>          :IDENTIFIER
+ 226 block        )   <paren_close>   :)
+ 226 sp_char      .   <schar>         :.
+ 226 name             <name>          :value
+ 226 block        )   <paren_close>   :)
+ 226 sp_char      ;   <schar>         :;
+ 227 block        }   <brace_close>   :}
+ 227 name             <keyword>       :else
+ 227 name             <keyword>       :if
+ 227 block        (   <paren_open>    :(
+ 227 name             <name>          :current
+ 227 sp_char      .   <schar>         :.
+ 227 name             <name>          :subtype
+ 227 operator     ==  <schar>         :==
+ 227 name             <name>          :TokenSubtype
+ 227 operator     ::  <schar>         :::
+ 227 name             <name>          :PAREN_OPEN
+ 227 block        )   <paren_close>   :)
+ 227 block        {   <brace_open>    :{
+ 228 name             <name>          :expect
+ 228 block        (   <paren_open>    :(
+ 228 name             <name>          :TokenSubtype
+ 228 operator     ::  <schar>         :::
+ 228 name             <name>          :PAREN_OPEN
+ 228 block        )   <paren_close>   :)
+ 228 sp_char      ;   <schar>         :;
+ 229 name             <keyword>       :auto
+ 229 name             <name>          :expr
+ 229 operator     =   <schar>         :=
+ 229 name             <name>          :parseExpression
+ 229 block        (   <paren_open>    :(
+ 229 block        )   <paren_close>   :)
+ 229 sp_char      ;   <schar>         :;
+ 230 name             <name>          :expect
+ 230 block        (   <paren_open>    :(
+ 230 name             <name>          :TokenSubtype
+ 230 operator     ::  <schar>         :::
+ 230 name             <name>          :PAREN_CLOSE
+ 230 block        )   <paren_close>   :)
+ 230 sp_char      ;   <schar>         :;
+ 231 name             <keyword>       :return
+ 231 name             <name>          :expr
+ 231 sp_char      ;   <schar>         :;
+ 232 block        }   <brace_close>   :}
+ 232 name             <keyword>       :else
+ 232 name             <keyword>       :if
+ 232 block        (   <paren_open>    :(
+ 232 name             <name>          :current
+ 232 sp_char      .   <schar>         :.
+ 232 name             <name>          :subtype
+ 232 operator     ==  <schar>         :==
+ 232 name             <name>          :TokenSubtype
+ 232 operator     ::  <schar>         :::
+ 232 name             <name>          :STRING_LITERAL
+ 232 block        )   <paren_close>   :)
+ 232 block        {   <brace_open>    :{
+ 232 comment      //  <line_comment>  :// 문자열 리터럴 추가
+ 233 comment      //  <line_comment>  :// StringLiteralNode 정의 필요. 여기서는 임시로 IdentifierNode 사용
+ 234 name             <keyword>       :return
+ 234 name             <name>          :std
+ 234 operator     ::  <schar>         :::
+ 234 name             <name>          :make_unique
+ 234 block        <   <angle_bracket_open> :<
+ 234 name             <name>          :IdentifierNode
+ 234 block        >   <angle_bracket_close> :>
+ 234 block        (   <paren_open>    :(
+ 234 name             <name>          :expect
+ 234 block        (   <paren_open>    :(
+ 234 name             <name>          :TokenSubtype
+ 234 operator     ::  <schar>         :::
+ 234 name             <name>          :STRING_LITERAL
+ 234 block        )   <paren_close>   :)
+ 234 sp_char      .   <schar>         :.
+ 234 name             <name>          :value
+ 234 block        )   <paren_close>   :)
+ 234 sp_char      ;   <schar>         :;
+ 234 comment      //  <line_comment>  :// TODO: StringLiteralNode로 변경
+ 235 block        }   <brace_close>   :}
+ 236 comment      //  <line_comment>  :// TODO: 함수 호출 등 추가
+ 238 name             <name>          :throw
+ 238 name             <name>          :std
+ 238 operator     ::  <schar>         :::
+ 238 name             <name>          :runtime_error
+ 238 block        (   <paren_open>    :(
+ 238 string       "   <string>        :Syntax Error: Unexpected token in primary expression: 
+ 238 operator     +   <schar>         :+
+ 238 name             <name>          :current
+ 238 sp_char      .   <schar>         :.
+ 238 name             <name>          :toString
+ 238 block        (   <paren_open>    :(
+ 238 block        )   <paren_close>   :)
+ 238 block        )   <paren_close>   :)
+ 238 sp_char      ;   <schar>         :;
+ 239 block        }   <brace_close>   :}
+ 241 comment      //  <line_comment>  :// ... (getOperatorPrecedence, parseExpression, parseBinaryExpression, parsePrimaryExpression 함수는 동일) ...
+ 243 block        }   <brace_close>   :}
+ 243 comment      //  <line_comment>  :// namespace MyLang
+ 244 endoffile        <undef>         :
+ 244 endoffile        <undef>         :
+--------------
+

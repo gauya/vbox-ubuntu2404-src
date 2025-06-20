@@ -1,12 +1,12 @@
-SRCS = lexer.cpp parser.cpp main.cpp
+SRCS = lexer.h parser.h lexer.cpp parser.cpp main.cpp
 TARGET = myparse
 OBJS = $(patsubst %.cpp,%.o,$(SRCS))
 
 CXX = g++
-CXXFLAGS = -std=c++23 -Wall -O3
+CXXFLAGS += -std=c++23 -Wall -O3
 LDFLAGS = 
 
-INCDIR = -I.
+INCDIR += -I.
 LIBDIR = 
 
 %.o: %.cpp

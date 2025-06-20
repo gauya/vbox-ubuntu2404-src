@@ -51,9 +51,9 @@ enum class TokenSubtype : int {
     ASSIGN_OP,  // =, -=, +=, *=. /=, %=
     SIGN_OP,    // +, -
     INCRE_OP,   // ++,--
-    RELATION_OP,
-    LOGIC_OP,
-    BITWISE_OP,
+    RELATIVE_OP,// >, <, >=, <=, !=, ==
+    LOGIC_OP,   // ||, &&, !
+    BITWISE_OP, // |, &, ^
     STRUCT_OP,  // ., ->
     SCOPE_OP,   // ::
     ETC_OP,  // sizeof, new, delete 
@@ -76,7 +76,7 @@ enum class TokenSubtype : int {
     ANGLE_BRACKET_OPEN,
     ANGLE_BRACKET_CLOSE,
     
-    END_OF_FILE = -1  // EOF
+    END_OF_FILE  // EOF
 };
 
 // 차례

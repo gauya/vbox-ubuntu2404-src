@@ -21,6 +21,8 @@ const std::unordered_map<std::string, TokenSubtype> Lexer::keywords = {
   {"default", TokenSubtype::KEYWORD},
   {"auto", TokenSubtype::KEYWORD},
   {"def", TokenSubtype::KEYWORD},
+  {"try", TokenSubtype::KEYWORD},
+  {"catch", TokenSubtype::KEYWORD},
   {"function", TokenSubtype::KEYWORD},
 
   {"include", TokenSubtype::PREKEY},
@@ -100,7 +102,7 @@ const std::map<TokenSubtype, std::string> Lexer::tokenSubtype_names = {
 	{ TokenSubtype::ASSIGN_OP, "assign_op" },
 	{ TokenSubtype::SIGN_OP, "sign_op" },
 	{ TokenSubtype::INCRE_OP, "incre_op" },
-	{ TokenSubtype::RELATION_OP, "relation_op" },
+	{ TokenSubtype::RELATIVE_OP, "relation_op" },
 	{ TokenSubtype::LOGIC_OP, "logic_op" },
 	{ TokenSubtype::BITWISE_OP, "bitwise_op" },
 	{ TokenSubtype::STRUCT_OP, "struct_op" },
@@ -123,22 +125,86 @@ const std::map<TokenSubtype, std::string> Lexer::tokenSubtype_names = {
 	{ TokenSubtype::END_OF_FILE,"end_of_file"}  // EOF, "end_of_file = -1  // eof" },
 };
 
+
+int find_index(const char* pp[], const std::string& str) {
+    for (int i = 0; pp[i]; ++i) {
+        if (str == pp[i]) {
+            return i;
+        }
+    }
+    return -1;
+}
+
+int find_index(const char* p, int ch) {
+  for( int i=0; p[i]; i++ ) {
+    if(ch == p[i]) return i;
+  }
+  return -1;
+}
+
+const char *_scope_ops[] =  { "::", NULL };
+const char *_incre_ops[] = { "++", "--", NULL };
+const char *_arthmetic_ops[] =  { "+","-","*","/","%", NULL };
+const char *_assign_ops[] = { "+=","-=","*=","/=","%=","^=", "&=", "|=", "=", NULL };
+const char *_relative_ops[] = { "==", "!=", ">=", "<=", ">","<", NULL };
+const char *_logic_ops[] = { "||", "&&", "!", NULL };
+const char *_bitwise_ops[] = { "|", "&", "^", NULL };
+const char *_struct_ops[] = { ".", "->", NULL };
+
+const char *_comment_line_strs[] =  { "//", "#", /* "--", ";",*/ NULL };
+const char *_comment_block_strs[] =  { "/*", "*/", NULL };
+
 TokenSubtype Token::set_subtype() {
   switch(type) {
   case TokenType::NAME:
-    subtype = MyLang::Lexer::Lexer::keywords.at(value);
+    try {
+      subtype = MyLang::Lexer::keywords.at(value);
+    } catch(...) {
+      subtype = TokenSubtype::NAME;
+    }
     break;
   case TokenType::NUMBER:
     subtype = TokenSubtype::NUMBER;
     break;
   case TokenType::OPERATOR:
     subtype = TokenSubtype::OPERATOR;
+    std::cout << "(" << typestr << ") " << _scope_ops[0] << std::endl;
+    if( find_index( _scope_ops, typestr ) != -1 ) {
+      subtype = TokenSubtype::SCOPE_OP;
+    } else
+    if( find_index( _incre_ops, typestr ) != -1 ) {
+      subtype = TokenSubtype::INCRE_OP;
+    } else
+    if( find_index( _assign_ops, typestr ) != -1 ) {
+      subtype = TokenSubtype::ARTHMETIC_OP;
+    } else
+    if( find_index( _relative_ops, typestr ) != -1 ) {
+      subtype = TokenSubtype::RELATIVE_OP;
+    } else
+    if( find_index( _logic_ops, typestr ) != -1 ) {
+      subtype = TokenSubtype::LOGIC_OP;
+    } else
+    if( find_index( _struct_ops, typestr ) != -1 ) {
+      subtype = TokenSubtype::STRUCT_OP;
+    } else
+    if( find_index( _bitwise_ops, typestr ) != -1 ) {
+      subtype = TokenSubtype::BITWISE_OP;
+    } else
+    if( find_index( _arthmetic_ops, typestr ) != -1 ) {
+      subtype = TokenSubtype::ARTHMETIC_OP;
+    } else
     break;
   case TokenType::SCHAR:
     subtype = TokenSubtype::SCHAR;
     break;
   case TokenType::COMMENT:
     subtype = TokenSubtype::COMMENT;
+    if( find_index( _comment_line_strs, typestr ) != -1 ) {
+      subtype = TokenSubtype::LINE_COMMENT;
+    } else
+    if( find_index( _comment_block_strs, typestr ) != -1 ) {
+      subtype = TokenSubtype::BLOCK_COMMENT;
+    } 
     break;
   case TokenType::BLOCK:
     subtype = TokenSubtype::BLOCK;
@@ -163,11 +229,20 @@ TokenSubtype Token::set_subtype() {
     subtype = TokenSubtype::UNDEF;
   }
 
+#ifdef DEBUG
+  try {
+  std::cout << "[" << value << "] " << (int)subtype << ":";  
+  std::cout << Lexer::tokenSubtype_names.at(subtype) << std::endl;
+  } catch(std::exception & e) {
+    std::cerr << e.what() << std::endl;
+  }
+#endif
+
   return subtype;
 }
 
 Token::Token( TokenType type, const std::string& value, size_t line, size_t column, const std::string st ) : type(type), subtype((TokenSubtype)type), typestr(st), value(value), line(line), column(column) {
-  //set_subtype();
+  set_subtype();
 }
 
 // peek()에서 '\' 를 처리해야할까
@@ -495,13 +570,13 @@ bool Lexer::is_special_char( int ch ) {
 }
 
 const char *__operation_keys[] = {
+  "+","-","*","/","%","?",
   "++","--",
   "<=",">=","==","!=",
   "||","&&",
   "<<=",">>=",
   "<<",">>",
   "::",
-  "+","-","*","/","%","?",
   "=","+=","-=","*=","/=","%=","^=","|=","&=","^=",
   "|","&","^",
   NULL
@@ -616,10 +691,10 @@ Token Lexer::getToken() {
       return Token( TokenType::OPERATOR, std::string(1,c), m_line, start_col,{c});
     }
     size_t len = strlen( __operation_keys[ok] );
-    size_t pp = m_pos;
+    std::string ss = __operation_keys[ok];
     m_pos += len; // advance();
     m_column += len;
-    return Token( TokenType::OPERATOR, m_str.substr(pp, len), m_line, start_col,{c});
+    return Token( TokenType::OPERATOR, ss, m_line, start_col,ss);
   }
   if ( is_special_char(c) ) {
     advance();
