@@ -150,7 +150,20 @@ const char *_relative_ops[] = { "==", "!=", ">=", "<=", ">","<", NULL };
 const char *_logic_ops[] = { "||", "&&", "!", NULL };
 const char *_bitwise_ops[] = { "|", "&", "^", NULL };
 const char *_struct_ops[] = { ".", "->", NULL };
-
+/*
+const char *__operation_keys[] = {
+  "+","-","*","/","%","?",
+  "++","--",
+  "<=",">=","==","!=",
+  "||","&&",
+  "<<=",">>=",
+  "<<",">>",
+  "::",
+  "=","+=","-=","*=","/=","%=","^=","|=","&=","^=",
+  "|","&","^",
+  NULL
+};
+*/
 const char *_comment_line_strs[] =  { "//", "#", /* "--", ";",*/ NULL };
 const char *_comment_block_strs[] =  { "/*", "*/", NULL };
 
@@ -518,6 +531,16 @@ R"(
 }
 */
 
+Token Lexer::parseOperator() {
+  int start_col = m_column;
+  char quote_char = peek(); 
+  std::string str;
+
+
+
+  return Token(TokenType::OPERATOR, str, m_line, start_col, std::string(1,quote_char));
+}
+
 Token Lexer::parseBlock() {
   int start_col = m_column;
   char quote_char = peek(); // advance(); // 
@@ -569,18 +592,6 @@ bool Lexer::is_special_char( int ch ) {
   return ( strchr( __special_chars, ch ))? true : false;
 }
 
-const char *__operation_keys[] = {
-  "+","-","*","/","%","?",
-  "++","--",
-  "<=",">=","==","!=",
-  "||","&&",
-  "<<=",">>=",
-  "<<",">>",
-  "::",
-  "=","+=","-=","*=","/=","%=","^=","|=","&=","^=",
-  "|","&","^",
-  NULL
-};
 
 bool comp_str_charp(const std::string& str, size_t at, const char *chs) {
     // 1. const char* (chs)의 nullptr 검사
@@ -623,20 +634,22 @@ int find_operation_key_at_pos(const std::string& str, size_t idx) {
         return -1; // 시작 위치가 문자열 범위를 벗어나면 바로 실패
     }
 
+    int slen = str.length() - idx;
+
     // 2. __operation_keys 배열 순회
     for (int i = 0; __operation_keys[i] != NULL; ++i) {
         const char* op_key = __operation_keys[i];
         size_t op_len = strlen(op_key); // 연산자 문자열의 길이
 
         // 3. str의 남은 길이가 현재 연산자 문자열보다 짧으면 비교 불가능
-        if ((str.length() - idx) < op_len) {
+        if ( slen < op_len ) {
             continue; // 다음 연산자 키로 넘어감
         }
 
         // 4. std::string::compare를 사용하여 부분 문자열 비교
         //    str.compare(pos, len, c_str) : str의 pos부터 len 길이만큼의 부분 문자열과 c_str 비교
         //    같으면 0을 반환합니다.
-        if (str.compare(idx, op_len, op_key) == 0) {
+        if (s.compare(idx, op_len, op_key) == 0) {
             return i; // 일치하는 연산자 키를 찾았으므로 해당 인덱스 반환
         }
     }
@@ -684,17 +697,7 @@ Token Lexer::getToken() {
     return Token( TokenType::BLOCK, std::string(1,c), m_line, start_col, {c} );
   }
   if ( is_oper_char(c) ) {
-    int ok = find_operation_key_at_pos(m_str, m_pos);
-    if ( ok == -1 ) {
-      // error
-      advance();
-      return Token( TokenType::OPERATOR, std::string(1,c), m_line, start_col,{c});
-    }
-    size_t len = strlen( __operation_keys[ok] );
-    std::string ss = __operation_keys[ok];
-    m_pos += len; // advance();
-    m_column += len;
-    return Token( TokenType::OPERATOR, ss, m_line, start_col,ss);
+    return parseOperator();
   }
   if ( is_special_char(c) ) {
     advance();
