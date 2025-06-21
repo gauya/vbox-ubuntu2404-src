@@ -1,0 +1,1815 @@
+0000 0001 comment     .    comment         : // parser.cpp
+0001 0002 comment     .    comment         : #include "parser.h"
+0002 0003 comment     .    comment         : #include <iostream>
+0003 0004 comment     .    comment         : #include <stdexcept>
+0004 0005 comment     .    comment         : #include <utility> // std::move를 위해
+0005 0007 name        .    dattype         : namespace
+0006 0007 name        .    name            : MyLang
+0007 0007 block       .  { brace_open      : {
+0008 0009 comment     .    comment         : // ... (Parser 생성자 및 expect, currentToken, advance 함수는 동일) ...
+0009 0011 name        .    name            : std
+map::at
+32767 : ::
+0010 0011 name        .    name            : string
+0011 0011 name        .    name            : tokenTypeToString
+0012 0011 block       .  ( paren_open      : (
+0013 0011 name        .    name            : TokenType
+0014 0011 name        .    name            : type
+0015 0011 block       .  ) paren_close     : )
+0016 0011 block       .  { brace_open      : {
+0017 0012 name        .    keyword         : return
+0018 0012 string      .    undef           : 
+0019 0012 sp_char     .  ; schar           : ;
+0020 0013 block       .  } brace_close     : }
+0021 0015 comment     .    comment         : // ... (parseProgram 함수는 동일) ...
+0022 0017 name        .    name            : std
+map::at
+32767 : ::
+0023 0017 name        .    name            : unique_ptr
+0024 0017 block       .  < angle_bracket_open : <
+0025 0017 name        .    name            : ASTNode
+0026 0017 block       .  > angle_bracket_close : >
+0027 0017 name        .    name            : Parser
+map::at
+32767 : ::
+0028 0017 name        .    name            : parseStatement
+0029 0017 block       .  ( paren_open      : (
+0030 0017 block       .  ) paren_close     : )
+0031 0017 block       .  { brace_open      : {
+0032 0018 name        .    keyword         : if
+0033 0018 block       .  ( paren_open      : (
+0034 0018 name        .    name            : currentToken
+0035 0018 block       .  ( paren_open      : (
+0036 0018 block       .  ) paren_close     : )
+0037 0018 sp_char     .  . schar           : .
+0038 0018 name        .    name            : subtype
+map::at
+32767 : ==
+0039 0018 name        .    name            : TokenSubtype
+map::at
+32767 : ::
+0040 0018 name        .    name            : KEYWORD
+0041 0018 block       .  ) paren_close     : )
+0042 0018 block       .  { brace_open      : {
+0043 0019 name        .    keyword         : if
+0044 0019 block       .  ( paren_open      : (
+0045 0019 name        .    name            : currentToken
+0046 0019 block       .  ( paren_open      : (
+0047 0019 block       .  ) paren_close     : )
+0048 0019 sp_char     .  . schar           : .
+0049 0019 name        .    name            : value
+map::at
+32767 : ==
+0050 0019 string      .    undef           : if
+0051 0019 block       .  ) paren_close     : )
+0052 0019 block       .  { brace_open      : {
+0053 0020 name        .    keyword         : return
+0054 0020 name        .    name            : parseIfStatement
+0055 0020 block       .  ( paren_open      : (
+0056 0020 block       .  ) paren_close     : )
+0057 0020 sp_char     .  ; schar           : ;
+0058 0021 block       .  } brace_close     : }
+0059 0021 name        .    keyword         : else
+0060 0021 name        .    keyword         : if
+0061 0021 block       .  ( paren_open      : (
+0062 0021 name        .    name            : currentToken
+0063 0021 block       .  ( paren_open      : (
+0064 0021 block       .  ) paren_close     : )
+0065 0021 sp_char     .  . schar           : .
+0066 0021 name        .    name            : value
+map::at
+32767 : ==
+0067 0021 string      .    undef           : while
+0068 0021 block       .  ) paren_close     : )
+0069 0021 block       .  { brace_open      : {
+0070 0022 name        .    keyword         : return
+0071 0022 name        .    name            : parseWhileStatement
+0072 0022 block       .  ( paren_open      : (
+0073 0022 block       .  ) paren_close     : )
+0074 0022 sp_char     .  ; schar           : ;
+0075 0023 block       .  } brace_close     : }
+0076 0023 name        .    keyword         : else
+0077 0023 name        .    keyword         : if
+0078 0023 block       .  ( paren_open      : (
+0079 0023 name        .    name            : currentToken
+0080 0023 block       .  ( paren_open      : (
+0081 0023 block       .  ) paren_close     : )
+0082 0023 sp_char     .  . schar           : .
+0083 0023 name        .    name            : value
+map::at
+32767 : ==
+0084 0023 string      .    undef           : func
+0085 0023 block       .  ) paren_close     : )
+0086 0023 block       .  { brace_open      : {
+0087 0024 name        .    keyword         : return
+0088 0024 name        .    name            : parseFunctionDeclaration
+0089 0024 block       .  ( paren_open      : (
+0090 0024 block       .  ) paren_close     : )
+0091 0024 sp_char     .  ; schar           : ;
+0092 0025 block       .  } brace_close     : }
+0093 0025 name        .    keyword         : else
+0094 0025 name        .    keyword         : if
+0095 0025 block       .  ( paren_open      : (
+0096 0025 name        .    name            : currentToken
+0097 0025 block       .  ( paren_open      : (
+0098 0025 block       .  ) paren_close     : )
+0099 0025 sp_char     .  . schar           : .
+0100 0025 name        .    name            : value
+map::at
+32767 : ==
+0101 0025 string      .    undef           : return
+0102 0025 block       .  ) paren_close     : )
+0103 0025 block       .  { brace_open      : {
+0104 0026 name        .    name            : expect
+0105 0026 block       .  ( paren_open      : (
+0106 0026 name        .    name            : TokenSubtype
+map::at
+32767 : ::
+0107 0026 name        .    name            : KEYWORD
+0108 0026 sp_char     .  , schar           : ,
+0109 0026 string      .    undef           : return
+0110 0026 block       .  ) paren_close     : )
+0111 0026 sp_char     .  ; schar           : ;
+0112 0027 name        .    keyword         : auto
+0113 0027 name        .    name            : expr
+map::at
+32767 : =
+0114 0027 name        .    name            : parseExpression
+0115 0027 block       .  ( paren_open      : (
+0116 0027 block       .  ) paren_close     : )
+0117 0027 sp_char     .  ; schar           : ;
+0118 0028 name        .    name            : expect
+0119 0028 block       .  ( paren_open      : (
+0120 0028 name        .    name            : TokenType
+map::at
+32767 : ::
+0121 0028 name        .    name            : SCHAR
+0122 0028 sp_char     .  , schar           : ,
+0123 0028 string      .    undef           : ;
+0124 0028 block       .  ) paren_close     : )
+0125 0028 sp_char     .  ; schar           : ;
+0126 0029 name        .    keyword         : return
+0127 0029 name        .    name            : std
+map::at
+32767 : ::
+0128 0029 name        .    name            : make_unique
+0129 0029 block       .  < angle_bracket_open : <
+0130 0029 name        .    name            : ReturnStatementNode
+0131 0029 block       .  > angle_bracket_close : >
+0132 0029 block       .  ( paren_open      : (
+0133 0029 name        .    name            : std
+map::at
+32767 : ::
+0134 0029 name        .    name            : move
+0135 0029 block       .  ( paren_open      : (
+0136 0029 name        .    name            : expr
+0137 0029 block       .  ) paren_close     : )
+0138 0029 block       .  ) paren_close     : )
+0139 0029 sp_char     .  ; schar           : ;
+0140 0030 block       .  } brace_close     : }
+0141 0030 name        .    keyword         : else
+0142 0030 block       .  { brace_open      : {
+0143 0031 comment     .    comment         : // error 
+0144 0032 block       .  } brace_close     : }
+0145 0033 block       .  } brace_close     : }
+0146 0034 name        .    keyword         : auto
+0147 0034 name        .    name            : expr
+map::at
+32767 : =
+0148 0034 name        .    name            : parseExpression
+0149 0034 block       .  ( paren_open      : (
+0150 0034 block       .  ) paren_close     : )
+0151 0034 sp_char     .  ; schar           : ;
+0152 0035 name        .    name            : expect
+0153 0035 block       .  ( paren_open      : (
+0154 0035 name        .    name            : TokenType
+map::at
+32767 : ::
+0155 0035 name        .    name            : SCHAR
+0156 0035 sp_char     .  , schar           : ,
+0157 0035 string      .    undef           : ;
+0158 0035 block       .  ) paren_close     : )
+0159 0035 sp_char     .  ; schar           : ;
+0160 0036 name        .    keyword         : return
+0161 0036 name        .    name            : std
+map::at
+32767 : ::
+0162 0036 name        .    name            : make_unique
+0163 0036 block       .  < angle_bracket_open : <
+0164 0036 name        .    name            : ExpressionStatementNode
+0165 0036 block       .  > angle_bracket_close : >
+0166 0036 block       .  ( paren_open      : (
+0167 0036 name        .    name            : std
+map::at
+32767 : ::
+0168 0036 name        .    name            : move
+0169 0036 block       .  ( paren_open      : (
+0170 0036 name        .    name            : expr
+0171 0036 block       .  ) paren_close     : )
+0172 0036 block       .  ) paren_close     : )
+0173 0036 sp_char     .  ; schar           : ;
+0174 0037 block       .  } brace_close     : }
+0175 0039 comment     .    comment         : // --- 변경: parseBlock()의 반환 타입을 일치시킴 ---
+0176 0040 name        .    name            : std
+map::at
+32767 : ::
+0177 0040 name        .    name            : unique_ptr
+0178 0040 block       .  < angle_bracket_open : <
+0179 0040 name        .    name            : BlockNode
+0180 0040 block       .  > angle_bracket_close : >
+0181 0040 name        .    name            : Parser
+map::at
+32767 : ::
+0182 0040 name        .    name            : parseBlock
+0183 0040 block       .  ( paren_open      : (
+0184 0040 block       .  ) paren_close     : )
+0185 0040 block       .  { brace_open      : {
+0186 0041 name        .    name            : expect
+0187 0041 block       .  ( paren_open      : (
+0188 0041 name        .    name            : TokenSubtype
+map::at
+32767 : ::
+0189 0041 name        .    name            : BRACE_OPEN
+0190 0041 block       .  ) paren_close     : )
+0191 0041 sp_char     .  ; schar           : ;
+0192 0041 comment     .    comment         : // '{'
+0193 0042 name        .    keyword         : auto
+0194 0042 name        .    name            : block_node
+map::at
+32767 : =
+0195 0042 name        .    name            : std
+map::at
+32767 : ::
+0196 0042 name        .    name            : make_unique
+0197 0042 block       .  < angle_bracket_open : <
+0198 0042 name        .    name            : BlockNode
+0199 0042 block       .  > angle_bracket_close : >
+0200 0042 block       .  ( paren_open      : (
+0201 0042 block       .  ) paren_close     : )
+0202 0042 sp_char     .  ; schar           : ;
+0203 0043 name        .    keyword         : while
+0204 0043 block       .  ( paren_open      : (
+0205 0043 name        .    name            : currentToken
+0206 0043 block       .  ( paren_open      : (
+0207 0043 block       .  ) paren_close     : )
+0208 0043 sp_char     .  . schar           : .
+0209 0043 name        .    name            : subtype
+map::at
+32767 : !=
+0210 0043 name        .    name            : TokenSubtype
+map::at
+32767 : ::
+0211 0043 name        .    name            : BRACE_CLOSE
+map::at
+32767 : &&
+0212 0044 name        .    name            : currentToken
+0213 0044 block       .  ( paren_open      : (
+0214 0044 block       .  ) paren_close     : )
+0215 0044 sp_char     .  . schar           : .
+0216 0044 name        .    name            : type
+map::at
+32767 : !=
+0217 0044 name        .    name            : TokenType
+map::at
+32767 : ::
+0218 0044 name        .    name            : END_OF_FILE
+0219 0044 block       .  ) paren_close     : )
+0220 0044 block       .  { brace_open      : {
+0221 0045 name        .    name            : block_node
+map::at
+32767 : ->
+0222 0045 name        .    name            : statements
+0223 0045 sp_char     .  . schar           : .
+0224 0045 name        .    name            : push_back
+0225 0045 block       .  ( paren_open      : (
+0226 0045 name        .    name            : parseStatement
+0227 0045 block       .  ( paren_open      : (
+0228 0045 block       .  ) paren_close     : )
+0229 0045 block       .  ) paren_close     : )
+0230 0045 sp_char     .  ; schar           : ;
+0231 0046 block       .  } brace_close     : }
+0232 0047 name        .    name            : expect
+0233 0047 block       .  ( paren_open      : (
+0234 0047 name        .    name            : TokenSubtype
+map::at
+32767 : ::
+0235 0047 name        .    name            : BRACE_CLOSE
+0236 0047 block       .  ) paren_close     : )
+0237 0047 sp_char     .  ; schar           : ;
+0238 0047 comment     .    comment         : // '}'
+0239 0048 name        .    keyword         : return
+0240 0048 name        .    name            : block_node
+0241 0048 sp_char     .  ; schar           : ;
+0242 0049 block       .  } brace_close     : }
+0243 0050 comment     .    comment         : // --- 여기까지 변경 ---
+0244 0052 name        .    name            : std
+map::at
+32767 : ::
+0245 0052 name        .    name            : unique_ptr
+0246 0052 block       .  < angle_bracket_open : <
+0247 0052 name        .    name            : ASTNode
+0248 0052 block       .  > angle_bracket_close : >
+0249 0052 name        .    name            : Parser
+map::at
+32767 : ::
+0250 0052 name        .    name            : parseIfStatement
+0251 0052 block       .  ( paren_open      : (
+0252 0052 block       .  ) paren_close     : )
+0253 0052 block       .  { brace_open      : {
+0254 0053 name        .    name            : expect
+0255 0053 block       .  ( paren_open      : (
+0256 0053 name        .    name            : TokenSubtype
+map::at
+32767 : ::
+0257 0053 name        .    name            : KEYWORD
+0258 0053 sp_char     .  , schar           : ,
+0259 0053 string      .    undef           : if
+0260 0053 block       .  ) paren_close     : )
+0261 0053 sp_char     .  ; schar           : ;
+0262 0054 name        .    name            : expect
+0263 0054 block       .  ( paren_open      : (
+0264 0054 name        .    name            : TokenSubtype
+map::at
+32767 : ::
+0265 0054 name        .    name            : PAREN_OPEN
+0266 0054 block       .  ) paren_close     : )
+0267 0054 sp_char     .  ; schar           : ;
+0268 0055 name        .    keyword         : auto
+0269 0055 name        .    name            : condition
+map::at
+32767 : =
+0270 0055 name        .    name            : parseExpression
+0271 0055 block       .  ( paren_open      : (
+0272 0055 block       .  ) paren_close     : )
+0273 0055 sp_char     .  ; schar           : ;
+0274 0056 name        .    name            : expect
+0275 0056 block       .  ( paren_open      : (
+0276 0056 name        .    name            : TokenSubtype
+map::at
+32767 : ::
+0277 0056 name        .    name            : PAREN_CLOSE
+0278 0056 block       .  ) paren_close     : )
+0279 0056 sp_char     .  ; schar           : ;
+0280 0058 comment     .    comment         : // --- 변경: body와 else_body에 직접 할당 가능 ---
+0281 0059 name        .    keyword         : auto
+0282 0059 name        .    name            : body
+map::at
+32767 : =
+0283 0059 name        .    name            : parseBlock
+0284 0059 block       .  ( paren_open      : (
+0285 0059 block       .  ) paren_close     : )
+0286 0059 sp_char     .  ; schar           : ;
+0287 0059 comment     .    comment         : // 이제 unique_ptr<BlockNode>를 반환
+0288 0061 name        .    name            : std
+map::at
+32767 : ::
+0289 0061 name        .    name            : unique_ptr
+0290 0061 block       .  < angle_bracket_open : <
+0291 0061 name        .    name            : BlockNode
+0292 0061 block       .  > angle_bracket_close : >
+0293 0061 name        .    name            : else_body
+map::at
+32767 : =
+0294 0061 name        .    name            : nullptr
+0295 0061 sp_char     .  ; schar           : ;
+0296 0062 name        .    keyword         : if
+0297 0062 block       .  ( paren_open      : (
+0298 0062 name        .    name            : currentToken
+0299 0062 block       .  ( paren_open      : (
+0300 0062 block       .  ) paren_close     : )
+0301 0062 sp_char     .  . schar           : .
+0302 0062 name        .    name            : subtype
+map::at
+32767 : ==
+0303 0062 name        .    name            : TokenSubtype
+map::at
+32767 : ::
+0304 0062 name        .    name            : KEYWORD
+map::at
+32767 : &&
+0305 0062 name        .    name            : currentToken
+0306 0062 block       .  ( paren_open      : (
+0307 0062 block       .  ) paren_close     : )
+0308 0062 sp_char     .  . schar           : .
+0309 0062 name        .    name            : value
+map::at
+32767 : ==
+0310 0062 string      .    undef           : else
+0311 0062 block       .  ) paren_close     : )
+0312 0062 block       .  { brace_open      : {
+0313 0063 name        .    name            : expect
+0314 0063 block       .  ( paren_open      : (
+0315 0063 name        .    name            : TokenSubtype
+map::at
+32767 : ::
+0316 0063 name        .    name            : KEYWORD
+0317 0063 sp_char     .  , schar           : ,
+0318 0063 string      .    undef           : else
+0319 0063 block       .  ) paren_close     : )
+0320 0063 sp_char     .  ; schar           : ;
+0321 0064 name        .    name            : else_body
+map::at
+32767 : =
+0322 0064 name        .    name            : parseBlock
+0323 0064 block       .  ( paren_open      : (
+0324 0064 block       .  ) paren_close     : )
+0325 0064 sp_char     .  ; schar           : ;
+0326 0064 comment     .    comment         : // 이제 unique_ptr<BlockNode>를 반환
+0327 0065 block       .  } brace_close     : }
+0328 0067 name        .    keyword         : auto
+0329 0067 name        .    name            : if_node
+map::at
+32767 : =
+0330 0067 name        .    name            : std
+map::at
+32767 : ::
+0331 0067 name        .    name            : make_unique
+0332 0067 block       .  < angle_bracket_open : <
+0333 0067 name        .    name            : IfStatementNode
+0334 0067 block       .  > angle_bracket_close : >
+0335 0067 block       .  ( paren_open      : (
+0336 0067 block       .  ) paren_close     : )
+0337 0067 sp_char     .  ; schar           : ;
+0338 0068 name        .    name            : if_node
+map::at
+32767 : ->
+0339 0068 name        .    name            : condition
+map::at
+32767 : =
+0340 0068 name        .    name            : std
+map::at
+32767 : ::
+0341 0068 name        .    name            : move
+0342 0068 block       .  ( paren_open      : (
+0343 0068 name        .    name            : condition
+0344 0068 block       .  ) paren_close     : )
+0345 0068 sp_char     .  ; schar           : ;
+0346 0069 name        .    name            : if_node
+map::at
+32767 : ->
+0347 0069 name        .    name            : body
+map::at
+32767 : =
+0348 0069 name        .    name            : std
+map::at
+32767 : ::
+0349 0069 name        .    name            : move
+0350 0069 block       .  ( paren_open      : (
+0351 0069 name        .    name            : body
+0352 0069 block       .  ) paren_close     : )
+0353 0069 sp_char     .  ; schar           : ;
+0354 0070 name        .    name            : if_node
+map::at
+32767 : ->
+0355 0070 name        .    name            : else_body
+map::at
+32767 : =
+0356 0070 name        .    name            : std
+map::at
+32767 : ::
+0357 0070 name        .    name            : move
+0358 0070 block       .  ( paren_open      : (
+0359 0070 name        .    name            : else_body
+0360 0070 block       .  ) paren_close     : )
+0361 0070 sp_char     .  ; schar           : ;
+0362 0071 name        .    keyword         : return
+0363 0071 name        .    name            : if_node
+0364 0071 sp_char     .  ; schar           : ;
+0365 0072 block       .  } brace_close     : }
+0366 0074 name        .    name            : std
+map::at
+32767 : ::
+0367 0074 name        .    name            : unique_ptr
+0368 0074 block       .  < angle_bracket_open : <
+0369 0074 name        .    name            : ASTNode
+0370 0074 block       .  > angle_bracket_close : >
+0371 0074 name        .    name            : Parser
+map::at
+32767 : ::
+0372 0074 name        .    name            : parseWhileStatement
+0373 0074 block       .  ( paren_open      : (
+0374 0074 block       .  ) paren_close     : )
+0375 0074 block       .  { brace_open      : {
+0376 0075 name        .    name            : expect
+0377 0075 block       .  ( paren_open      : (
+0378 0075 name        .    name            : TokenSubtype
+map::at
+32767 : ::
+0379 0075 name        .    name            : KEYWORD
+0380 0075 sp_char     .  , schar           : ,
+0381 0075 string      .    undef           : while
+0382 0075 block       .  ) paren_close     : )
+0383 0075 sp_char     .  ; schar           : ;
+0384 0076 name        .    name            : expect
+0385 0076 block       .  ( paren_open      : (
+0386 0076 name        .    name            : TokenSubtype
+map::at
+32767 : ::
+0387 0076 name        .    name            : PAREN_OPEN
+0388 0076 block       .  ) paren_close     : )
+0389 0076 sp_char     .  ; schar           : ;
+0390 0077 name        .    keyword         : auto
+0391 0077 name        .    name            : condition
+map::at
+32767 : =
+0392 0077 name        .    name            : parseExpression
+0393 0077 block       .  ( paren_open      : (
+0394 0077 block       .  ) paren_close     : )
+0395 0077 sp_char     .  ; schar           : ;
+0396 0078 name        .    name            : expect
+0397 0078 block       .  ( paren_open      : (
+0398 0078 name        .    name            : TokenSubtype
+map::at
+32767 : ::
+0399 0078 name        .    name            : PAREN_CLOSE
+0400 0078 block       .  ) paren_close     : )
+0401 0078 sp_char     .  ; schar           : ;
+0402 0080 comment     .    comment         : // --- 변경: body에 직접 할당 가능 ---
+0403 0081 name        .    keyword         : auto
+0404 0081 name        .    name            : body
+map::at
+32767 : =
+0405 0081 name        .    name            : parseBlock
+0406 0081 block       .  ( paren_open      : (
+0407 0081 block       .  ) paren_close     : )
+0408 0081 sp_char     .  ; schar           : ;
+0409 0083 name        .    keyword         : auto
+0410 0083 name        .    name            : while_node
+map::at
+32767 : =
+0411 0083 name        .    name            : std
+map::at
+32767 : ::
+0412 0083 name        .    name            : make_unique
+0413 0083 block       .  < angle_bracket_open : <
+0414 0083 name        .    name            : WhileStatementNode
+0415 0083 block       .  > angle_bracket_close : >
+0416 0083 block       .  ( paren_open      : (
+0417 0083 block       .  ) paren_close     : )
+0418 0083 sp_char     .  ; schar           : ;
+0419 0084 name        .    name            : while_node
+map::at
+32767 : ->
+0420 0084 name        .    name            : condition
+map::at
+32767 : =
+0421 0084 name        .    name            : std
+map::at
+32767 : ::
+0422 0084 name        .    name            : move
+0423 0084 block       .  ( paren_open      : (
+0424 0084 name        .    name            : condition
+0425 0084 block       .  ) paren_close     : )
+0426 0084 sp_char     .  ; schar           : ;
+0427 0085 name        .    name            : while_node
+map::at
+32767 : ->
+0428 0085 name        .    name            : body
+map::at
+32767 : =
+0429 0085 name        .    name            : std
+map::at
+32767 : ::
+0430 0085 name        .    name            : move
+0431 0085 block       .  ( paren_open      : (
+0432 0085 name        .    name            : body
+0433 0085 block       .  ) paren_close     : )
+0434 0085 sp_char     .  ; schar           : ;
+0435 0086 name        .    keyword         : return
+0436 0086 name        .    name            : while_node
+0437 0086 sp_char     .  ; schar           : ;
+0438 0087 block       .  } brace_close     : }
+0439 0089 name        .    name            : std
+map::at
+32767 : ::
+0440 0089 name        .    name            : unique_ptr
+0441 0089 block       .  < angle_bracket_open : <
+0442 0089 name        .    name            : ASTNode
+0443 0089 block       .  > angle_bracket_close : >
+0444 0089 name        .    name            : Parser
+map::at
+32767 : ::
+0445 0089 name        .    name            : parseFunctionDeclaration
+0446 0089 block       .  ( paren_open      : (
+0447 0089 block       .  ) paren_close     : )
+0448 0089 block       .  { brace_open      : {
+0449 0090 name        .    name            : expect
+0450 0090 block       .  ( paren_open      : (
+0451 0090 name        .    name            : TokenSubtype
+map::at
+32767 : ::
+0452 0090 name        .    name            : KEYWORD
+0453 0090 sp_char     .  , schar           : ,
+0454 0090 string      .    undef           : func
+0455 0090 block       .  ) paren_close     : )
+0456 0090 sp_char     .  ; schar           : ;
+0457 0091 name        .    name            : Token
+0458 0091 name        .    name            : name_token
+map::at
+32767 : =
+0459 0091 name        .    name            : expect
+0460 0091 block       .  ( paren_open      : (
+0461 0091 name        .    name            : TokenSubtype
+map::at
+32767 : ::
+0462 0091 name        .    name            : IDENTIFIER
+0463 0091 block       .  ) paren_close     : )
+0464 0091 sp_char     .  ; schar           : ;
+0465 0092 name        .    name            : expect
+0466 0092 block       .  ( paren_open      : (
+0467 0092 name        .    name            : TokenSubtype
+map::at
+32767 : ::
+0468 0092 name        .    name            : PAREN_OPEN
+0469 0092 block       .  ) paren_close     : )
+0470 0092 sp_char     .  ; schar           : ;
+0471 0094 name        .    name            : std
+map::at
+32767 : ::
+0472 0094 name        .    name            : vector
+0473 0094 block       .  < angle_bracket_open : <
+0474 0094 name        .    name            : std
+map::at
+32767 : ::
+0475 0094 name        .    name            : string
+0476 0094 block       .  > angle_bracket_close : >
+0477 0094 name        .    name            : params
+0478 0094 sp_char     .  ; schar           : ;
+0479 0095 name        .    keyword         : if
+0480 0095 block       .  ( paren_open      : (
+0481 0095 name        .    name            : currentToken
+0482 0095 block       .  ( paren_open      : (
+0483 0095 block       .  ) paren_close     : )
+0484 0095 sp_char     .  . schar           : .
+0485 0095 name        .    name            : subtype
+map::at
+32767 : ==
+0486 0095 name        .    name            : TokenSubtype
+map::at
+32767 : ::
+0487 0095 name        .    name            : IDENTIFIER
+0488 0095 block       .  ) paren_close     : )
+0489 0095 block       .  { brace_open      : {
+0490 0096 name        .    name            : params
+0491 0096 sp_char     .  . schar           : .
+0492 0096 name        .    name            : push_back
+0493 0096 block       .  ( paren_open      : (
+0494 0096 name        .    name            : expect
+0495 0096 block       .  ( paren_open      : (
+0496 0096 name        .    name            : TokenSubtype
+map::at
+32767 : ::
+0497 0096 name        .    name            : IDENTIFIER
+0498 0096 block       .  ) paren_close     : )
+0499 0096 sp_char     .  . schar           : .
+0500 0096 name        .    name            : value
+0501 0096 block       .  ) paren_close     : )
+0502 0096 sp_char     .  ; schar           : ;
+0503 0097 name        .    keyword         : while
+0504 0097 block       .  ( paren_open      : (
+0505 0097 name        .    name            : currentToken
+0506 0097 block       .  ( paren_open      : (
+0507 0097 block       .  ) paren_close     : )
+0508 0097 sp_char     .  . schar           : .
+0509 0097 name        .    name            : type
+map::at
+32767 : ==
+0510 0097 name        .    name            : TokenType
+map::at
+32767 : ::
+0511 0097 name        .    name            : OPERATOR
+map::at
+32767 : &&
+0512 0097 name        .    name            : currentToken
+0513 0097 block       .  ( paren_open      : (
+0514 0097 block       .  ) paren_close     : )
+0515 0097 sp_char     .  . schar           : .
+0516 0097 name        .    name            : value
+map::at
+32767 : ==
+0517 0097 string      .    undef           : ,
+0518 0097 block       .  ) paren_close     : )
+0519 0097 block       .  { brace_open      : {
+0520 0098 name        .    name            : expect
+0521 0098 block       .  ( paren_open      : (
+0522 0098 name        .    name            : TokenType
+map::at
+32767 : ::
+0523 0098 name        .    name            : OPERATOR
+0524 0098 sp_char     .  , schar           : ,
+0525 0098 string      .    undef           : ,
+0526 0098 block       .  ) paren_close     : )
+0527 0098 sp_char     .  ; schar           : ;
+0528 0099 name        .    name            : params
+0529 0099 sp_char     .  . schar           : .
+0530 0099 name        .    name            : push_back
+0531 0099 block       .  ( paren_open      : (
+0532 0099 name        .    name            : expect
+0533 0099 block       .  ( paren_open      : (
+0534 0099 name        .    name            : TokenSubtype
+map::at
+32767 : ::
+0535 0099 name        .    name            : IDENTIFIER
+0536 0099 block       .  ) paren_close     : )
+0537 0099 sp_char     .  . schar           : .
+0538 0099 name        .    name            : value
+0539 0099 block       .  ) paren_close     : )
+0540 0099 sp_char     .  ; schar           : ;
+0541 0100 block       .  } brace_close     : }
+0542 0101 block       .  } brace_close     : }
+0543 0102 name        .    name            : expect
+0544 0102 block       .  ( paren_open      : (
+0545 0102 name        .    name            : TokenSubtype
+map::at
+32767 : ::
+0546 0102 name        .    name            : PAREN_CLOSE
+0547 0102 block       .  ) paren_close     : )
+0548 0102 sp_char     .  ; schar           : ;
+0549 0104 comment     .    comment         : // --- 변경: body에 직접 할당 가능 ---
+0550 0105 name        .    keyword         : auto
+0551 0105 name        .    name            : body
+map::at
+32767 : =
+0552 0105 name        .    name            : parseBlock
+0553 0105 block       .  ( paren_open      : (
+0554 0105 block       .  ) paren_close     : )
+0555 0105 sp_char     .  ; schar           : ;
+0556 0107 name        .    keyword         : auto
+0557 0107 name        .    name            : func_node
+map::at
+32767 : =
+0558 0107 name        .    name            : std
+map::at
+32767 : ::
+0559 0107 name        .    name            : make_unique
+0560 0107 block       .  < angle_bracket_open : <
+0561 0107 name        .    name            : FunctionDeclarationNode
+0562 0107 block       .  > angle_bracket_close : >
+0563 0107 block       .  ( paren_open      : (
+0564 0107 block       .  ) paren_close     : )
+0565 0107 sp_char     .  ; schar           : ;
+0566 0108 name        .    name            : func_node
+map::at
+32767 : ->
+0567 0108 name        .    name            : name
+map::at
+32767 : =
+0568 0108 name        .    name            : name_token
+0569 0108 sp_char     .  . schar           : .
+0570 0108 name        .    name            : value
+0571 0108 sp_char     .  ; schar           : ;
+0572 0109 name        .    name            : func_node
+map::at
+32767 : ->
+0573 0109 name        .    name            : params
+map::at
+32767 : =
+0574 0109 name        .    name            : std
+map::at
+32767 : ::
+0575 0109 name        .    name            : move
+0576 0109 block       .  ( paren_open      : (
+0577 0109 name        .    name            : params
+0578 0109 block       .  ) paren_close     : )
+0579 0109 sp_char     .  ; schar           : ;
+0580 0110 name        .    name            : func_node
+map::at
+32767 : ->
+0581 0110 name        .    name            : body
+map::at
+32767 : =
+0582 0110 name        .    name            : std
+map::at
+32767 : ::
+0583 0110 name        .    name            : move
+0584 0110 block       .  ( paren_open      : (
+0585 0110 name        .    name            : body
+0586 0110 block       .  ) paren_close     : )
+0587 0110 sp_char     .  ; schar           : ;
+0588 0111 name        .    keyword         : return
+0589 0111 name        .    name            : func_node
+0590 0111 sp_char     .  ; schar           : ;
+0591 0112 block       .  } brace_close     : }
+0592 0114 comment     .    comment         : // ASTNode::getNodeType()은 virtual이므로, dynamic_cast를 대체하는 데 유용합니다.
+0593 0115 comment     .    comment         : // (main.cpp의 printAST 함수에서 활용)
+0594 0117 name        .    name            : Parser
+map::at
+32767 : ::
+0595 0117 name        .    name            : Parser
+0596 0117 block       .  ( paren_open      : (
+0597 0117 name        .    name            : std
+map::at
+32767 : ::
+0598 0117 name        .    name            : vector
+0599 0117 block       .  < angle_bracket_open : <
+0600 0117 name        .    name            : Token
+0601 0117 block       .  > angle_bracket_close : >
+0602 0117 name        .    name            : tokens
+0603 0117 block       .  ) paren_close     : )
+0604 0118 sp_char     .  : schar           : :
+0605 0118 name        .    name            : tokens
+0606 0118 block       .  ( paren_open      : (
+0607 0118 name        .    name            : std
+map::at
+32767 : ::
+0608 0118 name        .    name            : move
+0609 0118 block       .  ( paren_open      : (
+0610 0118 name        .    name            : tokens
+0611 0118 block       .  ) paren_close     : )
+0612 0118 block       .  ) paren_close     : )
+0613 0118 sp_char     .  , schar           : ,
+0614 0118 name        .    name            : current_token_index
+0615 0118 block       .  ( paren_open      : (
+0616 0118 number      .    number          : 0
+0617 0118 block       .  ) paren_close     : )
+0618 0118 block       .  { brace_open      : {
+0619 0119 name        .    keyword         : if
+0620 0119 block       .  ( paren_open      : (
+0621 0119 name        .    name            : this
+map::at
+32767 : ->
+0622 0119 name        .    name            : tokens
+0623 0119 sp_char     .  . schar           : .
+0624 0119 name        .    name            : empty
+0625 0119 block       .  ( paren_open      : (
+0626 0119 block       .  ) paren_close     : )
+0627 0119 block       .  ) paren_close     : )
+0628 0119 block       .  { brace_open      : {
+0629 0120 name        .    name            : this
+map::at
+32767 : ->
+0630 0120 name        .    name            : tokens
+0631 0120 sp_char     .  . schar           : .
+0632 0120 name        .    name            : push_back
+0633 0120 block       .  ( paren_open      : (
+0634 0120 name        .    name            : Token
+0635 0120 block       .  ( paren_open      : (
+0636 0120 name        .    name            : TokenType
+map::at
+32767 : ::
+0637 0120 name        .    name            : END_OF_FILE
+0638 0120 sp_char     .  , schar           : ,
+0639 0120 string      .    undef           : 
+0640 0120 sp_char     .  , schar           : ,
+0641 0120 number      .    number          : 0
+0642 0120 sp_char     .  , schar           : ,
+0643 0120 number      .    number          : 0
+0644 0120 block       .  ) paren_close     : )
+0645 0120 block       .  ) paren_close     : )
+0646 0120 sp_char     .  ; schar           : ;
+0647 0121 block       .  } brace_close     : }
+0648 0122 block       .  } brace_close     : }
+0649 0124 name        .    dattype         : const
+0650 0124 name        .    name            : Token
+map::at
+32767 : &
+0651 0124 name        .    name            : Parser
+map::at
+32767 : ::
+0652 0124 name        .    name            : currentToken
+0653 0124 block       .  ( paren_open      : (
+0654 0124 block       .  ) paren_close     : )
+0655 0124 name        .    dattype         : const
+0656 0124 block       .  { brace_open      : {
+0657 0125 name        .    keyword         : if
+0658 0125 block       .  ( paren_open      : (
+0659 0125 name        .    name            : current_token_index
+0660 0125 block       .  > angle_bracket_close : >
+map::at
+32767 : =
+0661 0125 name        .    name            : tokens
+0662 0125 sp_char     .  . schar           : .
+0663 0125 name        .    name            : size
+0664 0125 block       .  ( paren_open      : (
+0665 0125 block       .  ) paren_close     : )
+0666 0125 block       .  ) paren_close     : )
+0667 0125 block       .  { brace_open      : {
+0668 0126 name        .    keyword         : return
+0669 0126 name        .    name            : tokens
+0670 0126 sp_char     .  . schar           : .
+0671 0126 name        .    name            : back
+0672 0126 block       .  ( paren_open      : (
+0673 0126 block       .  ) paren_close     : )
+0674 0126 sp_char     .  ; schar           : ;
+0675 0127 block       .  } brace_close     : }
+0676 0128 name        .    keyword         : return
+0677 0128 name        .    name            : tokens
+0678 0128 block       .  [ square_bracket_open : [
+0679 0128 name        .    name            : current_token_index
+0680 0128 block       .  ] square_bracket_close : ]
+0681 0128 sp_char     .  ; schar           : ;
+0682 0129 block       .  } brace_close     : }
+0683 0131 name        .    dattype         : void
+0684 0131 name        .    name            : Parser
+map::at
+32767 : ::
+0685 0131 name        .    name            : advance
+0686 0131 block       .  ( paren_open      : (
+0687 0131 block       .  ) paren_close     : )
+0688 0131 block       .  { brace_open      : {
+0689 0132 name        .    keyword         : if
+0690 0132 block       .  ( paren_open      : (
+0691 0132 name        .    name            : current_token_index
+0692 0132 block       .  < angle_bracket_open : <
+0693 0132 name        .    name            : tokens
+0694 0132 sp_char     .  . schar           : .
+0695 0132 name        .    name            : size
+0696 0132 block       .  ( paren_open      : (
+0697 0132 block       .  ) paren_close     : )
+0698 0132 block       .  ) paren_close     : )
+0699 0132 block       .  { brace_open      : {
+0700 0133 name        .    name            : current_token_index
+map::at
+32767 : ++
+0701 0133 sp_char     .  ; schar           : ;
+0702 0134 block       .  } brace_close     : }
+0703 0135 block       .  } brace_close     : }
+0704 0137 name        .    name            : Token
+0705 0137 name        .    name            : Parser
+map::at
+32767 : ::
+0706 0137 name        .    name            : expect
+0707 0137 block       .  ( paren_open      : (
+0708 0137 name        .    name            : TokenType
+0709 0137 name        .    name            : type
+0710 0137 block       .  ) paren_close     : )
+0711 0137 block       .  { brace_open      : {
+0712 0138 name        .    dattype         : const
+0713 0138 name        .    name            : Token
+map::at
+32767 : &
+0714 0138 name        .    name            : current
+map::at
+32767 : =
+0715 0138 name        .    name            : currentToken
+0716 0138 block       .  ( paren_open      : (
+0717 0138 block       .  ) paren_close     : )
+0718 0138 sp_char     .  ; schar           : ;
+0719 0139 name        .    keyword         : if
+0720 0139 block       .  ( paren_open      : (
+0721 0139 name        .    name            : current
+0722 0139 sp_char     .  . schar           : .
+0723 0139 name        .    name            : type
+map::at
+32767 : ==
+0724 0139 name        .    name            : type
+0725 0139 block       .  ) paren_close     : )
+0726 0139 block       .  { brace_open      : {
+0727 0140 name        .    name            : Token
+0728 0140 name        .    name            : consumed_token
+map::at
+32767 : =
+0729 0140 name        .    name            : current
+0730 0140 sp_char     .  ; schar           : ;
+0731 0141 name        .    name            : advance
+0732 0141 block       .  ( paren_open      : (
+0733 0141 block       .  ) paren_close     : )
+0734 0141 sp_char     .  ; schar           : ;
+0735 0142 name        .    keyword         : return
+0736 0142 name        .    name            : consumed_token
+0737 0142 sp_char     .  ; schar           : ;
+0738 0143 block       .  } brace_close     : }
+0739 0143 name        .    keyword         : else
+0740 0143 block       .  { brace_open      : {
+0741 0144 name        .    name            : throw
+0742 0144 name        .    name            : std
+map::at
+32767 : ::
+0743 0144 name        .    name            : runtime_error
+0744 0144 block       .  ( paren_open      : (
+0745 0144 string      .    undef           : Syntax Error: Expected 
+map::at
+32767 : +
+0746 0144 name        .    name            : tokenTypeToString
+0747 0144 block       .  ( paren_open      : (
+0748 0144 name        .    name            : type
+0749 0144 block       .  ) paren_close     : )
+map::at
+32767 : +
+0750 0145 string      .    undef           : , got 
+map::at
+32767 : +
+0751 0145 name        .    name            : current
+0752 0145 sp_char     .  . schar           : .
+0753 0145 name        .    name            : toString
+0754 0145 block       .  ( paren_open      : (
+0755 0145 block       .  ) paren_close     : )
+map::at
+32767 : +
+0756 0146 string      .    undef           :  at line 
+map::at
+32767 : +
+0757 0146 name        .    name            : std
+map::at
+32767 : ::
+0758 0146 name        .    name            : to_string
+0759 0146 block       .  ( paren_open      : (
+0760 0146 name        .    name            : current
+0761 0146 sp_char     .  . schar           : .
+0762 0146 name        .    name            : line
+0763 0146 block       .  ) paren_close     : )
+map::at
+32767 : +
+0764 0147 string      .    undef           : , column 
+map::at
+32767 : +
+0765 0147 name        .    name            : std
+map::at
+32767 : ::
+0766 0147 name        .    name            : to_string
+0767 0147 block       .  ( paren_open      : (
+0768 0147 name        .    name            : current
+0769 0147 sp_char     .  . schar           : .
+0770 0147 name        .    name            : column
+0771 0147 block       .  ) paren_close     : )
+0772 0147 block       .  ) paren_close     : )
+0773 0147 sp_char     .  ; schar           : ;
+0774 0148 block       .  } brace_close     : }
+0775 0149 block       .  } brace_close     : }
+0776 0151 name        .    name            : Token
+0777 0151 name        .    name            : Parser
+map::at
+32767 : ::
+0778 0151 name        .    name            : expect
+0779 0151 block       .  ( paren_open      : (
+0780 0151 name        .    name            : TokenType
+0781 0151 name        .    name            : type
+0782 0151 sp_char     .  , schar           : ,
+0783 0151 name        .    dattype         : const
+0784 0151 name        .    name            : std
+map::at
+32767 : ::
+0785 0151 name        .    name            : string
+map::at
+32767 : &
+0786 0151 name        .    name            : value
+0787 0151 block       .  ) paren_close     : )
+0788 0151 block       .  { brace_open      : {
+0789 0152 name        .    dattype         : const
+0790 0152 name        .    name            : Token
+map::at
+32767 : &
+0791 0152 name        .    name            : current
+map::at
+32767 : =
+0792 0152 name        .    name            : currentToken
+0793 0152 block       .  ( paren_open      : (
+0794 0152 block       .  ) paren_close     : )
+0795 0152 sp_char     .  ; schar           : ;
+0796 0153 name        .    keyword         : if
+0797 0153 block       .  ( paren_open      : (
+0798 0153 name        .    name            : current
+0799 0153 sp_char     .  . schar           : .
+0800 0153 name        .    name            : type
+map::at
+32767 : ==
+0801 0153 name        .    name            : type
+map::at
+32767 : &&
+0802 0153 name        .    name            : current
+0803 0153 sp_char     .  . schar           : .
+0804 0153 name        .    name            : value
+map::at
+32767 : ==
+0805 0153 name        .    name            : value
+0806 0153 block       .  ) paren_close     : )
+0807 0153 block       .  { brace_open      : {
+0808 0154 name        .    name            : Token
+0809 0154 name        .    name            : consumed_token
+map::at
+32767 : =
+0810 0154 name        .    name            : current
+0811 0154 sp_char     .  ; schar           : ;
+0812 0155 name        .    name            : advance
+0813 0155 block       .  ( paren_open      : (
+0814 0155 block       .  ) paren_close     : )
+0815 0155 sp_char     .  ; schar           : ;
+0816 0156 name        .    keyword         : return
+0817 0156 name        .    name            : consumed_token
+0818 0156 sp_char     .  ; schar           : ;
+0819 0157 block       .  } brace_close     : }
+0820 0157 name        .    keyword         : else
+0821 0157 block       .  { brace_open      : {
+0822 0158 name        .    name            : throw
+0823 0158 name        .    name            : std
+map::at
+32767 : ::
+0824 0158 name        .    name            : runtime_error
+0825 0158 block       .  ( paren_open      : (
+0826 0158 string      .    undef           : Syntax Error: Expected '
+map::at
+32767 : +
+0827 0158 name        .    name            : value
+map::at
+32767 : +
+0828 0158 string      .    undef           : ' (type 
+map::at
+32767 : +
+0829 0158 name        .    name            : tokenTypeToString
+0830 0158 block       .  ( paren_open      : (
+0831 0158 name        .    name            : type
+0832 0158 block       .  ) paren_close     : )
+map::at
+32767 : +
+0833 0159 string      .    undef           : ), got 
+map::at
+32767 : +
+0834 0159 name        .    name            : current
+0835 0159 sp_char     .  . schar           : .
+0836 0159 name        .    name            : toString
+0837 0159 block       .  ( paren_open      : (
+0838 0159 block       .  ) paren_close     : )
+map::at
+32767 : +
+0839 0160 string      .    undef           :  at line 
+map::at
+32767 : +
+0840 0160 name        .    name            : std
+map::at
+32767 : ::
+0841 0160 name        .    name            : to_string
+0842 0160 block       .  ( paren_open      : (
+0843 0160 name        .    name            : current
+0844 0160 sp_char     .  . schar           : .
+0845 0160 name        .    name            : line
+0846 0160 block       .  ) paren_close     : )
+map::at
+32767 : +
+0847 0161 string      .    undef           : , column 
+map::at
+32767 : +
+0848 0161 name        .    name            : std
+map::at
+32767 : ::
+0849 0161 name        .    name            : to_string
+0850 0161 block       .  ( paren_open      : (
+0851 0161 name        .    name            : current
+0852 0161 sp_char     .  . schar           : .
+0853 0161 name        .    name            : column
+0854 0161 block       .  ) paren_close     : )
+0855 0161 block       .  ) paren_close     : )
+0856 0161 sp_char     .  ; schar           : ;
+0857 0162 block       .  } brace_close     : }
+0858 0163 block       .  } brace_close     : }
+0859 0165 name        .    name            : Token
+0860 0165 name        .    name            : Parser
+map::at
+32767 : ::
+0861 0165 name        .    name            : expect
+0862 0165 block       .  ( paren_open      : (
+0863 0165 name        .    name            : TokenSubtype
+0864 0165 name        .    name            : type
+0865 0165 sp_char     .  , schar           : ,
+0866 0165 name        .    dattype         : const
+0867 0165 name        .    name            : std
+map::at
+32767 : ::
+0868 0165 name        .    name            : string
+map::at
+32767 : &
+0869 0165 name        .    name            : value
+0870 0165 block       .  ) paren_close     : )
+0871 0165 block       .  { brace_open      : {
+0872 0166 name        .    dattype         : const
+0873 0166 name        .    name            : Token
+map::at
+32767 : &
+0874 0166 name        .    name            : current
+map::at
+32767 : =
+0875 0166 name        .    name            : currentToken
+0876 0166 block       .  ( paren_open      : (
+0877 0166 block       .  ) paren_close     : )
+0878 0166 sp_char     .  ; schar           : ;
+0879 0167 name        .    keyword         : if
+0880 0167 block       .  ( paren_open      : (
+0881 0167 name        .    name            : current
+0882 0167 sp_char     .  . schar           : .
+0883 0167 name        .    name            : subtype
+map::at
+32767 : ==
+0884 0167 name        .    name            : type
+map::at
+32767 : &&
+0885 0167 block       .  ( paren_open      : (
+0886 0167 name        .    name            : value
+map::at
+32767 : ==
+0887 0167 string      .    undef           : 
+map::at
+32767 : ||
+0888 0167 name        .    name            : current
+0889 0167 sp_char     .  . schar           : .
+0890 0167 name        .    name            : value
+map::at
+32767 : ==
+0891 0167 name        .    name            : value
+0892 0167 block       .  ) paren_close     : )
+0893 0167 block       .  ) paren_close     : )
+0894 0167 block       .  { brace_open      : {
+0895 0168 name        .    name            : Token
+0896 0168 name        .    name            : consumed_token
+map::at
+32767 : =
+0897 0168 name        .    name            : current
+0898 0168 sp_char     .  ; schar           : ;
+0899 0169 name        .    name            : advance
+0900 0169 block       .  ( paren_open      : (
+0901 0169 block       .  ) paren_close     : )
+0902 0169 sp_char     .  ; schar           : ;
+0903 0170 name        .    keyword         : return
+0904 0170 name        .    name            : consumed_token
+0905 0170 sp_char     .  ; schar           : ;
+0906 0171 block       .  } brace_close     : }
+0907 0171 name        .    keyword         : else
+0908 0171 block       .  { brace_open      : {
+0909 0172 name        .    name            : throw
+0910 0172 name        .    name            : std
+map::at
+32767 : ::
+0911 0172 name        .    name            : runtime_error
+0912 0172 block       .  ( paren_open      : (
+0913 0172 string      .    undef           : Syntax Error: Expected '
+map::at
+32767 : +
+0914 0172 name        .    name            : value
+map::at
+32767 : +
+0915 0172 string      .    undef           : ' (type 
+map::at
+32767 : +
+0916 0172 name        .    name            : tokenTypeToString
+0917 0172 block       .  ( paren_open      : (
+0918 0172 name        .    name            : current
+0919 0172 sp_char     .  . schar           : .
+0920 0172 name        .    name            : type
+0921 0172 block       .  ) paren_close     : )
+map::at
+32767 : +
+0922 0173 string      .    undef           : ), got 
+map::at
+32767 : +
+0923 0173 name        .    name            : current
+0924 0173 sp_char     .  . schar           : .
+0925 0173 name        .    name            : toString
+0926 0173 block       .  ( paren_open      : (
+0927 0173 block       .  ) paren_close     : )
+map::at
+32767 : +
+0928 0174 string      .    undef           :  at line 
+map::at
+32767 : +
+0929 0174 name        .    name            : std
+map::at
+32767 : ::
+0930 0174 name        .    name            : to_string
+0931 0174 block       .  ( paren_open      : (
+0932 0174 name        .    name            : current
+0933 0174 sp_char     .  . schar           : .
+0934 0174 name        .    name            : line
+0935 0174 block       .  ) paren_close     : )
+map::at
+32767 : +
+0936 0175 string      .    undef           : , column 
+map::at
+32767 : +
+0937 0175 name        .    name            : std
+map::at
+32767 : ::
+0938 0175 name        .    name            : to_string
+0939 0175 block       .  ( paren_open      : (
+0940 0175 name        .    name            : current
+0941 0175 sp_char     .  . schar           : .
+0942 0175 name        .    name            : column
+0943 0175 block       .  ) paren_close     : )
+0944 0175 block       .  ) paren_close     : )
+0945 0175 sp_char     .  ; schar           : ;
+0946 0176 block       .  } brace_close     : }
+0947 0177 block       .  } brace_close     : }
+0948 0180 name        .    name            : std
+map::at
+32767 : ::
+0949 0180 name        .    name            : unique_ptr
+0950 0180 block       .  < angle_bracket_open : <
+0951 0180 name        .    name            : ProgramNode
+0952 0180 block       .  > angle_bracket_close : >
+0953 0180 name        .    name            : Parser
+map::at
+32767 : ::
+0954 0180 name        .    name            : parseProgram
+0955 0180 block       .  ( paren_open      : (
+0956 0180 block       .  ) paren_close     : )
+0957 0180 block       .  { brace_open      : {
+0958 0181 name        .    keyword         : auto
+0959 0181 name        .    name            : program
+map::at
+32767 : =
+0960 0181 name        .    name            : std
+map::at
+32767 : ::
+0961 0181 name        .    name            : make_unique
+0962 0181 block       .  < angle_bracket_open : <
+0963 0181 name        .    name            : ProgramNode
+0964 0181 block       .  > angle_bracket_close : >
+0965 0181 block       .  ( paren_open      : (
+0966 0181 block       .  ) paren_close     : )
+0967 0181 sp_char     .  ; schar           : ;
+0968 0182 name        .    keyword         : while
+0969 0182 block       .  ( paren_open      : (
+0970 0182 name        .    name            : currentToken
+0971 0182 block       .  ( paren_open      : (
+0972 0182 block       .  ) paren_close     : )
+0973 0182 sp_char     .  . schar           : .
+0974 0182 name        .    name            : type
+map::at
+32767 : !=
+0975 0182 name        .    name            : TokenType
+map::at
+32767 : ::
+0976 0182 name        .    name            : END_OF_FILE
+0977 0182 block       .  ) paren_close     : )
+0978 0182 block       .  { brace_open      : {
+0979 0183 name        .    name            : program
+map::at
+32767 : ->
+0980 0183 name        .    name            : statements
+0981 0183 sp_char     .  . schar           : .
+0982 0183 name        .    name            : push_back
+0983 0183 block       .  ( paren_open      : (
+0984 0183 name        .    name            : parseStatement
+0985 0183 block       .  ( paren_open      : (
+0986 0183 block       .  ) paren_close     : )
+0987 0183 block       .  ) paren_close     : )
+0988 0183 sp_char     .  ; schar           : ;
+0989 0184 block       .  } brace_close     : }
+0990 0185 name        .    keyword         : return
+0991 0185 name        .    name            : program
+0992 0185 sp_char     .  ; schar           : ;
+0993 0186 block       .  } brace_close     : }
+0994 0188 name        .    dattype         : int
+0995 0188 name        .    name            : getOperatorPrecedence
+0996 0188 block       .  ( paren_open      : (
+0997 0188 name        .    dattype         : const
+0998 0188 name        .    name            : std
+map::at
+32767 : ::
+0999 0188 name        .    name            : string
+map::at
+32767 : &
+1000 0188 name        .    name            : op
+1001 0188 block       .  ) paren_close     : )
+1002 0188 block       .  { brace_open      : {
+1003 0189 name        .    keyword         : if
+1004 0189 block       .  ( paren_open      : (
+1005 0189 name        .    name            : op
+map::at
+32767 : ==
+1006 0189 string      .    undef           : +
+map::at
+32767 : ||
+1007 0189 name        .    name            : op
+map::at
+32767 : ==
+1008 0189 string      .    undef           : -
+1009 0189 block       .  ) paren_close     : )
+1010 0189 name        .    keyword         : return
+1011 0189 number      .    number          : 1
+1012 0189 sp_char     .  ; schar           : ;
+1013 0190 name        .    keyword         : if
+1014 0190 block       .  ( paren_open      : (
+1015 0190 name        .    name            : op
+map::at
+32767 : ==
+1016 0190 string      .    undef           : *
+map::at
+32767 : ||
+1017 0190 name        .    name            : op
+map::at
+32767 : ==
+1018 0190 string      .    undef           : /
+1019 0190 block       .  ) paren_close     : )
+1020 0190 name        .    keyword         : return
+1021 0190 number      .    number          : 2
+1022 0190 sp_char     .  ; schar           : ;
+1023 0191 name        .    keyword         : if
+1024 0191 block       .  ( paren_open      : (
+1025 0191 name        .    name            : op
+map::at
+32767 : ==
+1026 0191 string      .    undef           : ==
+map::at
+32767 : ||
+1027 0191 name        .    name            : op
+map::at
+32767 : ==
+1028 0191 string      .    undef           : >
+map::at
+32767 : ||
+1029 0191 name        .    name            : op
+map::at
+32767 : ==
+1030 0191 string      .    undef           : <
+map::at
+32767 : ||
+1031 0191 name        .    name            : op
+map::at
+32767 : ==
+1032 0191 string      .    undef           : =
+1033 0191 block       .  ) paren_close     : )
+1034 0191 name        .    keyword         : return
+1035 0191 number      .    number          : 0
+1036 0191 sp_char     .  ; schar           : ;
+1037 0191 comment     .    comment         : // 할당 연산자 우선순위 추가
+1038 0192 name        .    keyword         : return
+map::at
+32767 : -
+1039 0192 number      .    number          : 1
+1040 0192 sp_char     .  ; schar           : ;
+1041 0193 block       .  } brace_close     : }
+1042 0195 name        .    name            : std
+map::at
+32767 : ::
+1043 0195 name        .    name            : unique_ptr
+1044 0195 block       .  < angle_bracket_open : <
+1045 0195 name        .    name            : ASTNode
+1046 0195 block       .  > angle_bracket_close : >
+1047 0195 name        .    name            : Parser
+map::at
+32767 : ::
+1048 0195 name        .    name            : parseExpression
+1049 0195 block       .  ( paren_open      : (
+1050 0195 block       .  ) paren_close     : )
+1051 0195 block       .  { brace_open      : {
+1052 0196 name        .    keyword         : return
+1053 0196 name        .    name            : parseBinaryExpression
+1054 0196 block       .  ( paren_open      : (
+1055 0196 number      .    number          : 0
+1056 0196 block       .  ) paren_close     : )
+1057 0196 sp_char     .  ; schar           : ;
+1058 0197 block       .  } brace_close     : }
+1059 0199 name        .    name            : std
+map::at
+32767 : ::
+1060 0199 name        .    name            : unique_ptr
+1061 0199 block       .  < angle_bracket_open : <
+1062 0199 name        .    name            : ASTNode
+1063 0199 block       .  > angle_bracket_close : >
+1064 0199 name        .    name            : Parser
+map::at
+32767 : ::
+1065 0199 name        .    name            : parseBinaryExpression
+1066 0199 block       .  ( paren_open      : (
+1067 0199 name        .    dattype         : int
+1068 0199 name        .    name            : precedence
+1069 0199 block       .  ) paren_close     : )
+1070 0199 block       .  { brace_open      : {
+1071 0200 name        .    keyword         : auto
+1072 0200 name        .    name            : left
+map::at
+32767 : =
+1073 0200 name        .    name            : parsePrimaryExpression
+1074 0200 block       .  ( paren_open      : (
+1075 0200 block       .  ) paren_close     : )
+1076 0200 sp_char     .  ; schar           : ;
+1077 0202 name        .    keyword         : while
+1078 0202 block       .  ( paren_open      : (
+1079 0202 name        .    name            : currentToken
+1080 0202 block       .  ( paren_open      : (
+1081 0202 block       .  ) paren_close     : )
+1082 0202 sp_char     .  . schar           : .
+1083 0202 name        .    name            : type
+map::at
+32767 : ==
+1084 0202 name        .    name            : TokenType
+map::at
+32767 : ::
+1085 0202 name        .    name            : OPERATOR
+map::at
+32767 : &&
+1086 0203 name        .    name            : getOperatorPrecedence
+1087 0203 block       .  ( paren_open      : (
+1088 0203 name        .    name            : currentToken
+1089 0203 block       .  ( paren_open      : (
+1090 0203 block       .  ) paren_close     : )
+1091 0203 sp_char     .  . schar           : .
+1092 0203 name        .    name            : value
+1093 0203 block       .  ) paren_close     : )
+1094 0203 block       .  > angle_bracket_close : >
+map::at
+32767 : =
+1095 0203 name        .    name            : precedence
+1096 0203 block       .  ) paren_close     : )
+1097 0203 block       .  { brace_open      : {
+1098 0204 name        .    name            : std
+map::at
+32767 : ::
+1099 0204 name        .    name            : string
+1100 0204 name        .    name            : op
+map::at
+32767 : =
+1101 0204 name        .    name            : expect
+1102 0204 block       .  ( paren_open      : (
+1103 0204 name        .    name            : TokenType
+map::at
+32767 : ::
+1104 0204 name        .    name            : OPERATOR
+1105 0204 block       .  ) paren_close     : )
+1106 0204 sp_char     .  . schar           : .
+1107 0204 name        .    name            : value
+1108 0204 sp_char     .  ; schar           : ;
+1109 0205 name        .    dattype         : int
+1110 0205 name        .    name            : next_precedence
+map::at
+32767 : =
+1111 0205 name        .    name            : getOperatorPrecedence
+1112 0205 block       .  ( paren_open      : (
+1113 0205 name        .    name            : op
+1114 0205 block       .  ) paren_close     : )
+1115 0205 sp_char     .  ; schar           : ;
+1116 0206 comment     .    comment         : // 왼쪽 결합성 연산자 (대부분의 이진 연산자: +, -, *, /)
+1117 0207 comment     .    comment         : // 같은 우선순위의 다음 연산자는 현재 연산자와 같거나 낮은 우선순위로 파싱
+1118 0208 name        .    keyword         : auto
+1119 0208 name        .    name            : right
+map::at
+32767 : =
+1120 0208 name        .    name            : parseBinaryExpression
+1121 0208 block       .  ( paren_open      : (
+1122 0208 name        .    name            : next_precedence
+map::at
+32767 : +
+1123 0208 number      .    number          : 1
+1124 0208 block       .  ) paren_close     : )
+1125 0208 sp_char     .  ; schar           : ;
+1126 0210 name        .    keyword         : auto
+1127 0210 name        .    name            : binary_node
+map::at
+32767 : =
+1128 0210 name        .    name            : std
+map::at
+32767 : ::
+1129 0210 name        .    name            : make_unique
+1130 0210 block       .  < angle_bracket_open : <
+1131 0210 name        .    name            : BinaryExpressionNode
+1132 0210 block       .  > angle_bracket_close : >
+1133 0210 block       .  ( paren_open      : (
+1134 0210 block       .  ) paren_close     : )
+1135 0210 sp_char     .  ; schar           : ;
+1136 0211 name        .    name            : binary_node
+map::at
+32767 : ->
+1137 0211 name        .    name            : left
+map::at
+32767 : =
+1138 0211 name        .    name            : std
+map::at
+32767 : ::
+1139 0211 name        .    name            : move
+1140 0211 block       .  ( paren_open      : (
+1141 0211 name        .    name            : left
+1142 0211 block       .  ) paren_close     : )
+1143 0211 sp_char     .  ; schar           : ;
+1144 0212 name        .    name            : binary_node
+map::at
+32767 : ->
+1145 0212 name        .    name            : op
+map::at
+32767 : =
+1146 0212 name        .    name            : op
+1147 0212 sp_char     .  ; schar           : ;
+1148 0213 name        .    name            : binary_node
+map::at
+32767 : ->
+1149 0213 name        .    name            : right
+map::at
+32767 : =
+1150 0213 name        .    name            : std
+map::at
+32767 : ::
+1151 0213 name        .    name            : move
+1152 0213 block       .  ( paren_open      : (
+1153 0213 name        .    name            : right
+1154 0213 block       .  ) paren_close     : )
+1155 0213 sp_char     .  ; schar           : ;
+1156 0214 name        .    name            : left
+map::at
+32767 : =
+1157 0214 name        .    name            : std
+map::at
+32767 : ::
+1158 0214 name        .    name            : move
+1159 0214 block       .  ( paren_open      : (
+1160 0214 name        .    name            : binary_node
+1161 0214 block       .  ) paren_close     : )
+1162 0214 sp_char     .  ; schar           : ;
+1163 0215 block       .  } brace_close     : }
+1164 0216 name        .    keyword         : return
+1165 0216 name        .    name            : left
+1166 0216 sp_char     .  ; schar           : ;
+1167 0217 block       .  } brace_close     : }
+1168 0219 name        .    name            : std
+map::at
+32767 : ::
+1169 0219 name        .    name            : unique_ptr
+1170 0219 block       .  < angle_bracket_open : <
+1171 0219 name        .    name            : ASTNode
+1172 0219 block       .  > angle_bracket_close : >
+1173 0219 name        .    name            : Parser
+map::at
+32767 : ::
+1174 0219 name        .    name            : parsePrimaryExpression
+1175 0219 block       .  ( paren_open      : (
+1176 0219 block       .  ) paren_close     : )
+1177 0219 block       .  { brace_open      : {
+1178 0220 name        .    dattype         : const
+1179 0220 name        .    name            : Token
+map::at
+32767 : &
+1180 0220 name        .    name            : current
+map::at
+32767 : =
+1181 0220 name        .    name            : currentToken
+1182 0220 block       .  ( paren_open      : (
+1183 0220 block       .  ) paren_close     : )
+1184 0220 sp_char     .  ; schar           : ;
+1185 0221 name        .    keyword         : if
+1186 0221 block       .  ( paren_open      : (
+1187 0221 name        .    name            : current
+1188 0221 sp_char     .  . schar           : .
+1189 0221 name        .    name            : type
+map::at
+32767 : ==
+1190 0221 name        .    name            : TokenType
+map::at
+32767 : ::
+1191 0221 name        .    name            : NUMBER
+1192 0221 block       .  ) paren_close     : )
+1193 0221 block       .  { brace_open      : {
+1194 0222 comment     .    comment         : // NumberLiteralNode의 생성자에 int 인자를 전달
+1195 0223 name        .    keyword         : return
+1196 0223 name        .    name            : std
+map::at
+32767 : ::
+1197 0223 name        .    name            : make_unique
+1198 0223 block       .  < angle_bracket_open : <
+1199 0223 name        .    name            : NumberLiteralNode
+1200 0223 block       .  > angle_bracket_close : >
+1201 0223 block       .  ( paren_open      : (
+1202 0223 name        .    name            : std
+map::at
+32767 : ::
+1203 0223 name        .    name            : stoi
+1204 0223 block       .  ( paren_open      : (
+1205 0223 name        .    name            : expect
+1206 0223 block       .  ( paren_open      : (
+1207 0223 name        .    name            : TokenType
+map::at
+32767 : ::
+1208 0223 name        .    name            : NUMBER
+1209 0223 block       .  ) paren_close     : )
+1210 0223 sp_char     .  . schar           : .
+1211 0223 name        .    name            : value
+1212 0223 block       .  ) paren_close     : )
+1213 0223 block       .  ) paren_close     : )
+1214 0223 sp_char     .  ; schar           : ;
+1215 0224 block       .  } brace_close     : }
+1216 0224 name        .    keyword         : else
+1217 0224 name        .    keyword         : if
+1218 0224 block       .  ( paren_open      : (
+1219 0224 name        .    name            : current
+1220 0224 sp_char     .  . schar           : .
+1221 0224 name        .    name            : subtype
+map::at
+32767 : ==
+1222 0224 name        .    name            : TokenSubtype
+map::at
+32767 : ::
+1223 0224 name        .    name            : IDENTIFIER
+1224 0224 block       .  ) paren_close     : )
+1225 0224 block       .  { brace_open      : {
+1226 0225 comment     .    comment         : // IdentifierNode의 생성자에 std::string 인자를 전달
+1227 0226 name        .    keyword         : return
+1228 0226 name        .    name            : std
+map::at
+32767 : ::
+1229 0226 name        .    name            : make_unique
+1230 0226 block       .  < angle_bracket_open : <
+1231 0226 name        .    name            : IdentifierNode
+1232 0226 block       .  > angle_bracket_close : >
+1233 0226 block       .  ( paren_open      : (
+1234 0226 name        .    name            : expect
+1235 0226 block       .  ( paren_open      : (
+1236 0226 name        .    name            : TokenSubtype
+map::at
+32767 : ::
+1237 0226 name        .    name            : IDENTIFIER
+1238 0226 block       .  ) paren_close     : )
+1239 0226 sp_char     .  . schar           : .
+1240 0226 name        .    name            : value
+1241 0226 block       .  ) paren_close     : )
+1242 0226 sp_char     .  ; schar           : ;
+1243 0227 block       .  } brace_close     : }
+1244 0227 name        .    keyword         : else
+1245 0227 name        .    keyword         : if
+1246 0227 block       .  ( paren_open      : (
+1247 0227 name        .    name            : current
+1248 0227 sp_char     .  . schar           : .
+1249 0227 name        .    name            : subtype
+map::at
+32767 : ==
+1250 0227 name        .    name            : TokenSubtype
+map::at
+32767 : ::
+1251 0227 name        .    name            : PAREN_OPEN
+1252 0227 block       .  ) paren_close     : )
+1253 0227 block       .  { brace_open      : {
+1254 0228 name        .    name            : expect
+1255 0228 block       .  ( paren_open      : (
+1256 0228 name        .    name            : TokenSubtype
+map::at
+32767 : ::
+1257 0228 name        .    name            : PAREN_OPEN
+1258 0228 block       .  ) paren_close     : )
+1259 0228 sp_char     .  ; schar           : ;
+1260 0229 name        .    keyword         : auto
+1261 0229 name        .    name            : expr
+map::at
+32767 : =
+1262 0229 name        .    name            : parseExpression
+1263 0229 block       .  ( paren_open      : (
+1264 0229 block       .  ) paren_close     : )
+1265 0229 sp_char     .  ; schar           : ;
+1266 0230 name        .    name            : expect
+1267 0230 block       .  ( paren_open      : (
+1268 0230 name        .    name            : TokenSubtype
+map::at
+32767 : ::
+1269 0230 name        .    name            : PAREN_CLOSE
+1270 0230 block       .  ) paren_close     : )
+1271 0230 sp_char     .  ; schar           : ;
+1272 0231 name        .    keyword         : return
+1273 0231 name        .    name            : expr
+1274 0231 sp_char     .  ; schar           : ;
+1275 0232 block       .  } brace_close     : }
+1276 0232 name        .    keyword         : else
+1277 0232 name        .    keyword         : if
+1278 0232 block       .  ( paren_open      : (
+1279 0232 name        .    name            : current
+1280 0232 sp_char     .  . schar           : .
+1281 0232 name        .    name            : subtype
+map::at
+32767 : ==
+1282 0232 name        .    name            : TokenSubtype
+map::at
+32767 : ::
+1283 0232 name        .    name            : STRING_LITERAL
+1284 0232 block       .  ) paren_close     : )
+1285 0232 block       .  { brace_open      : {
+1286 0232 comment     .    comment         : // 문자열 리터럴 추가
+1287 0233 comment     .    comment         : // StringLiteralNode 정의 필요. 여기서는 임시로 IdentifierNode 사용
+1288 0234 name        .    keyword         : return
+1289 0234 name        .    name            : std
+map::at
+32767 : ::
+1290 0234 name        .    name            : make_unique
+1291 0234 block       .  < angle_bracket_open : <
+1292 0234 name        .    name            : IdentifierNode
+1293 0234 block       .  > angle_bracket_close : >
+1294 0234 block       .  ( paren_open      : (
+1295 0234 name        .    name            : expect
+1296 0234 block       .  ( paren_open      : (
+1297 0234 name        .    name            : TokenSubtype
+map::at
+32767 : ::
+1298 0234 name        .    name            : STRING_LITERAL
+1299 0234 block       .  ) paren_close     : )
+1300 0234 sp_char     .  . schar           : .
+1301 0234 name        .    name            : value
+1302 0234 block       .  ) paren_close     : )
+1303 0234 sp_char     .  ; schar           : ;
+1304 0234 comment     .    comment         : // TODO: StringLiteralNode로 변경
+1305 0235 block       .  } brace_close     : }
+1306 0236 comment     .    comment         : // TODO: 함수 호출 등 추가
+1307 0238 name        .    name            : throw
+1308 0238 name        .    name            : std
+map::at
+32767 : ::
+1309 0238 name        .    name            : runtime_error
+1310 0238 block       .  ( paren_open      : (
+1311 0238 string      .    undef           : Syntax Error: Unexpected token in primary expression: 
+map::at
+32767 : +
+1312 0238 name        .    name            : current
+1313 0238 sp_char     .  . schar           : .
+1314 0238 name        .    name            : toString
+1315 0238 block       .  ( paren_open      : (
+1316 0238 block       .  ) paren_close     : )
+1317 0238 block       .  ) paren_close     : )
+1318 0238 sp_char     .  ; schar           : ;
+1319 0239 block       .  } brace_close     : }
+1320 0241 comment     .    comment         : // ... (getOperatorPrecedence, parseExpression, parseBinaryExpression, parsePrimaryExpression 함수는 동일) ...
+1321 0243 block       .  } brace_close     : }
+1322 0243 comment     .    comment         : // namespace MyLang
+1323 0244 endoffile   .    undef           : 
+=======================================================
+file size=9209, lines=244, tokens=1568
+=======================================================

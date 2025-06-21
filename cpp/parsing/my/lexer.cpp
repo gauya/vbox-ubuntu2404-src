@@ -142,41 +142,45 @@ int find_index(const char* p, int ch) {
   return -1;
 }
 
-const std::map<std::string, TokenSubtype> Lexer::opierators_subtype = {
-  { "<<=", BITWISE_OP },
-  { ">>=", BITWISE_OP },
-  { "==",  RELATIVE_OP },
-  { ">=",  RELATIVE_OP },
-  { "<=",  RELATIVE_OP },
-  { "!=",  RELATIVE_OP },
-  { "||",  LOGIC_OP },
-  { "&&",  LOGIC_OP },
-  { "++",  ARTHMETIC_OP },
-  { "--",  ARTHMETIC_OP },
-  { "::",  SCOPE_OP },
-  { "+=",  ASSIGN_OP },
-  { "-=",  ASSIGN_OP },
-  { "*=",  ASSIGN_OP },
-  { "/=",  ASSIGN_OP },
-  { "%=",  ARTHMETIC_OP },
-  { "|=",  BITWISE_OP },
-  { "&=",  BITWISE_OP },
-  { "^=",  BITWISE_OP },
-  { "->",  STRUCT_OP },
-  { "+",   ARTHMETIC_OP },
-  { "-",   ARTHMETIC_OP },
-  { "*",   ARTHMETIC_OP },
-  { "/",   ARTHMETIC_OP },
-  { "%",   ARTHMETIC_OP },
-  { "!",   LOGIC_OP },
-  { ".",   STRUCT_OP },
-  { "=",   ASSIGN_OP },
-  { ">",   RELATIVE_OP },
-  { "<",   RELATIVE_OP },
-  { "|",   BITWISE_OP },
-  { "&",   BITWISE_OP },
-  { "^",   BITWISE_OP },
-  { NULL, END_OF_FILE }
+const std::map<std::string, TokenSubtype, std::greater<> > Lexer::operators_subtype = {
+  { "<<=", TokenSubtype::BITWISE_OP },
+  { ">>=", TokenSubtype::BITWISE_OP },
+  { "==",  TokenSubtype::RELATIVE_OP },
+  { ">=",  TokenSubtype::RELATIVE_OP },
+  { "<=",  TokenSubtype::RELATIVE_OP },
+  { "!=",  TokenSubtype::RELATIVE_OP },
+  { "||",  TokenSubtype::LOGIC_OP },
+  { "&&",  TokenSubtype::LOGIC_OP },
+  { "++",  TokenSubtype::ARTHMETIC_OP },
+  { "--",  TokenSubtype::ARTHMETIC_OP },
+  { "::",  TokenSubtype::SCOPE_OP },
+  { "+=",  TokenSubtype::ASSIGN_OP },
+  { "-=",  TokenSubtype::ASSIGN_OP },
+  { "*=",  TokenSubtype::ASSIGN_OP },
+  { "/=",  TokenSubtype::ASSIGN_OP },
+  { "%=",  TokenSubtype::ARTHMETIC_OP },
+  { "|=",  TokenSubtype::BITWISE_OP },
+  { "&=",  TokenSubtype::BITWISE_OP },
+  { "^=",  TokenSubtype::BITWISE_OP },
+  { "->",  TokenSubtype::STRUCT_OP },
+  { "+",   TokenSubtype::ARTHMETIC_OP },
+  { "-",   TokenSubtype::ARTHMETIC_OP },
+  { "*",   TokenSubtype::ARTHMETIC_OP },
+  { "/",   TokenSubtype::ARTHMETIC_OP },
+  { "%",   TokenSubtype::ARTHMETIC_OP },
+  { "!",   TokenSubtype::LOGIC_OP },
+  { ".",   TokenSubtype::STRUCT_OP },
+  { "=",   TokenSubtype::ASSIGN_OP },
+  { ">",   TokenSubtype::RELATIVE_OP },
+  { "<",   TokenSubtype::RELATIVE_OP },
+  { ">>",  TokenSubtype::BITWISE_OP },
+  { "<<",  TokenSubtype::BITWISE_OP },
+  { "|",   TokenSubtype::BITWISE_OP },
+  { "&",   TokenSubtype::BITWISE_OP },
+  { "^",   TokenSubtype::BITWISE_OP },
+  { "~",   TokenSubtype::BITWISE_OP },
+  { "?",   TokenSubtype::LOGIC_OP },
+  { "", TokenSubtype::END_OF_FILE }
 };
 
 /*
@@ -559,7 +563,89 @@ R"(
 }
 */
 
-const char *__operator_chars[] = "+-*/%!~^|&=<>:";
+/*
+const std::map<std::string, TokenSubtype, std::greater<>> operators_subtype = {
+    {"<<=", TokenSubtype::LEFT_SHIFT_ASSIGN},
+    {">>=", TokenSubtype::RIGHT_SHIFT_ASSIGN},
+    {"+=", TokenSubtype::ADD_ASSIGN},
+    // ... 다른 연산자들 ...
+    {"<", TokenSubtype::LESS}
+};
+*/
+
+/*
+// chatgpt
+Token Lexer::parse_operator() {
+    const size_t max_check_len = 3; // 예: 최대 연산자 길이
+    size_t maxlen = 0;
+    TokenSubtype matched_subtype;
+    std::string matched_op;
+
+    // 최대 길이까지 lookahead
+    for (size_t len = 1; len <= max_check_len && pos + len <= source.size(); ++len) {
+        std::string op = source.substr(pos, len);
+        auto it = operators_subtype.find(op);
+        if (it != operators_subtype.end()) {
+            maxlen = len;
+            matched_op = op;
+            matched_subtype = it->second;
+        }
+    }
+
+    // 매치된 연산자가 없다면 실패
+    if (maxlen == 0) {
+        return make_error_token("Unknown operator");
+    }
+
+    // 문맥 검사 예시: '<-3' 과 같은 경우 '<'만 연산자여야 함
+    if (matched_op == "<-" && pos + 2 < source.size()) {
+        char next_char = source[pos + 2];
+        if (isdigit(next_char)) {
+            // '-'는 음수의 일부로 보고 '<'만 처리
+            matched_op = "<";
+            matched_subtype = operators_subtype["<"];
+            maxlen = 1;
+        }
+    }
+
+    Token token;
+    token.type = TokenType::Operator;
+    token.subtype = matched_subtype;
+    token.lexeme = matched_op;
+    token.pos = pos;
+
+    pos += maxlen;
+    return token;
+}
+
+// perplexity
+Token parse_operator(const std::string& source, size_t& pos) {
+    size_t start = pos;
+    size_t max_len = std::min(source.size() - pos, max_operator_length);
+
+    // 최대 길이부터 1까지 탐색
+    for (size_t len = max_len; len >= 1; --len) {
+        std::string candidate = source.substr(pos, len);
+        auto it = operators_subtype.find(candidate);
+
+        if (it != operators_subtype.end()) {
+            pos += len;  // 연산자 길이만큼 위치 이동
+            return Token(TokenType::OPERATOR, candidate, ..., it->second);
+        }
+    }
+
+    // 단일 문자 연산자도 없으면 오류
+    throw std::runtime_error("Unknown operator");
+}
+*/
+
+// deepseek 
+//const std::regex operator_regex(
+//    R"((\+\+|--|==|!=|<=|>=|&&|\|\||<<|>>|[-+*/%&|^<>!=~?:]))"
+//);
+
+// const std::map<std::string, TokenSubtype> Lexer::opierators_subtype
+const char __operator_chars[] = "+-*/%!~^|&=<>:?~.";
 
 Token Lexer::parseOperator() {
   int start_col = m_column;
@@ -567,47 +653,31 @@ Token Lexer::parseOperator() {
   std::string str;
   int idx;
 
-  subtype = TokenSubtype::OPERATOR;
-
   // m_strs + m_pos; 으로부터 연속되는 연산자를 (최대 3개까지) 가져옴 <- __operator_chars
-  // check
+  // check =+, =-, ::<, |+,....
   // opierators_subtype에 있는지 차례로 찾음 (map}
 
-  
-  if( ( idx=find_index( _scope_ops, typestr )) != -1 ) {
-    typestr = _scope_ops[idx];
-    subtype = TokenSubtype::SCOPE_OP;
-  } else
-  if( ( idx=find_index( _incre_ops, typestr )) != -1 ) {
-    typestr = _incre_ops[idx];
-    subtype = TokenSubtype::INCRE_OP;
-  } else
-  if( ( idx=find_index( _relative_ops, typestr )) != -1 ) {
-    typestr = _relative_ops[idx];
-    subtype = TokenSubtype::RELATIVE_OP;
-  } else
-  if( ( idx=find_index( _assign_ops, typestr )) != -1 ) {
-    typestr = _assign_ops[idx];
-    subtype = TokenSubtype::ARTHMETIC_OP;
-  } else
-  if( ( idx=find_index( _logic_ops, typestr )) != -1 ) {
-    typestr = _logic_ops[idx];
-    subtype = TokenSubtype::LOGIC_OP;
-  } else
-  if( ( idx=find_index( _struct_ops, typestr )) != -1 ) {
-    typestr = _struct_ops[idx];
-    subtype = TokenSubtype::STRUCT_OP;
-  } else
-  if( ( idx=find_index( _bitwise_ops, typestr )) != -1 ) {
-    typestr = _bitwise_ops[idx];
-    subtype = TokenSubtype::BITWISE_OP;
-  } else
-  if( ( idx=find_index( _arthmetic_ops, typestr )) != -1 ) {
-    typestr = _arthmetic_ops[idx];
-    subtype = TokenSubtype::ARTHMETIC_OP;
-  } 
+  int len=0;
+  TokenSubtype st;
+  for( size_t ix=m_pos; (ix < m_str.length()) && strchr( __operator_chars, (int)m_str[ix] ) ; ix++ ) {
+    str += m_str[ix];
+    len++;
+  }
 
-  return Token(TokenType::OPERATOR, str, m_line, start_col);
+  for( ; (len > 0); len--) {
+    auto it = operators_subtype.find(str);
+    if (it != operators_subtype.end()) {
+      
+      st = it->second;
+      m_column += len;
+      m_pos += len;
+
+      return Token(TokenType::OPERATOR, str, m_line, start_col, str, st);
+    } 
+    str.pop_back(); // str.resize(str.length()-1)
+  }
+    // Error not operator
+  return Token(TokenType::UNDEF, "", 0,0);
 }
 
 Token Lexer::parseBlock() {
@@ -701,6 +771,7 @@ bool comp_str_charp(const std::string& str, size_t at, const char *chs) {
 Token Lexer::getToken() {
   skipWhitespace(); // 공백 무시
   
+  Token tok;
   int start_col = m_column; // 토큰 시작 컬럼 저장
   char c = peek();
 
@@ -737,7 +808,8 @@ Token Lexer::getToken() {
     return Token( TokenType::BLOCK, std::string(1,c), m_line, start_col );
   }
   if ( is_oper_char(c) ) {
-    return parseOperator();
+    tok = parseOperator();
+    if( tok.type != TokenType::UNDEF ) return tok;
   }
   if ( is_special_char(c) ) {
     advance();
@@ -760,11 +832,21 @@ Token Lexer::getToken() {
 
 std::vector<Token> Lexer::tokenize() {
   Token tok;
+#ifdef TEST    
+  int cnt=0;
+#endif
+
   do {
     tok = getToken();
 #ifdef TEST    
-    std::cout << std::format("{:04} {:04} {:<12}.{:3} : {}\n", 
-      cnt++,tok.line, tokentype_names.at(tok.type), tok.typestr, tok.value );
+    try {
+    std::cout << std::format("{:04} {:04} {:<12}.{:>3} {:15} : {}\n", 
+      cnt++,tok.line, tokentype_names.at(tok.type), tok.typestr, 
+      tokenSubtype_names.at(tok.subtype), tok.value );
+    } catch( const std::exception& e) {
+      std::cout << e.what() << std::endl;
+      std::cout << static_cast<int>(tok.subtype) << " : " << tok.value << std::endl;
+    }
 #endif
     m_toks.push_back(tok);
   } while (tok.type != TokenType::END_OF_FILE);
@@ -785,7 +867,7 @@ int Lexer::load_file(const char* fn) {
 #ifdef TEST
 
 int main(int argc, const char*argv[]) {
-  GLexer::Lexer lex;
+  MyLang::Lexer lex;
   lex.load_file(argv[1]);
 
   lex.tokenize();

@@ -25,7 +25,7 @@ enum class TokenType : int {
     SPACE,    // isspace()
     COMMENT,  // #, //, --, /* */, <% %>, ;, 
     BLOCK,    // (, {, [, <, ", ', """, ''', /**/, #,
-    END_OF_FILE = -1  // EOF
+    END_OF_FILE  // EOF
 };
 
 enum class TokenSubtype : int {
@@ -93,6 +93,7 @@ struct Token {
     // 생성자
     Token() : type(TokenType::UNDEF), subtype(TokenSubtype::UNDEF), line(0), column(0) {}
     Token(TokenType type, const std::string& value, size_t line, size_t column);
+    Token(TokenType type, const std::string& value, size_t line, size_t column, const std::string& ts, TokenSubtype) : type(type), subtype(subtype), typestr(ts), value(value), line(line), column(column) {};
 
     TokenSubtype set_subtype();
     // 디버깅을 위한 출력 (선택 사항)
@@ -150,6 +151,7 @@ public:
   static const std::unordered_map<std::string, TokenSubtype> keywords; // 키워드 맵 (정적 멤버)
   static const std::map<TokenType, std::string> tokentype_names;
   static const std::map<TokenSubtype, std::string> tokenSubtype_names;
+  static const std::map<std::string, TokenSubtype, std::greater<> > operators_subtype;
   int load_file(const char * fn);
 };
 
