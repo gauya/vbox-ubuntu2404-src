@@ -107,6 +107,7 @@ const std::map<TokenSubtype, std::string> Lexer::tokenSubtype_names = {
 	{ TokenSubtype::BITWISE_OP, "bitwise_op" },
 	{ TokenSubtype::STRUCT_OP, "struct_op" },
 	{ TokenSubtype::SCOPE_OP, "scope_op" },
+	{ TokenSubtype::UNARY_OP, "unary_op" },
 	{ TokenSubtype::ETC_OP, "etc_op" },
 	{ TokenSubtype::SCHAR, "schar" },
 	{ TokenSubtype::SPACE, "space" },
@@ -180,6 +181,8 @@ const std::map<std::string, TokenSubtype, std::greater<> > Lexer::operators_subt
   { "^",   TokenSubtype::BITWISE_OP },
   { "~",   TokenSubtype::BITWISE_OP },
   { "?",   TokenSubtype::LOGIC_OP },
+//  { "+",   TokenSubtype::UNARY_OP },
+//  { "-",   TokenSubtype::UNARY_OP },
   { "", TokenSubtype::END_OF_FILE }
 };
 
@@ -219,7 +222,7 @@ TokenSubtype Token::set_subtype() {
     } catch(...) {
       subtype = TokenSubtype::NAME;
     }
-    typestr = "";
+    typestr = ""; // == value
     break;
   case TokenType::NUMBER:
     typestr = "";
@@ -510,7 +513,7 @@ Token Lexer::parseComment() {
     while (m_pos < m_str.length() && peek() != '\n') {
       str += advance();
     }
-    return Token(TokenType::COMMENT, str, m_line, start_col);
+    return Token(TokenType::COMMENT, str, m_line, start_col,(c=='#')? "#":"//", TokenSubtype::LINE_COMMENT);
   } 
   // 여러줄 주석
   if( c == '/' && npeek() == '*') {
@@ -525,7 +528,7 @@ Token Lexer::parseComment() {
       str += advance();
     }
 
-    return Token(TokenType::COMMENT, str, start_line, start_col);
+    return Token(TokenType::COMMENT, str, start_line, start_col,"/*", TokenSubtype::BLOCK_COMMENT);
   }
   throw std::runtime_error("not comment [" +  std::to_string(start_col) + "]");
 }
@@ -730,6 +733,10 @@ const char __special_chars[] = ",.:;@$`";
 bool Lexer::is_special_char( int ch ) {
   return ( strchr( __special_chars, ch ))? true : false;
 }
+const char __comment_chars[] = "/*#"; // c에서는 "/*"
+bool Lexer::is_comment_char( int ch ) {
+  return ( strchr( __comment_chars, ch ))? true : false;
+}
 
 
 bool comp_str_charp(const std::string& str, size_t at, const char *chs) {
@@ -786,6 +793,7 @@ Token Lexer::getToken() {
     m_pos += 2;
     return Token(TokenType:: SCHAR, sval, m_line, start_col );
   }
+  //if( is_comment_char(c) ) {
   if( (c == '#') 
     || ( c == '/' && npeek() == '/') 
     || ( c == '/' && npeek() == '*')) { 

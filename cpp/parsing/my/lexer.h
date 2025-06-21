@@ -56,6 +56,7 @@ enum class TokenSubtype : int {
     BITWISE_OP, // |, &, ^
     STRUCT_OP,  // ., ->
     SCOPE_OP,   // ::
+    UNARY_OP,   // +, - 바로뒤에 10진수치가 옴
     ETC_OP,  // sizeof, new, delete 
     
     SCHAR,    // ,.:;@$# =======================================================
@@ -119,6 +120,8 @@ public:
   bool is_oper_char(int ch);
   bool is_block_char(int ch);
   bool is_special_char(int ch);
+  bool is_comment_char(int ch);
+
   inline size_t length() const { return m_str.length(); }
   inline size_t tokens() const { return m_toks.size(); }
   inline size_t line() const { return m_line; }
