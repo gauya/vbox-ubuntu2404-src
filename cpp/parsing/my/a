@@ -1,3 +1,19 @@
+#include <stdint.h>
+#include <ctype.h>
+
+#define isodigit(a) ((a) >= '0' && (a) <= '7')
+#define isbdigit(a) ((a) == '0' || (a) == '1')
+
+const char __default_white_space[] = " \t\n\r";
+
+const char* whitespace_skip(const char *str) {
+  if( !str )
+    return (const char*)0;
+
+  while( *str && strchr(__default_white_space,*str) ) str++;
+
+  return str;
+}
 
 int stoi(const char *s) {
 	s = whitespace_skip(s);
@@ -18,12 +34,15 @@ int stoi(const char *s) {
 	return (minus ==-1)? -(int)val : (int)val;
 }
 
+// strtol(s, NULL, 10)
+// strtoll(s,NULL, 0)
+// strtold
 int64_t stol(const char *s) {
 	s = whitespace_skip(s);
 	if(!s) return 0;
 
 	int minus = 1;
-	uint64_t val = 0;
+	int64_t val = 0;
 
 	if(*s == '-' || *s == '+')  {
 		if(*s++ == '-') minus = -1;
@@ -33,14 +52,14 @@ int64_t stol(const char *s) {
 		val = (val * 10) + (*s - '0');
 	}
 
-	return (minus == -1)? -(int64_t)val : (uint64_t)val;
+	return (minus == -1)? -val : val;
 }
 
 uint32_t stob(const char *s) {
 	s = whitespace_skip(s);
 	if(!s) return 0;
 
-	if(*s == '\0') {
+	if(*s == '0') {
 		s++;
 		if(*s == 'b' || *s == 'B') s++;
 	}
@@ -51,7 +70,7 @@ uint32_t stob(const char *s) {
 	while(isbdigit(*n)) n++;
 	n--;
 
-	for(uint32_t u=0; n>=s; n--, u <<= 1) {
+	for(uint32_t u=1; n>=s; n--, u <<= 1) {
 		if( *n == '1' ) val += u;
 	}
 
@@ -78,7 +97,7 @@ uint32_t stox(const char *s) {
 	s = whitespace_skip(s);
 	if(!s) return 0;
 
-	if(*s == '\0') {
+	if(*s == '0') {
 		s++;
 		if(*s == 'x' || *s == 'X') s++;
 	}
@@ -89,12 +108,15 @@ uint32_t stox(const char *s) {
 	while(isxdigit(*n)) n++;
 	n--;
 
-	for(uint32_t u=0; n>=s; n--, u <<= 4) {
-		val += (*n-'0') * u;
-	}
+	for(uint32_t u=1; n>=s; n--, u *= 16) {
+    a = (*n>= 'A' && *n <= 'F')? (*n - 'A' + 10) : (*n - '0');
+    a *= u;
+    val += a;
+  }
 	return val;
 }
 
+// strtod(s,NULL)
 double stof(const char *s) {
 	s = whitespace_skip(s);
 	if(!s) return 0.;
@@ -121,4 +143,3 @@ double stof(const char *s) {
 
 	return (minus == -1)? -v : v;
 }
-

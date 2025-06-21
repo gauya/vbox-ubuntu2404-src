@@ -8,6 +8,19 @@
 
 namespace MyLang {
 
+const std::map<TokenType, std::string> Lexer::tokentype_names = {
+  { TokenType:: UNDEF, "undef" },
+  { TokenType:: NAME, "name" },
+  { TokenType:: STRING, "string" },
+  { TokenType:: NUMBER, "number" },
+  { TokenType:: OPERATOR,"operator" },
+  { TokenType:: SCHAR, "sp_char" },
+  { TokenType:: COMMENT, "comment" },
+  { TokenType:: SPACE, "space" },
+  { TokenType:: BLOCK, "block" },
+  { TokenType:: END_OF_FILE, "endoffile" }
+};
+
 // Lexer 클래스 멤버 변수 초기화
 const std::unordered_map<std::string, TokenSubtype> Lexer::keywords = {
   {"if", TokenSubtype::KEYWORD},
@@ -55,19 +68,6 @@ const std::unordered_map<std::string, TokenSubtype> Lexer::keywords = {
   {"inline", TokenSubtype::DATTYPE},
 
   {"return", TokenSubtype::KEYWORD} // 예시에 return 추가
-};
-
-const std::map<TokenType, std::string> Lexer::tokentype_names = {
-  { TokenType:: UNDEF, "undef" },
-  { TokenType:: NAME, "name" },
-  { TokenType:: STRING, "string" },
-  { TokenType:: NUMBER, "number" },
-  { TokenType:: OPERATOR,"operator" },
-  { TokenType:: SCHAR, "sp_char" },
-  { TokenType:: COMMENT, "comment" },
-  { TokenType:: SPACE, "space" },
-  { TokenType:: BLOCK, "block" },
-  { TokenType:: END_OF_FILE, "endoffile" }
 };
 
 /*
@@ -152,8 +152,8 @@ const std::map<std::string, TokenSubtype, std::greater<> > Lexer::operators_subt
   { "!=",  TokenSubtype::RELATIVE_OP },
   { "||",  TokenSubtype::LOGIC_OP },
   { "&&",  TokenSubtype::LOGIC_OP },
-  { "++",  TokenSubtype::ARTHMETIC_OP },
-  { "--",  TokenSubtype::ARTHMETIC_OP },
+  { "++",  TokenSubtype::INCRE_OP },
+  { "--",  TokenSubtype::INCRE_OP },
   { "::",  TokenSubtype::SCOPE_OP },
   { "+=",  TokenSubtype::ASSIGN_OP },
   { "-=",  TokenSubtype::ASSIGN_OP },
@@ -164,6 +164,8 @@ const std::map<std::string, TokenSubtype, std::greater<> > Lexer::operators_subt
   { "&=",  TokenSubtype::BITWISE_OP },
   { "^=",  TokenSubtype::BITWISE_OP },
   { "->",  TokenSubtype::STRUCT_OP },
+  { ">>",  TokenSubtype::SHIFT_OP },
+  { "<<",  TokenSubtype::SHIFT_OP },
   { "+",   TokenSubtype::ARTHMETIC_OP },
   { "-",   TokenSubtype::ARTHMETIC_OP },
   { "*",   TokenSubtype::ARTHMETIC_OP },
@@ -174,8 +176,6 @@ const std::map<std::string, TokenSubtype, std::greater<> > Lexer::operators_subt
   { "=",   TokenSubtype::ASSIGN_OP },
   { ">",   TokenSubtype::RELATIVE_OP },
   { "<",   TokenSubtype::RELATIVE_OP },
-  { ">>",  TokenSubtype::BITWISE_OP },
-  { "<<",  TokenSubtype::BITWISE_OP },
   { "|",   TokenSubtype::BITWISE_OP },
   { "&",   TokenSubtype::BITWISE_OP },
   { "^",   TokenSubtype::BITWISE_OP },
@@ -359,144 +359,6 @@ void Lexer::skipWhitespace() {
 
 //////////////////////////////////////////////////////////////////////////
 #if 0
-#include <stdint.h>
-
-#define isodigit(a) ((a) >= '0' && (a) <= '7')
-#define isbdigit(a) ((a) == '0' || (a) == '1')
-
-const char __default_white_space[] = " \t\n\r";
-
-const char* whitespace_skip(const char *str) {
-  if( !str )
-    return (const char*)0;
-
-  while( *str && strchr(__default_white_space,*str) ) str++;
-
-  return str;
-}
-
-int stoi(const char *s) {
-	s = whitespace_skip(s);
-	if(!s) return 0;
-
-	int minus = 1;
-	uint32_t val = 0;
-
-	if(*s == '-' || *s == '+')  {
-		if(*s++ == '-') minus = -1;
-	}
-
-	for(;*s >= '0' && *s <= '9'; s++) {
-		val = (val * 10) + (*s - '0');
-	}
-	//if( val & 0x80000000 ) // error
-
-	return (minus ==-1)? -(int)val : (int)val;
-}
-
-int64_t stol(const char *s) {
-	s = whitespace_skip(s);
-	if(!s) return 0;
-
-	int minus = 1;
-	uint64_t val = 0;
-
-	if(*s == '-' || *s == '+')  {
-		if(*s++ == '-') minus = -1;
-	}
-
-	for(;*s >= '0' && *s <= '9'; s++) {
-		val = (val * 10) + (*s - '0');
-	}
-
-	return (minus == -1)? -(int64_t)val : (uint64_t)val;
-}
-
-uint32_t stob(const char *s) {
-	s = whitespace_skip(s);
-	if(!s) return 0;
-
-	if(*s == '\0') {
-		s++;
-		if(*s == 'b' || *s == 'B') s++;
-	}
-
-	uint32_t val = 0;
-	const char *n = s;
-
-	while(isbdigit(*n)) n++;
-	n--;
-
-	for(uint32_t u=0; n>=s; n--, u <<= 1) {
-		if( *n == '1' ) val += u;
-	}
-
-	return val;
-}
-
-uint32_t stoo(const char *s) {
-	s = whitespace_skip(s);
-	if(!s) return 0;
-
-	uint32_t val = 0;
-	const char *n = s;
-
-	while(isodigit(*n)) n++;
-	n--;
-
-	for(uint32_t u=0; n>=s; n--, u <<= 3) {
-		val += (*n-'0') * u;
-	}
-	return val;
-}
-
-uint32_t stox(const char *s) {
-	s = whitespace_skip(s);
-	if(!s) return 0;
-
-	if(*s == '\0') {
-		s++;
-		if(*s == 'x' || *s == 'X') s++;
-	}
-
-	uint32_t val = 0;
-	const char *n = s;
-
-	while(isxdigit(*n)) n++;
-	n--;
-
-	for(uint32_t u=0; n>=s; n--, u <<= 4) {
-		val += (*n-'0') * u;
-	}
-	return val;
-}
-
-double stof(const char *s) {
-	s = whitespace_skip(s);
-	if(!s) return 0.;
-
-	int minus = 1;
-	double v = 0;
-
-	if(*s == '-' || *s == '+')  {
-		if(*s++ == '-') minus = -1;
-	}
-
-	for(;*s && (*s >= '0' && *s <= '9'); s++) {
-		v = (v * 10) + (*s - '0');
-	}
-
-	if(*s++ == '.') {
-		int c;
-		double d=1.0;
-		for(c = 0; *s >= '0' && *s <= '9'; s++,c++) {
-			d *= 0.1;
-			v += d * (*s - '0');
-		}
-	}
-
-	return (minus == -1)? -v : v;
-}
 #endif // 1
 ////////////////////////////////////////////////////////////////////////////////
 
@@ -533,14 +395,72 @@ Token Lexer::parseComment() {
   throw std::runtime_error("not comment [" +  std::to_string(start_col) + "]");
 }
 
+
 Token Lexer::parseNumber() {
-  int start_col = m_column;
-  std::string num_str;
-  while (m_pos < m_str.length() && std::isdigit(peek())) {
-    num_str += advance();
+  //test
+  float f = -3.253;
+  int i1 = 131421;
+  int i2 = 0xf343c;
+  int i3 = 0b0100110000011110;
+  int i4 = 02423234132023;
+
+  std::string str;
+  char ch = peek();
+  char nh = npeek();
+  Token tok;
+
+  tok.type = TokenType::NUMBER;
+  tok.typestr = 'd';  
+  tok.subtype = TokenSubtype::INTEGER;
+  tok.line = m_line;
+  tok.column = m_column;
+
+
+  if ( ch == '0' && ( nh == 'b' || nh == 'x' || (nh >= '0' && nh <= '7') ) ) {
+    tok.value += advance();
+
+    if( nh == 'x' ) {  // hexa
+      tok.typestr = 'x';  
+      tok.value += advance();
+      tok.subtype = TokenSubtype::HEX_NUM;
+
+      while (m_pos < m_str.length() && std::isxdigit(peek())) {
+        tok.value += advance();
+      }
+
+    } else if( nh == 'b' ) {  // bin
+      tok.typestr = 'b';  
+      tok.value += advance();
+      tok.subtype = TokenSubtype::BIN_NUM;
+    
+      while (m_pos < m_str.length() && ( peek() == '0' || peek() == '1')) {
+        tok.value += advance();
+      }
+    } else {           // octal
+      tok.typestr = 'o';  
+      tok.subtype = TokenSubtype::OCT_NUM;
+    
+      while (m_pos < m_str.length() && ( peek() >= '0' && peek() <= '7')) {
+        tok.value += advance();
+      }
+    }
+  } else {
+    while (m_pos < m_str.length() && std::isdigit(peek())) {
+      tok.value += advance();
+    }
+
+    if( peek() == '.' ) { // float
+      tok.value += advance();
+      tok.typestr = 'f';
+      tok.subtype = TokenSubtype::FLOAT;
+
+      while (m_pos < m_str.length() && std::isdigit(peek())) {
+        tok.value += advance();
+      }
+    } 
   }
-  // 간단한 정수만 처리
-  return Token(TokenType::NUMBER, num_str, m_line, start_col);
+
+  return Token(tok);
 }
 
 Token Lexer::parseName() {
@@ -652,9 +572,15 @@ const char __operator_chars[] = "+-*/%!~^|&=<>:?~.";
 
 Token Lexer::parseOperator() {
   int start_col = m_column;
-  char quote_char = peek(); 
+  char ch = peek(); 
+  char nh = npeek();
+
+  if ( (ch == '+' || ch == '-') && ( std::isalnum(nh) || nh == '_') ) {
+    m_column++;
+    m_pos++;
+    Token(TokenType::OPERATOR, std::string(1,ch), m_line, start_col, std::string(1,ch), TokenSubtype::UNARY_OP);
+  }
   std::string str;
-  int idx;
 
   // m_strs + m_pos; 으로부터 연속되는 연산자를 (최대 3개까지) 가져옴 <- __operator_chars
   // check =+, =-, ::<, |+,....
@@ -781,6 +707,7 @@ Token Lexer::getToken() {
   Token tok;
   int start_col = m_column; // 토큰 시작 컬럼 저장
   char c = peek();
+  char n = npeek();
 
   if ( (m_pos+1) > m_str.length() ||  c == '\0' ) {
     return Token(TokenType::END_OF_FILE, "", m_line, m_column);
@@ -795,8 +722,8 @@ Token Lexer::getToken() {
   }
   //if( is_comment_char(c) ) {
   if( (c == '#') 
-    || ( c == '/' && npeek() == '/') 
-    || ( c == '/' && npeek() == '*')) { 
+    || ( c == '/' && n == '/') 
+    || ( c == '/' && n == '*')) { 
     
     return parseComment();
   }
@@ -804,7 +731,7 @@ Token Lexer::getToken() {
     return parseString();
   }
 
-  if (std::isdigit(c)) {
+  if (std::isdigit(c)) { // +n, (p * -n)
     return parseNumber();
   } 
   if (std::isalpha(c) || c == '_') {
@@ -817,7 +744,7 @@ Token Lexer::getToken() {
   }
   if ( is_oper_char(c) ) {
     tok = parseOperator();
-    if( tok.type != TokenType::UNDEF ) return tok;
+    if( tok.type != TokenType::UNDEF ) return Token(tok);
   }
   if ( is_special_char(c) ) {
     advance();

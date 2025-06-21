@@ -53,6 +53,7 @@ enum class TokenSubtype : int {
     INCRE_OP,   // ++,--
     RELATIVE_OP,// >, <, >=, <=, !=, ==
     LOGIC_OP,   // ||, &&, !
+    SHIFT_OP,   // ||, &&, !
     BITWISE_OP, // |, &, ^
     STRUCT_OP,  // ., ->
     SCOPE_OP,   // ::
@@ -93,6 +94,8 @@ struct Token {
 
     // 생성자
     Token() : type(TokenType::UNDEF), subtype(TokenSubtype::UNDEF), line(0), column(0) {}
+    Token( const Token& t ) :
+      type(t.type), subtype(t.subtype), typestr(t.typestr), value(t.value), line(t.line), column(t.column) {}
     Token(TokenType type, const std::string& value, size_t line, size_t column);
     Token(TokenType type, const std::string& value, size_t line, size_t column, const std::string& ts, TokenSubtype subtype) : type(type), subtype(subtype), typestr(ts), value(value), line(line), column(column) {};
 
