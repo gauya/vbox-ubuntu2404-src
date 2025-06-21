@@ -92,7 +92,7 @@ struct Token {
 
     // 생성자
     Token() : type(TokenType::UNDEF), subtype(TokenSubtype::UNDEF), line(0), column(0) {}
-    Token(TokenType type, const std::string& value, size_t line, size_t column, const std::string st );
+    Token(TokenType type, const std::string& value, size_t line, size_t column);
 
     TokenSubtype set_subtype();
     // 디버깅을 위한 출력 (선택 사항)
@@ -136,6 +136,7 @@ public:
   
   // 특정 문자만큼 포인터 건너뛰기
   void skipWhitespace();
+  Token parseOperator();
   Token parseNumber();
   Token parseName();
   Token parseString();

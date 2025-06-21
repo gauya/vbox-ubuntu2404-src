@@ -117,7 +117,7 @@ std::unique_ptr<ASTNode> Parser::parseFunctionDeclaration() {
 Parser::Parser(std::vector<Token> tokens)
     : tokens(std::move(tokens)), current_token_index(0) {
     if (this->tokens.empty()) {
-        this->tokens.push_back(Token(TokenType::END_OF_FILE, "", 0, 0, {}));
+        this->tokens.push_back(Token(TokenType::END_OF_FILE, "", 0, 0));
     }
 }
 

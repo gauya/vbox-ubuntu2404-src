@@ -10,5 +10,6 @@ config.ini
 .vscode
 wxWidgets/
 SDL/
-
 *.swp
+*.o
+

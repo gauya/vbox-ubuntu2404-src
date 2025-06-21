@@ -142,15 +142,53 @@ int find_index(const char* p, int ch) {
   return -1;
 }
 
+const std::map<std::string, TokenSubtype> Lexer::opierators_subtype = {
+  { "<<=", BITWISE_OP },
+  { ">>=", BITWISE_OP },
+  { "==",  RELATIVE_OP },
+  { ">=",  RELATIVE_OP },
+  { "<=",  RELATIVE_OP },
+  { "!=",  RELATIVE_OP },
+  { "||",  LOGIC_OP },
+  { "&&",  LOGIC_OP },
+  { "++",  ARTHMETIC_OP },
+  { "--",  ARTHMETIC_OP },
+  { "::",  SCOPE_OP },
+  { "+=",  ASSIGN_OP },
+  { "-=",  ASSIGN_OP },
+  { "*=",  ASSIGN_OP },
+  { "/=",  ASSIGN_OP },
+  { "%=",  ARTHMETIC_OP },
+  { "|=",  BITWISE_OP },
+  { "&=",  BITWISE_OP },
+  { "^=",  BITWISE_OP },
+  { "->",  STRUCT_OP },
+  { "+",   ARTHMETIC_OP },
+  { "-",   ARTHMETIC_OP },
+  { "*",   ARTHMETIC_OP },
+  { "/",   ARTHMETIC_OP },
+  { "%",   ARTHMETIC_OP },
+  { "!",   LOGIC_OP },
+  { ".",   STRUCT_OP },
+  { "=",   ASSIGN_OP },
+  { ">",   RELATIVE_OP },
+  { "<",   RELATIVE_OP },
+  { "|",   BITWISE_OP },
+  { "&",   BITWISE_OP },
+  { "^",   BITWISE_OP },
+  { NULL, END_OF_FILE }
+};
+
+/*
 const char *_scope_ops[] =  { "::", NULL };
 const char *_incre_ops[] = { "++", "--", NULL };
-const char *_arthmetic_ops[] =  { "+","-","*","/","%", NULL };
-const char *_assign_ops[] = { "+=","-=","*=","/=","%=","^=", "&=", "|=", "=", NULL };
 const char *_relative_ops[] = { "==", "!=", ">=", "<=", ">","<", NULL };
+const char *_assign_ops[] = { "+=","-=","*=","/=","%=","^=", "&=", "|=", "=", NULL };
 const char *_logic_ops[] = { "||", "&&", "!", NULL };
-const char *_bitwise_ops[] = { "|", "&", "^", NULL };
 const char *_struct_ops[] = { ".", "->", NULL };
-/*
+const char *_bitwise_ops[] = { "|", "&", "^", NULL };
+const char *_arthmetic_ops[] =  { "+","-","*","/","%", NULL };
+
 const char *__operation_keys[] = {
   "+","-","*","/","%","?",
   "++","--",
@@ -168,6 +206,8 @@ const char *_comment_line_strs[] =  { "//", "#", /* "--", ";",*/ NULL };
 const char *_comment_block_strs[] =  { "/*", "*/", NULL };
 
 TokenSubtype Token::set_subtype() {
+  int idx;
+  char ch;
   switch(type) {
   case TokenType::NAME:
     try {
@@ -175,70 +215,57 @@ TokenSubtype Token::set_subtype() {
     } catch(...) {
       subtype = TokenSubtype::NAME;
     }
+    typestr = "";
     break;
   case TokenType::NUMBER:
+    typestr = "";
     subtype = TokenSubtype::NUMBER;
     break;
   case TokenType::OPERATOR:
-    subtype = TokenSubtype::OPERATOR;
+    // already 
+#ifdef DEBUG    
     std::cout << "(" << typestr << ") " << _scope_ops[0] << std::endl;
-    if( find_index( _scope_ops, typestr ) != -1 ) {
-      subtype = TokenSubtype::SCOPE_OP;
-    } else
-    if( find_index( _incre_ops, typestr ) != -1 ) {
-      subtype = TokenSubtype::INCRE_OP;
-    } else
-    if( find_index( _assign_ops, typestr ) != -1 ) {
-      subtype = TokenSubtype::ARTHMETIC_OP;
-    } else
-    if( find_index( _relative_ops, typestr ) != -1 ) {
-      subtype = TokenSubtype::RELATIVE_OP;
-    } else
-    if( find_index( _logic_ops, typestr ) != -1 ) {
-      subtype = TokenSubtype::LOGIC_OP;
-    } else
-    if( find_index( _struct_ops, typestr ) != -1 ) {
-      subtype = TokenSubtype::STRUCT_OP;
-    } else
-    if( find_index( _bitwise_ops, typestr ) != -1 ) {
-      subtype = TokenSubtype::BITWISE_OP;
-    } else
-    if( find_index( _arthmetic_ops, typestr ) != -1 ) {
-      subtype = TokenSubtype::ARTHMETIC_OP;
-    } else
+#endif
     break;
   case TokenType::SCHAR:
+    typestr = value;
     subtype = TokenSubtype::SCHAR;
     break;
   case TokenType::COMMENT:
     subtype = TokenSubtype::COMMENT;
-    if( find_index( _comment_line_strs, typestr ) != -1 ) {
+    if(( idx=find_index( _comment_line_strs, typestr )) != -1 ) {
+      typestr = _comment_line_strs[idx];
       subtype = TokenSubtype::LINE_COMMENT;
     } else
-    if( find_index( _comment_block_strs, typestr ) != -1 ) {
+    if(( idx=find_index( _comment_block_strs, typestr )) != -1 ) {
+      typestr = _comment_line_strs[idx];
       subtype = TokenSubtype::BLOCK_COMMENT;
     } 
     break;
   case TokenType::BLOCK:
+    typestr = value.at(0);
+    ch = value.at(0);
     subtype = TokenSubtype::BLOCK;
-    if (typestr.at(0) == '(') { subtype = TokenSubtype::PAREN_OPEN; } 
-    else if ( typestr.at(0) == ')') { subtype = TokenSubtype::PAREN_CLOSE; }
-    else if ( typestr.at(0) == '{') { subtype = TokenSubtype::BRACE_OPEN; }
-    else if ( typestr.at(0) == '}') { subtype = TokenSubtype::BRACE_CLOSE; }
-    else if ( typestr.at(0) == '[') { subtype = TokenSubtype::SQUARE_BRACKET_OPEN; }
-    else if ( typestr.at(0) == ']') { subtype = TokenSubtype::SQUARE_BRACKET_CLOSE; }
-    else if ( typestr.at(0) == '<') { subtype = TokenSubtype::ANGLE_BRACKET_OPEN; }
-    else if ( typestr.at(0) == '>') { subtype = TokenSubtype::ANGLE_BRACKET_CLOSE; }
+    if ( ch == '(') { subtype = TokenSubtype::PAREN_OPEN; } 
+    else if ( ch == ')') { subtype = TokenSubtype::PAREN_CLOSE; }
+    else if ( ch == '{') { subtype = TokenSubtype::BRACE_OPEN; }
+    else if ( ch == '}') { subtype = TokenSubtype::BRACE_CLOSE; }
+    else if ( ch == '[') { subtype = TokenSubtype::SQUARE_BRACKET_OPEN; }
+    else if ( ch == ']') { subtype = TokenSubtype::SQUARE_BRACKET_CLOSE; }
+    else if ( ch == '<') { subtype = TokenSubtype::ANGLE_BRACKET_OPEN; }
+    else if ( ch == '>') { subtype = TokenSubtype::ANGLE_BRACKET_CLOSE; }
     else {
+#ifdef DEBUG
+  std::cout << "Token Block Unknown : " << value << " --" << std::endl;
+#endif
     }
     break;
-  case TokenType::STRING:
-    subtype = TokenSubtype::STRING;
-    break;
   case TokenType::SPACE:
+    typestr = std::string(1,value.at(0)); // value.at(0)
     subtype = TokenSubtype::SPACE;
     break;
   default:
+    typestr = "";
     subtype = TokenSubtype::UNDEF;
   }
 
@@ -254,7 +281,8 @@ TokenSubtype Token::set_subtype() {
   return subtype;
 }
 
-Token::Token( TokenType type, const std::string& value, size_t line, size_t column, const std::string st ) : type(type), subtype((TokenSubtype)type), typestr(st), value(value), line(line), column(column) {
+Token::Token( TokenType type, const std::string& value, size_t line, size_t column ) 
+  : type(type), subtype((TokenSubtype)type), value(value), line(line), column(column) {
   set_subtype();
 }
 
@@ -478,7 +506,7 @@ Token Lexer::parseComment() {
     while (m_pos < m_str.length() && peek() != '\n') {
       str += advance();
     }
-    return Token(TokenType::COMMENT, str, m_line, start_col, (c=='#')? std::string(1,c) : "//");
+    return Token(TokenType::COMMENT, str, m_line, start_col);
   } 
   // 여러줄 주석
   if( c == '/' && npeek() == '*') {
@@ -493,7 +521,7 @@ Token Lexer::parseComment() {
       str += advance();
     }
 
-    return Token(TokenType::COMMENT, str, start_line, start_col, "/*");
+    return Token(TokenType::COMMENT, str, start_line, start_col);
   }
   throw std::runtime_error("not comment [" +  std::to_string(start_col) + "]");
 }
@@ -505,7 +533,7 @@ Token Lexer::parseNumber() {
     num_str += advance();
   }
   // 간단한 정수만 처리
-  return Token(TokenType::NUMBER, num_str, m_line, start_col, "");
+  return Token(TokenType::NUMBER, num_str, m_line, start_col);
 }
 
 Token Lexer::parseName() {
@@ -515,7 +543,7 @@ Token Lexer::parseName() {
     ident_str += advance();
   }
 
-  return Token(TokenType::NAME, ident_str, m_line, start_col, ""); // 식별자 토큰
+  return Token(TokenType::NAME, ident_str, m_line, start_col); // 식별자 토큰
 }
 /*
 R"(  
@@ -531,14 +559,55 @@ R"(
 }
 */
 
+const char *__operator_chars[] = "+-*/%!~^|&=<>:";
+
 Token Lexer::parseOperator() {
   int start_col = m_column;
   char quote_char = peek(); 
   std::string str;
+  int idx;
 
+  subtype = TokenSubtype::OPERATOR;
 
+  // m_strs + m_pos; 으로부터 연속되는 연산자를 (최대 3개까지) 가져옴 <- __operator_chars
+  // check
+  // opierators_subtype에 있는지 차례로 찾음 (map}
 
-  return Token(TokenType::OPERATOR, str, m_line, start_col, std::string(1,quote_char));
+  
+  if( ( idx=find_index( _scope_ops, typestr )) != -1 ) {
+    typestr = _scope_ops[idx];
+    subtype = TokenSubtype::SCOPE_OP;
+  } else
+  if( ( idx=find_index( _incre_ops, typestr )) != -1 ) {
+    typestr = _incre_ops[idx];
+    subtype = TokenSubtype::INCRE_OP;
+  } else
+  if( ( idx=find_index( _relative_ops, typestr )) != -1 ) {
+    typestr = _relative_ops[idx];
+    subtype = TokenSubtype::RELATIVE_OP;
+  } else
+  if( ( idx=find_index( _assign_ops, typestr )) != -1 ) {
+    typestr = _assign_ops[idx];
+    subtype = TokenSubtype::ARTHMETIC_OP;
+  } else
+  if( ( idx=find_index( _logic_ops, typestr )) != -1 ) {
+    typestr = _logic_ops[idx];
+    subtype = TokenSubtype::LOGIC_OP;
+  } else
+  if( ( idx=find_index( _struct_ops, typestr )) != -1 ) {
+    typestr = _struct_ops[idx];
+    subtype = TokenSubtype::STRUCT_OP;
+  } else
+  if( ( idx=find_index( _bitwise_ops, typestr )) != -1 ) {
+    typestr = _bitwise_ops[idx];
+    subtype = TokenSubtype::BITWISE_OP;
+  } else
+  if( ( idx=find_index( _arthmetic_ops, typestr )) != -1 ) {
+    typestr = _arthmetic_ops[idx];
+    subtype = TokenSubtype::ARTHMETIC_OP;
+  } 
+
+  return Token(TokenType::OPERATOR, str, m_line, start_col);
 }
 
 Token Lexer::parseBlock() {
@@ -557,7 +626,7 @@ Token Lexer::parseBlock() {
     str_val += advance();
   }
   str_val += advance(); // end_char  
-  return Token(TokenType::BLOCK, str_val, m_line, start_col, std::string(1,quote_char));
+  return Token(TokenType::BLOCK, str_val, m_line, start_col);
 }
 
 // python """, '''
@@ -575,7 +644,7 @@ Token Lexer::parseString() {
     }
   }
   advance();
-  return Token(TokenType::STRING, str_val, m_line, start_col, {quote_char});
+  return Token(TokenType::STRING, str_val, m_line, start_col);
 }
 
 const char __block_chars[] = "(){}[]<>"; // /**/, <%%>
@@ -628,35 +697,6 @@ bool comp_str_charp(const std::string& str, size_t at, const char *chs) {
     return true; // 모든 문자가 일치했으므로 true 반환
 }
 
-int find_operation_key_at_pos(const std::string& str, size_t idx) {
-    // 1. 시작 위치 (idx) 유효성 검사
-    if (idx >= str.length()) {
-        return -1; // 시작 위치가 문자열 범위를 벗어나면 바로 실패
-    }
-
-    int slen = str.length() - idx;
-
-    // 2. __operation_keys 배열 순회
-    for (int i = 0; __operation_keys[i] != NULL; ++i) {
-        const char* op_key = __operation_keys[i];
-        size_t op_len = strlen(op_key); // 연산자 문자열의 길이
-
-        // 3. str의 남은 길이가 현재 연산자 문자열보다 짧으면 비교 불가능
-        if ( slen < op_len ) {
-            continue; // 다음 연산자 키로 넘어감
-        }
-
-        // 4. std::string::compare를 사용하여 부분 문자열 비교
-        //    str.compare(pos, len, c_str) : str의 pos부터 len 길이만큼의 부분 문자열과 c_str 비교
-        //    같으면 0을 반환합니다.
-        if (s.compare(idx, op_len, op_key) == 0) {
-            return i; // 일치하는 연산자 키를 찾았으므로 해당 인덱스 반환
-        }
-    }
-
-    return -1; // 모든 연산자 키를 검사했지만 일치하는 것을 찾지 못함
-}
-
 #include <stdio.h> // for static keywords map
 Token Lexer::getToken() {
   skipWhitespace(); // 공백 무시
@@ -665,7 +705,7 @@ Token Lexer::getToken() {
   char c = peek();
 
   if ( (m_pos+1) > m_str.length() ||  c == '\0' ) {
-    return Token(TokenType::END_OF_FILE, "", m_line, m_column,"");
+    return Token(TokenType::END_OF_FILE, "", m_line, m_column);
   }
   if ( c == '\\' ) {
     std::string sval;
@@ -673,7 +713,7 @@ Token Lexer::getToken() {
     sval += npeek();
     m_column += 2;
     m_pos += 2;
-    return Token(TokenType:: SCHAR, sval, m_line, start_col, sval );
+    return Token(TokenType:: SCHAR, sval, m_line, start_col );
   }
   if( (c == '#') 
     || ( c == '/' && npeek() == '/') 
@@ -694,14 +734,14 @@ Token Lexer::getToken() {
   if ( is_block_char(c) ) {
     //return parseBlock();
     advance();
-    return Token( TokenType::BLOCK, std::string(1,c), m_line, start_col, {c} );
+    return Token( TokenType::BLOCK, std::string(1,c), m_line, start_col );
   }
   if ( is_oper_char(c) ) {
     return parseOperator();
   }
   if ( is_special_char(c) ) {
     advance();
-    return Token( TokenType::SCHAR, std::string(1,c), m_line, start_col,{c});
+    return Token( TokenType::SCHAR, std::string(1,c), m_line, start_col);
   }
   
   std::string str_val;
@@ -711,7 +751,7 @@ Token Lexer::getToken() {
     } else break;
   }
 
-  return Token(TokenType:: UNDEF, str_val, m_line, start_col, "" );
+  return Token(TokenType:: UNDEF, str_val, m_line, start_col );
 
   // 알 수 없는 문자
 //  throw std::runtime_error("Unexpected character \'" + std::string(1, c) + "\' at line " + std::to_string(m_line) + ", column " + std::to_string(m_column));
