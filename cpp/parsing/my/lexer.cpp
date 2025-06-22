@@ -8,10 +8,19 @@
 
 namespace MyLang {
 
+#define __C__      1
+#define __PYTHON__ 2
+#define __BASH__   3
+#define __SQL__    4
+#define __CPP__    5
+
+#define LANGMODE  __CPP__
+
+#ifndef LANGMODE
 const std::map<TokenType, std::string> Lexer::tokentype_names = {
   { TokenType:: UNDEF, "undef" },
   { TokenType:: NAME, "name" },
-  { TokenType:: STRING, "string" },
+  { TokenType:: CONST, "string" },
   { TokenType:: NUMBER, "number" },
   { TokenType:: OPERATOR,"operator" },
   { TokenType:: SCHAR, "sp_char" },
@@ -36,6 +45,7 @@ const std::unordered_map<std::string, TokenSubtype> Lexer::keywords = {
   {"def", TokenSubtype::KEYWORD},
   {"try", TokenSubtype::KEYWORD},
   {"catch", TokenSubtype::KEYWORD},
+  {"throw", TokenSubtype::KEYWORD},
   {"function", TokenSubtype::KEYWORD},
 
   {"include", TokenSubtype::PREKEY},
@@ -66,6 +76,10 @@ const std::unordered_map<std::string, TokenSubtype> Lexer::keywords = {
   {"namespace", TokenSubtype::DATTYPE},
   {"extern", TokenSubtype::DATTYPE},
   {"inline", TokenSubtype::DATTYPE},
+  
+  {"private", TokenSubtype::DATTYPE},
+  {"protected", TokenSubtype::DATTYPE},
+  {"public", TokenSubtype::DATTYPE},
 
   {"return", TokenSubtype::KEYWORD} // 예시에 return 추가
 };
@@ -89,7 +103,7 @@ const std::map<TokenSubtype, std::string> Lexer::tokenSubtype_names = {
 	{ TokenSubtype::IDENTIFIER, "identifier" },
 	{ TokenSubtype::DATTYPE, "dattype" },
 	{ TokenSubtype::PREKEY, "prekey" },
-	{ TokenSubtype::STRING, "string" },
+	{ TokenSubtype::CONST, "const" },
 	{ TokenSubtype::STRING_LITERAL, "string_literal" },
 	{ TokenSubtype::NUMBER, "number" },
 	{ TokenSubtype::INTEGER, "integer" },
@@ -125,23 +139,6 @@ const std::map<TokenSubtype, std::string> Lexer::tokenSubtype_names = {
 	{ TokenSubtype::ANGLE_BRACKET_CLOSE, "angle_bracket_close" },
 	{ TokenSubtype::END_OF_FILE,"end_of_file"}  // EOF, "end_of_file = -1  // eof" },
 };
-
-
-int find_index(const char* pp[], const std::string& str) {
-    for (int i = 0; pp[i]; ++i) {
-        if (str == pp[i]) {
-            return i;
-        }
-    }
-    return -1;
-}
-
-int find_index(const char* p, int ch) {
-  for( int i=0; p[i]; i++ ) {
-    if(ch == p[i]) return i;
-  }
-  return -1;
-}
 
 const std::map<std::string, TokenSubtype, std::greater<> > Lexer::operators_subtype = {
   { "<<=", TokenSubtype::BITWISE_OP },
@@ -186,31 +183,40 @@ const std::map<std::string, TokenSubtype, std::greater<> > Lexer::operators_subt
   { "", TokenSubtype::END_OF_FILE }
 };
 
-/*
-const char *_scope_ops[] =  { "::", NULL };
-const char *_incre_ops[] = { "++", "--", NULL };
-const char *_relative_ops[] = { "==", "!=", ">=", "<=", ">","<", NULL };
-const char *_assign_ops[] = { "+=","-=","*=","/=","%=","^=", "&=", "|=", "=", NULL };
-const char *_logic_ops[] = { "||", "&&", "!", NULL };
-const char *_struct_ops[] = { ".", "->", NULL };
-const char *_bitwise_ops[] = { "|", "&", "^", NULL };
-const char *_arthmetic_ops[] =  { "+","-","*","/","%", NULL };
-
-const char *__operation_keys[] = {
-  "+","-","*","/","%","?",
-  "++","--",
-  "<=",">=","==","!=",
-  "||","&&",
-  "<<=",">>=",
-  "<<",">>",
-  "::",
-  "=","+=","-=","*=","/=","%=","^=","|=","&=","^=",
-  "|","&","^",
-  NULL
-};
-*/
-const char *_comment_line_strs[] =  { "//", "#", /* "--", ";",*/ NULL };
+const char *_comment_line_strs[] =  { "//", "#", "--", ";", NULL };
 const char *_comment_block_strs[] =  { "/*", "*/", NULL };
+const char __operator_chars[] = "+-*/%!~^|&=<>:?~.";
+
+#else
+
+#if ( LANGMODE == __CPP__ )
+#include "cpp.def"
+#elif ( LANGMODE == __PYTHON__ )
+#include "python.def"
+#elif ( LANGMODE == __SQL__ )
+#include "sql.def"
+#elif ( LANGMODE == __BASH__ )
+#include "bash.def"
+#endif
+
+#endif // #ifndef LANGMODE
+
+//=====================================================================================
+int find_index(const char* pp[], const std::string& str) {
+    for (int i = 0; pp[i]; ++i) {
+        if (str == pp[i]) {
+            return i;
+        }
+    }
+    return -1;
+}
+
+int find_index(const char* p, int ch) {
+  for( int i=0; p[i]; i++ ) {
+    if(ch == p[i]) return i;
+  }
+  return -1;
+}
 
 TokenSubtype Token::set_subtype() {
   int idx;
@@ -357,9 +363,6 @@ void Lexer::skipWhitespace() {
   }
 }
 
-//////////////////////////////////////////////////////////////////////////
-#if 0
-#endif // 1
 ////////////////////////////////////////////////////////////////////////////////
 
 // 이 함수를 부르기전에 comment문자임을 확인해야한다.
@@ -397,13 +400,6 @@ Token Lexer::parseComment() {
 
 
 Token Lexer::parseNumber() {
-  //test
-  float f = -3.253;
-  int i1 = 131421;
-  int i2 = 0xf343c;
-  int i3 = 0b0100110000011110;
-  int i4 = 02423234132023;
-
   std::string str;
   char ch = peek();
   char nh = npeek();
@@ -472,103 +468,6 @@ Token Lexer::parseName() {
 
   return Token(TokenType::NAME, ident_str, m_line, start_col); // 식별자 토큰
 }
-/*
-R"(  
-  // 키워드인지 확인
-  auto it = keywords.find(ident_str);
-//  std::cout << "===========<>" << ident_str << std::endl;
-  if (it != keywords.end()) {
-    return Token(it->second, ident_str, m_line, start_col,""); // 키워드 토큰
-  } else {
-    return Token(TokenType::NAME, ident_str, m_line, start_col, ""); // 식별자 토큰
-  }
-  )";
-}
-*/
-
-/*
-const std::map<std::string, TokenSubtype, std::greater<>> operators_subtype = {
-    {"<<=", TokenSubtype::LEFT_SHIFT_ASSIGN},
-    {">>=", TokenSubtype::RIGHT_SHIFT_ASSIGN},
-    {"+=", TokenSubtype::ADD_ASSIGN},
-    // ... 다른 연산자들 ...
-    {"<", TokenSubtype::LESS}
-};
-*/
-
-/*
-// chatgpt
-Token Lexer::parse_operator() {
-    const size_t max_check_len = 3; // 예: 최대 연산자 길이
-    size_t maxlen = 0;
-    TokenSubtype matched_subtype;
-    std::string matched_op;
-
-    // 최대 길이까지 lookahead
-    for (size_t len = 1; len <= max_check_len && pos + len <= source.size(); ++len) {
-        std::string op = source.substr(pos, len);
-        auto it = operators_subtype.find(op);
-        if (it != operators_subtype.end()) {
-            maxlen = len;
-            matched_op = op;
-            matched_subtype = it->second;
-        }
-    }
-
-    // 매치된 연산자가 없다면 실패
-    if (maxlen == 0) {
-        return make_error_token("Unknown operator");
-    }
-
-    // 문맥 검사 예시: '<-3' 과 같은 경우 '<'만 연산자여야 함
-    if (matched_op == "<-" && pos + 2 < source.size()) {
-        char next_char = source[pos + 2];
-        if (isdigit(next_char)) {
-            // '-'는 음수의 일부로 보고 '<'만 처리
-            matched_op = "<";
-            matched_subtype = operators_subtype["<"];
-            maxlen = 1;
-        }
-    }
-
-    Token token;
-    token.type = TokenType::Operator;
-    token.subtype = matched_subtype;
-    token.lexeme = matched_op;
-    token.pos = pos;
-
-    pos += maxlen;
-    return token;
-}
-
-// perplexity
-Token parse_operator(const std::string& source, size_t& pos) {
-    size_t start = pos;
-    size_t max_len = std::min(source.size() - pos, max_operator_length);
-
-    // 최대 길이부터 1까지 탐색
-    for (size_t len = max_len; len >= 1; --len) {
-        std::string candidate = source.substr(pos, len);
-        auto it = operators_subtype.find(candidate);
-
-        if (it != operators_subtype.end()) {
-            pos += len;  // 연산자 길이만큼 위치 이동
-            return Token(TokenType::OPERATOR, candidate, ..., it->second);
-        }
-    }
-
-    // 단일 문자 연산자도 없으면 오류
-    throw std::runtime_error("Unknown operator");
-}
-*/
-
-// deepseek 
-//const std::regex operator_regex(
-//    R"((\+\+|--|==|!=|<=|>=|&&|\|\||<<|>>|[-+*/%&|^<>!=~?:]))"
-//);
-
-// const std::map<std::string, TokenSubtype> Lexer::opierators_subtype
-const char __operator_chars[] = "+-*/%!~^|&=<>:?~.";
 
 Token Lexer::parseOperator() {
   int start_col = m_column;
@@ -643,7 +542,7 @@ Token Lexer::parseString() {
     }
   }
   advance();
-  return Token(TokenType::STRING, str_val, m_line, start_col);
+  return Token(TokenType::CONST, str_val, m_line, start_col);
 }
 
 const char __block_chars[] = "(){}[]<>"; // /**/, <%%>

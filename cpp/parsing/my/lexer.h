@@ -18,7 +18,7 @@ namespace MyLang {
 enum class TokenType : int {
     UNDEF = 0,
     NAME,     // X
-    STRING,   // 
+    CONST,    // 
     NUMBER,   // constant,
     OPERATOR, // +-*/?=!~^%&
     SCHAR,    // ,.:;@$#
@@ -36,7 +36,7 @@ enum class TokenSubtype : int {
     DATTYPE,  // int
     PREKEY,   // #include
 
-    STRING,   //           =================================================== 
+    CONST,   //           =================================================== 
     STRING_LITERAL,
     
     NUMBER,   // constant, =====================================================
