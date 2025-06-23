@@ -1,0 +1,14 @@
+#include <string>
+
+int aa = -3.234
+char *g;
+/* 
+  hhh 
+I am a boy
+dd
+*/
+try {
+  std::string mksfsd = "sfsf"
+}
+
+

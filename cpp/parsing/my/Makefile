@@ -3,7 +3,7 @@ TARGET = myparse
 OBJS = $(patsubst %.cpp,%.o,$(SRCS))
 
 CXX = g++
-CXXFLAGS += -std=c++23 -Wall -O3
+CXXFLAGS += -std=c++23 -Wall 
 LDFLAGS = 
 
 INCDIR += -I.
@@ -24,6 +24,9 @@ clean:
 
 lexer: lexer.cpp lexer.h 
 	g++ $(CXXFLAGS) $(INCDIR) $(LDFLAGS) -DTEST lexer.cpp -o lexer 
+
+lexer_d: lexer.cpp lexer.h 
+	g++ -std=c++23 -g -O0 $(INCDIR) $(LDFLAGS) -DTEST lexer.cpp -o lexer 
 
 test: 
 	g++ $(CXXFLAGS) $(INCDIR) $(LDFLAGS) -DTEST $(SRCS) -o $(TARGET) 

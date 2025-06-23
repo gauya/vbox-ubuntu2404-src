@@ -166,7 +166,18 @@ const std::map<std::string, TokenSubtype, std::greater<> > Lexer::operators_subt
 };
 
 const char *_comment_line_strs[] =  { "//", NULL };
-const char *_comment_block_strs[] =  { "/*", "*/", NULL };
+const BlockComment _comment_block = { "/*", "*/" };
+
+//const std::vector<BlockComment> = {
+//  { "/*", "*/" },
+//};
+
+
+const char __comment_chars[] = "/"; // only start chars
 const char __operator_chars[] = "+-*/%!~^|&=<>:?~.";
+const char __block_chars[] = "(){}[]<>"; // /**/, <%%>
+const char __oper_chars[] = "+-*/%!~|&^=<>?:";
+const char __special_chars[] = ",.:#;@$`";
+
 
 

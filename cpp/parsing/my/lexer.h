@@ -120,10 +120,10 @@ public:
   explicit Lexer( std::string& str ) 
   : m_str(str), m_pos(0), m_line(1), m_column(0) { tokenize(); };
 
-  bool is_oper_char(int ch);
-  bool is_block_char(int ch);
-  bool is_special_char(int ch);
-  bool is_comment_char(int ch);
+//  bool is_oper_char(int ch);
+//  bool is_block_char(int ch);
+//  bool is_special_char(int ch);
+//  bool is_comment_char(int ch);
 
   inline size_t length() const { return m_str.length(); }
   inline size_t tokens() const { return m_toks.size(); }

@@ -16,6 +16,11 @@ namespace MyLang {
 
 #define LANGMODE  __CPP__
 
+struct BlockComment {
+  const char *l, *r;
+};
+
+/////////////////////////////////////////////////////////////////////////////////////////
 #ifndef LANGMODE
 const std::map<TokenType, std::string> Lexer::tokentype_names = {
   { TokenType:: UNDEF, "undef" },
@@ -184,8 +189,16 @@ const std::map<std::string, TokenSubtype, std::greater<> > Lexer::operators_subt
 };
 
 const char *_comment_line_strs[] =  { "//", "#", "--", ";", NULL };
+//const std::vector<BlockComment> = { { "/*", "*/" }, };
+const _comment_block BlockComment = { "/*", "*/" };
+
 const char *_comment_block_strs[] =  { "/*", "*/", NULL };
 const char __operator_chars[] = "+-*/%!~^|&=<>:?~.";
+
+const char __comment_chars[] = "/*-;#";
+const char __block_chars[] = "(){}[]<>"; // /**/, <%%>
+const char __oper_chars[] = "+-*/%!~|&^=<>?:";
+const char __special_chars[] = ",.:;@$`";
 
 #else
 
@@ -202,20 +215,89 @@ const char __operator_chars[] = "+-*/%!~^|&=<>:?~.";
 #endif // #ifndef LANGMODE
 
 //=====================================================================================
-int find_index(const char* pp[], const std::string& str) {
-    for (int i = 0; pp[i]; ++i) {
-        if (str == pp[i]) {
-            return i;
-        }
+bool comp_str_charp(const std::string& str, size_t at, const char *chs) {
+    // 1. const char* (chs)의 nullptr 검사
+    if (chs == nullptr) {
+        return false;
     }
+
+    size_t str_len = str.length();
+    size_t chs_len = strlen(chs);
+
+    // 2. 비교하려는 범위가 원본 문자열의 경계를 벗어나는지 검사
+    //    at이 str_len보다 크거나 같으면, 시작 위치 자체가 유효하지 않음
+    //    (at + chs_len)이 str_len보다 크면, chs가 str의 끝을 넘어감
+    if (at >= str_len || (at + chs_len) > str_len) {
+        return false;
+    }
+
+    // 3. std::string의 내부 데이터에 접근하기 위해 .data() 사용
+    //    .data()는 C++11부터 null-terminated C-string을 반환함을 보장
+    const char* p_str = str.data() + at; // str의 시작 지점 + at 만큼 이동한 포인터
+
+    // chs 문자열을 순회하기 위한 임시 포인터
+    const char* p_chs = chs;
+
+    // 4. 문자열 비교 루프
+    while (*p_chs != '\0') { // chs의 끝(null-terminator)에 도달할 때까지
+        if (*p_str != *p_chs) {
+            return false; // 문자가 다르면 바로 false 반환
+        }
+        p_str++; // 다음 문자로 이동
+        p_chs++; // 다음 문자로 이동
+    }
+
+    return true; // 모든 문자가 일치했으므로 true 반환
+}
+
+int find_index(const char* pp, const std::string& str, size_t pos=0) {
+  if( !pp || ((strlen(pp)+pos) >= str.length()) )
     return -1;
+
+std::cout << std::format("find_index : {}\n", pp);  
+  size_t idx = str.find(pp, pos);
+  if ( idx != std::string::npos ) { // -1
+    return (int)(idx - pos);
+  }
+  return -1;
+}
+
+int find_index(const char* pp[], const std::string& str, size_t pos=0) {
+  if( !pp || (pos >= str.length()) )
+    return -1;
+
+  size_t idx;
+  for (int i = 0; pp[i]; ++i) {
+      if ((idx=str.find(pp[i], pos)) != std::string::npos) {
+          return (int)(idx - pos);
+      }
+  }
+  return -1;
 }
 
 int find_index(const char* p, int ch) {
+  if( !p )
+    return -1;
+
   for( int i=0; p[i]; i++ ) {
     if(ch == p[i]) return i;
   }
   return -1;
+}
+
+
+bool is_block_char( int ch ) {
+  return ( strchr( __block_chars, ch ))? true : false;
+}
+
+bool is_oper_char( int ch ) {
+  return ( strchr( __oper_chars, ch ))? true : false;
+}
+bool is_special_char( int ch ) {
+  return ( strchr( __special_chars, ch ))? true : false;
+}
+bool is_comment_char( int ch ) {
+  return ( strchr( __comment_chars, ch ))? true : false;
 }
 
 TokenSubtype Token::set_subtype() {
@@ -237,7 +319,7 @@ TokenSubtype Token::set_subtype() {
   case TokenType::OPERATOR:
     // already 
 #ifdef DEBUG    
-    std::cout << "(" << typestr << ") " << _scope_ops[0] << std::endl;
+    std::cout << "(" << typestr << ") " << std::endl;
 #endif
     break;
   case TokenType::SCHAR:
@@ -249,9 +331,8 @@ TokenSubtype Token::set_subtype() {
     if(( idx=find_index( _comment_line_strs, typestr )) != -1 ) {
       typestr = _comment_line_strs[idx];
       subtype = TokenSubtype::LINE_COMMENT;
-    } else
-    if(( idx=find_index( _comment_block_strs, typestr )) != -1 ) {
-      typestr = _comment_line_strs[idx];
+    } else {
+      typestr = _comment_block.l;
       subtype = TokenSubtype::BLOCK_COMMENT;
     } 
     break;
@@ -365,36 +446,35 @@ void Lexer::skipWhitespace() {
 
 ////////////////////////////////////////////////////////////////////////////////
 
-// 이 함수를 부르기전에 comment문자임을 확인해야한다.
-// //, /*, <%과 같은 두자리 이상의 문자로 된 comment는?
+// 이 함수를 부르기전에 comment 시작문자임을 확인해야한다.
 Token Lexer::parseComment() {
-  // 한줄 주석 처리
   size_t start_col = m_column;
   size_t start_line = m_line;
 
-  std::string str;
-  char c = peek();
-  if ((c == '#') || (c == '/' && npeek() == '/')) {
+  std::string str = "";
+  int i;
+
+  if ( (i=find_index(_comment_line_strs, m_str, m_pos)) == 0 ) {
     while (m_pos < m_str.length() && peek() != '\n') {
       str += advance();
     }
-    return Token(TokenType::COMMENT, str, m_line, start_col,(c=='#')? "#":"//", TokenSubtype::LINE_COMMENT);
+    return Token(TokenType::COMMENT, str, m_line, start_col,_comment_line_strs[i], TokenSubtype::LINE_COMMENT);
   } 
-  // 여러줄 주석
-  if( c == '/' && npeek() == '*') {
-    str += advance();
-    str += advance();
 
-    while (m_pos < m_str.length() && !(peek() == '*' && npeek() == '/')) {
+std::cout << "block comment 1" <<std::endl;
+  if ( (i = find_index(_comment_block.l, m_str, m_pos)) == 0 ) { 
+    int len = m_str.find(_comment_block.r, m_pos + strlen(_comment_block.l));
+    if( len == -1 ) {
+      throw std::runtime_error("left block comment string not found");
+    }
+    len += strlen(_comment_block.r) - m_pos;
+    while( len-- > 0 ) {
       str += advance();
     }
-    if ( (m_pos + 1) < m_str.length() ) {
-      str += advance();
-      str += advance();
-    }
 
-    return Token(TokenType::COMMENT, str, start_line, start_col,"/*", TokenSubtype::BLOCK_COMMENT);
+    return Token(TokenType::COMMENT, str, start_line, start_col,_comment_block.l, TokenSubtype::BLOCK_COMMENT);
   }
+  // 오른쪽 블럭을 못찾음
   throw std::runtime_error("not comment [" +  std::to_string(start_col) + "]");
 }
 
@@ -477,7 +557,7 @@ Token Lexer::parseOperator() {
   if ( (ch == '+' || ch == '-') && ( std::isalnum(nh) || nh == '_') ) {
     m_column++;
     m_pos++;
-    Token(TokenType::OPERATOR, std::string(1,ch), m_line, start_col, std::string(1,ch), TokenSubtype::UNARY_OP);
+    return Token(TokenType::OPERATOR, std::string(1,ch), m_line, start_col, std::string(1,ch), TokenSubtype::UNARY_OP);
   }
   std::string str;
 
@@ -545,60 +625,8 @@ Token Lexer::parseString() {
   return Token(TokenType::CONST, str_val, m_line, start_col);
 }
 
-const char __block_chars[] = "(){}[]<>"; // /**/, <%%>
-bool Lexer::is_block_char( int ch ) {
-  return ( strchr( __block_chars, ch ))? true : false;
-}
-
-const char __oper_chars[] = "+-*/%!~|&^=<>?:";
-bool Lexer::is_oper_char( int ch ) {
-  return ( strchr( __oper_chars, ch ))? true : false;
-}
-const char __special_chars[] = ",.:;@$`";
-bool Lexer::is_special_char( int ch ) {
-  return ( strchr( __special_chars, ch ))? true : false;
-}
-const char __comment_chars[] = "/*#"; // c에서는 "/*"
-bool Lexer::is_comment_char( int ch ) {
-  return ( strchr( __comment_chars, ch ))? true : false;
-}
-
-
-bool comp_str_charp(const std::string& str, size_t at, const char *chs) {
-    // 1. const char* (chs)의 nullptr 검사
-    if (chs == nullptr) {
-        return false;
-    }
-
-    size_t str_len = str.length();
-    size_t chs_len = strlen(chs);
-
-    // 2. 비교하려는 범위가 원본 문자열의 경계를 벗어나는지 검사
-    //    at이 str_len보다 크거나 같으면, 시작 위치 자체가 유효하지 않음
-    //    (at + chs_len)이 str_len보다 크면, chs가 str의 끝을 넘어감
-    if (at >= str_len || (at + chs_len) > str_len) {
-        return false;
-    }
-
-    // 3. std::string의 내부 데이터에 접근하기 위해 .data() 사용
-    //    .data()는 C++11부터 null-terminated C-string을 반환함을 보장
-    const char* p_str = str.data() + at; // str의 시작 지점 + at 만큼 이동한 포인터
-
-    // chs 문자열을 순회하기 위한 임시 포인터
-    const char* p_chs = chs;
-
-    // 4. 문자열 비교 루프
-    while (*p_chs != '\0') { // chs의 끝(null-terminator)에 도달할 때까지
-        if (*p_str != *p_chs) {
-            return false; // 문자가 다르면 바로 false 반환
-        }
-        p_str++; // 다음 문자로 이동
-        p_chs++; // 다음 문자로 이동
-    }
-
-    return true; // 모든 문자가 일치했으므로 true 반환
-}
-
+////////////////////////////////////////////////////////////////////////////////////
+#include <format>
 #include <stdio.h> // for static keywords map
 Token Lexer::getToken() {
   skipWhitespace(); // 공백 무시
@@ -606,7 +634,8 @@ Token Lexer::getToken() {
   Token tok;
   int start_col = m_column; // 토큰 시작 컬럼 저장
   char c = peek();
-  char n = npeek();
+
+//std::cout << std::format("{} : {}\n", c,n);
 
   if ( (m_pos+1) > m_str.length() ||  c == '\0' ) {
     return Token(TokenType::END_OF_FILE, "", m_line, m_column);
@@ -619,12 +648,12 @@ Token Lexer::getToken() {
     m_pos += 2;
     return Token(TokenType:: SCHAR, sval, m_line, start_col );
   }
-  //if( is_comment_char(c) ) {
-  if( (c == '#') 
-    || ( c == '/' && n == '/') 
-    || ( c == '/' && n == '*')) { 
-    
-    return parseComment();
+  if( strchr(__comment_chars, c) ) {
+    if( (find_index( _comment_line_strs, m_str, m_pos) == 0) 
+    || (find_index( _comment_block.l, m_str, m_pos ) == 0)
+    || (find_index( _comment_block.r, m_str, m_pos ) == 0))
+
+      return parseComment();
   }
   if ( c == '\"' || c == '\'' || c == '`' ) {
     return parseString();
