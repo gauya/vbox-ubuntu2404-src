@@ -86,20 +86,8 @@ const std::unordered_map<std::string, TokenSubtype> Lexer::keywords = {
   {"protected", TokenSubtype::DATTYPE},
   {"public", TokenSubtype::DATTYPE},
 
-  {"return", TokenSubtype::KEYWORD} // 예시에 return 추가
+  {"return", TokenSubtype::KEYWORD} 
 };
-
-/*
-python
-
-b = --copy/paste-- TokenSubtype split('\n')
-
-for l in b:
-  r=l.split(',')[0].strip()
-  if len(r) == 0: continue
-  u = r.lower()
-  print( "\t{ TokenSubtype::" + r + f", \"{u}\"" +" }," ) 
-*/
 
 const std::map<TokenSubtype, std::string> Lexer::tokenSubtype_names = {
 	{ TokenSubtype::UNDEF, "undef" },
@@ -142,7 +130,7 @@ const std::map<TokenSubtype, std::string> Lexer::tokenSubtype_names = {
 	{ TokenSubtype::SQUARE_BRACKET_CLOSE, "square_bracket_close" },
 	{ TokenSubtype::ANGLE_BRACKET_OPEN, "angle_bracket_open" },
 	{ TokenSubtype::ANGLE_BRACKET_CLOSE, "angle_bracket_close" },
-	{ TokenSubtype::END_OF_FILE,"end_of_file"}  // EOF, "end_of_file = -1  // eof" },
+	{ TokenSubtype::END_OF_FILE,"end_of_file"} 
 };
 
 const std::map<std::string, TokenSubtype, std::greater<> > Lexer::operators_subtype = {
@@ -189,7 +177,6 @@ const std::map<std::string, TokenSubtype, std::greater<> > Lexer::operators_subt
 };
 
 const char *_comment_line_strs[] =  { "//", "#", "--", ";", NULL };
-//const std::vector<BlockComment> = { { "/*", "*/" }, };
 const _comment_block BlockComment = { "/*", "*/" };
 
 const char *_comment_block_strs[] =  { "/*", "*/", NULL };
@@ -254,7 +241,6 @@ int find_index(const char* pp, const std::string& str, size_t pos=0) {
   if( !pp || ((strlen(pp)+pos) >= str.length()) )
     return -1;
 
-std::cout << std::format("find_index : {}\n", pp);  
   size_t idx = str.find(pp, pos);
   if ( idx != std::string::npos ) { // -1
     return (int)(idx - pos);
@@ -461,7 +447,6 @@ Token Lexer::parseComment() {
     return Token(TokenType::COMMENT, str, m_line, start_col,_comment_line_strs[i], TokenSubtype::LINE_COMMENT);
   } 
 
-std::cout << "block comment 1" <<std::endl;
   if ( (i = find_index(_comment_block.l, m_str, m_pos)) == 0 ) { 
     int len = m_str.find(_comment_block.r, m_pos + strlen(_comment_block.l));
     if( len == -1 ) {
@@ -539,7 +524,7 @@ Token Lexer::parseNumber() {
   return Token(tok);
 }
 
-Token Lexer::parseName() {
+__attribute__((weak)) Token Lexer::parseName() {
   int start_col = m_column;
   std::string ident_str;
   while (m_pos < m_str.length() && (std::isalnum(peek()) || peek() == '_')) {
@@ -666,15 +651,17 @@ Token Lexer::getToken() {
     return parseName();
   } 
   if ( is_block_char(c) ) {
-    //return parseBlock();
+    //return parseBlock(); 블록문자가 단일문자가 아닌곳에서
     advance();
     return Token( TokenType::BLOCK, std::string(1,c), m_line, start_col );
   }
   if ( is_oper_char(c) ) {
     tok = parseOperator();
+
     if( tok.type != TokenType::UNDEF ) return Token(tok);
   }
   if ( is_special_char(c) ) {
+    // return parseSpecialchar(); #if, @deco,..
     advance();
     return Token( TokenType::SCHAR, std::string(1,c), m_line, start_col);
   }
