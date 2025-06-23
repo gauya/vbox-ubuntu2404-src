@@ -16,25 +16,27 @@ const std::map<TokenType, std::string> Lexer::tokentype_names = {
 const std::unordered_map<std::string, TokenSubtype> Lexer::keywords = {
   {"if", TokenSubtype::KEYWORD},
   {"else", TokenSubtype::KEYWORD},
-  {"do", TokenSubtype::KEYWORD},
+  {"def", TokenSubtype::KEYWORD},
   {"while", TokenSubtype::KEYWORD},
   {"for", TokenSubtype::KEYWORD},
+  {"switch", TokenSubtype::KEYWORD},
+  {"case", TokenSubtype::KEYWORD},
   {"break", TokenSubtype::KEYWORD},
-  {"default", TokenSubtype::KEYWORD},
+  {"help", TokenSubtype::KEYWORD},
+  {"dir", TokenSubtype::KEYWORD},
   {"def", TokenSubtype::KEYWORD},
   {"try", TokenSubtype::KEYWORD},
-  {"catch", TokenSubtype::KEYWORD},
-  {"throw", TokenSubtype::KEYWORD},
+  {"except", TokenSubtype::KEYWORD},
   {"finally", TokenSubtype::KEYWORD},
+  {"print", TokenSubtype::KEYWORD},
 
-  {"import", TokenSubtype::KEYWORD},
-  {"from", TokenSubtype::KEYWORD},
-  {"define", TokenSubtype::PREKEY},
-  {"ifdef", TokenSubtype::PREKEY},
-  {"endif", TokenSubtype::PREKEY},
+  {"with", TokenSubtype::PREKEY},
+  {"as", TokenSubtype::PREKEY},
+  {"import", TokenSubtype::PREKEY},
+  {"from", TokenSubtype::PREKEY},
 
-  {"void", TokenSubtype::DATTYPE},
-  {"char", TokenSubtype::DATTYPE},
+  {"list", TokenSubtype::DATTYPE},
+  {"chr", TokenSubtype::DATTYPE},
   {"unsigned", TokenSubtype::DATTYPE},
   {"int", TokenSubtype::DATTYPE},
   {"long", TokenSubtype::DATTYPE},
@@ -42,13 +44,13 @@ const std::unordered_map<std::string, TokenSubtype> Lexer::keywords = {
   {"double", TokenSubtype::DATTYPE},
   {"bool", TokenSubtype::DATTYPE},
 
-  {"true", TokenSubtype::DATTYPE},
-  {"false", TokenSubtype::DATTYPE},
+  {"True", TokenSubtype::DATTYPE},
+  {"False", TokenSubtype::DATTYPE},
 
-  {"struct", TokenSubtype::DATTYPE},
+  {"main", TokenSubtype::DATTYPE},
   {"class", TokenSubtype::DATTYPE},
-  {"enum", TokenSubtype::DATTYPE},
-  {"typedef", TokenSubtype::DATTYPE},
+  {"open", TokenSubtype::DATTYPE},
+  {"close", TokenSubtype::DATTYPE},
 
   {"const", TokenSubtype::DATTYPE},
   {"static", TokenSubtype::DATTYPE},
@@ -143,15 +145,26 @@ const std::map<std::string, TokenSubtype, std::greater<> > Lexer::operators_subt
   { "|",   TokenSubtype::BITWISE_OP },
   { "&",   TokenSubtype::BITWISE_OP },
   { "^",   TokenSubtype::BITWISE_OP },
-  { "~",   TokenSubtype::BITWISE_OP },
   { "?",   TokenSubtype::LOGIC_OP },
+  { "~",   TokenSubtype::UNARY_OP },
 //  { "+",   TokenSubtype::UNARY_OP },
 //  { "-",   TokenSubtype::UNARY_OP },
   { "", TokenSubtype::END_OF_FILE }
 };
 
-const char *_comment_line_strs[] =  {  "#", NULL };
-const char *_comment_block_strs[] =  { "\"\"\"", NULL };
+const char *_comment_line_strs[] =  { "#", NULL };
+//const BlockComment _comment_block = { "/*", "*/" };
+
+const std::vector<vBlockComment> = {
+  { "\"\"\"", "\"\"\"" },
+  { "'''", "'''" }
+};
+
+const char __comment_chars[] = "#\"'"; // only start chars
 const char __operator_chars[] = "+-*/%!~^|&=<>:?~.";
+const char __block_chars[] = "(){}[]<>"; // /**/, <%%>
+const char __oper_chars[] = "+-*/%!~|&^=<>?:";
+const char __special_chars[] = ",.:#;@$`";
+
 
 
