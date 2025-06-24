@@ -3,6 +3,7 @@
 #include <string>
 #include <memory>
 #include <format>
+#include <chrono>
 
 // 직접 만든 렉서와 파서 헤더 파일 포함
 #include "lexer.h"
@@ -109,8 +110,13 @@ int main(int argc,char *argv[]) {
     std::cout << "-------------------" << std::endl << std::endl;
 
     // 2. 렉싱 단계: 소스 코드를 토큰 리스트로 변환
+    auto start = std::chrono::steady_clock::now();
+
     MyLang::Lexer lexer(source_code);
     std::vector<MyLang::Token> tokens = lexer.tokenize();
+    
+    auto end = std::chrono::steady_clock::now();
+    auto duration = std::chrono::duration_cast<std::chrono::milliseconds>(end - start);
 
     std::cout << "--- Tokens ---" << std::endl;
     try {
@@ -130,11 +136,20 @@ int main(int argc,char *argv[]) {
 
     } catch (const std::runtime_error& e) {
         std::cerr << "Error: " << e.what() << std::endl;
-        return 1;
+//        return 1;
     } catch (const std::exception & e) {
         std::cerr << "<Error :" << e.what() << ">" << std::endl;
-        return 1;
+//        return 1;
     }
+
+    std::cout << std::format("토크나이징 시간: {}ms\n", duration.count());
+
+    auto now = std::chrono::system_clock::now();
+    // time_t로 변환
+    //auto time = std::chrono::system_clock::to_time_t(now);
+    // 로컬 시간으로 출력
+    //std::cout << std::format("현재 시간: {:%Y-%m-%d %H:%M:%S}\n", *std::localtime(&time));
+    std::cout << std::format("현재 시간: {:%Y-%m-%d %H:%M:%S}\n", now);
 
     return 0;
 }
