@@ -1,5 +1,3 @@
-
-// rtos.c (태스크 등록, delay 기능 추가)
 #include "rtos.h"
 #include <stdio.h>
 #include <stdlib.h>

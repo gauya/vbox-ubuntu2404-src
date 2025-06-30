@@ -1,4 +1,3 @@
-// rtos.h
 #ifndef RTOS_H
 #define RTOS_H
 
@@ -62,5 +61,5 @@ void monitor_deadlock();
 void monitor_waiting_tasks();
 void monitor_stack();
 
-#endif
+#endif // RTOS_H
 
