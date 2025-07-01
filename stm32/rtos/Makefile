@@ -2,7 +2,7 @@
 # arm-none-eabi-g++ -mcpu=cortex-m4 -mthumb -o main.o -c main.cpp
 
 # --- Source Files and Target ---
-SRCS_CPP = rtos.c mutex.c
+SRCS_CPP = rtos.c mutex.c semaphore.c
 TARGET = rtos
 OBJS = $(SRCS_CPP:.cpp=.o)
 

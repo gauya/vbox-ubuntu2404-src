@@ -1,0 +1,248 @@
+// 세마포어, 뮤텍스, 큐, 타이머, 메모리 관리, 우선순위 스케줄링, 태스크 생성/삭제, 디버깅 지원
+//  R0~R3, R12, LR, PC, xPSR 예외발생시 자동으로 스택에 하드웨어에 의해 push
+/*
+STMDB R0!, {R4-R11} // 현재 태스크의 R4~R11 저장
+...
+LDMIA R0!, {R4-R11} // 다음 태스크의 R4~R11 복원
+
+FPU 레지스터 (S0–S31)
+S0–S15	FPU Low 레지스터	자동 저장 가능
+S16–S31	FPU High 레지스터 (Lazy)	Lazy stacking 시 수동 저장 가능
+FPSCR	FPU 상태/제어 레지스터	자동 저장 대상
+
+FPU 저장 영역은 CONTROL.FPCA == 1(무조건), 또는 EXC_RETURN에서 FPU 사용 플래그가 설정되었을 때(FPU를 사용했을때)에만 자동 저장됩니다.
+
+1. 특정주기단위로 처리하는 task
+    - 주기뿐아니라 횟수도 중요해서 다른 task때문에 거르게 되면 거른 횟수만큼 추가 실행을 해야한다.
+    - 횟수는 무시해도 되고 주기만 중요 - 주기를 지나치게 되면 실행도 그냥 거름
+2. 주기 없이 자주 되풀이 하면 좋은 task
+3. 자고 있다가 누가 깨우면 그때만 일하는 task
+*/
+
+#include "stm32f4xx.h" // 또는 stm32f3xx.h (사용하는 MCU에 맞게 변경하세요)
+
+// 예시: 2개의 태스크를 가정합니다.
+#define TASK_STACK_SIZE 256 // 스택 크기는 워드(4바이트) 단위 (uint32_t = 4바이트)
+uint32_t task1_stack[TASK_STACK_SIZE];
+uint32_t task2_stack[TASK_STACK_SIZE];
+
+// 태스크 함수 (무한 루프)
+void task1_function(void) {
+    // Task 1에서 할 일
+    // 예: GPIOD->ODR ^= GPIO_PIN_12; (STM32F4 Discovery의 녹색 LED)
+    // 실제 보드에 맞게 GPIO 핀 설정을 추가해야 합니다.
+    volatile uint32_t counter = 0;
+    while (1) {
+        counter++;
+        // 더미 지연
+        for (volatile int i = 0; i < 1000000; i++);
+    }
+}
+
+void task2_function(void) {
+    // Task 2에서 할 일
+    // 예: GPIOD->ODR ^= GPIO_PIN_13; (STM32F4 Discovery의 주황색 LED)
+    // 실제 보드에 맞게 GPIO 핀 설정을 추가해야 합니다.
+    volatile uint32_t counter = 0;
+    while (1) {
+        counter++;
+        // 더미 지연
+        for (volatile int i = 0; i < 1000000; i++);
+    }
+}
+
+// 태스크 스택 초기화 함수 (최초 실행 시)
+// task_func: 태스크 함수의 시작 주소
+// stack_top: 해당 태스크 스택의 최상단 주소 (가장 높은 주소)
+uint32_t* os_initialize_task_stack(uint32_t* stack_top, void (*task_func)(void)) {
+    // ARM Cortex-M 인터럽트 스택 프레임 구조를 모방합니다.
+    // 인터럽트에서 복귀할 때 pop되는 순서대로 채워넣습니다.
+    // (High Address)
+    // XPSR (PSR with Thumb bit set)
+    // PC (Task Entry Point)
+    // LR (Return Address - not strictly needed for task, can be 0 or dummy)
+    // R12
+    // R3
+    // R2
+    // R1
+    // R0
+    // (Low Address)
+
+    // 스택 포인터를 4바이트씩 감소시키면서 레지스터 값들을 푸시합니다.
+    // XPSR (Program Status Register) - Thumb 비트(bit 24)를 1로 설정 (0x01000000)
+    *(--stack_top) = (uint32_t)0x01000000;
+    // PC (Program Counter) - 태스크 함수의 시작 주소
+    *(--stack_top) = (uint32_t)task_func;
+    // LR (Link Register) - 복귀 주소 (여기서는 태스크가 끝날 일 없으므로 0 또는 더미 값)
+    *(--stack_top) = (uint32_t)0xFFFFFFFF; // EXC_RETURN value for unprivileged thread mode with PSP
+    // R12, R3, R2, R1, R0 (일반 목적 레지스터) - 초기 값
+    *(--stack_top) = (uint32_t)0x12121212; // R12
+    *(--stack_top) = (uint32_t)0x03030303; // R3
+    *(--stack_top) = (uint32_t)0x02020202; // R2
+    *(--stack_top) = (uint32_t)0x01010101; // R1
+    *(--stack_top) = (uint32_t)0x00000000; // R0
+
+    // 나머지 R4-R11은 소프트웨어에 의해 저장/복원됩니다.
+    // 이들은 처음에는 0으로 초기화되거나 임의의 값으로 채워질 수 있습니다.
+    for (int i = 0; i < 8; i++) { // R4-R11
+        *(--stack_top) = (uint32_t)0x04040404 + i; // 더미 값 (R4, R5, ...)
+    }
+
+    return stack_top; // 초기화된 스택 포인터 반환 (이제 이 태스크의 SP로 사용될 주소)
+}
+
+// 태스크 스택 포인터들을 저장할 전역 변수
+uint32_t* current_task_sp; // 현재 실행 중인 (또는 마지막으로 실행된) 태스크의 스택 포인터
+uint32_t* next_task_sp;    // 다음에 실행될 태스크의 스택 포인터
+
+// OS 초기화 함수
+void os_init(void) {
+    // 각 태스크의 스택 초기화
+    // task_stack[TASK_STACK_SIZE - 1]은 스택의 가장 높은 주소를 가리킵니다.
+    current_task_sp = os_initialize_task_stack(&task1_stack[TASK_STACK_SIZE - 1], task1_function);
+    next_task_sp    = os_initialize_task_stack(&task2_stack[TASK_STACK_SIZE - 1], task2_function);
+
+    // PendSV 및 SysTick 우선순위 설정 (가장 낮은 우선순위로 설정)
+    // SCB->SHPR3 (System Handler Priority Register 3)
+    // PendSV: Bits 23:16, SysTick: Bits 31:24
+    // 0xFF = 가장 낮은 우선순위 (STM32F3/F4에서 0xF0은 가장 낮은 서브 우선순위)
+    SCB->SHPR3 |= (0xFFUL << 16); // PendSV 우선순위 설정
+    SCB->SHPR3 |= (0xFFUL << 24); // SysTick 우선순위 설정
+
+    // SysTick 설정 (예: 1ms마다 인터럽트 발생)
+    // SystemCoreClock은 시스템 클럭 주파수입니다 (예: 168MHz for STM32F407).
+    // 이 값은 system_stm32f4xx.c 파일에 정의되어 있습니다.
+    SysTick_Config(SystemCoreClock / 1000); // 1ms (1000Hz)
+}
+
+// SysTick_Handler (startup_stm32f4xx.s 또는 startup_stm32f3xx.s 에 약한 심볼로 정의됨)
+// 약한 심볼로 정의되어 있으므로, 우리는 이 함수를 재정의하여 사용할 수 있습니다.
+void SysTick_Handler(void) {
+    // 이곳에서 다음 실행할 태스크를 결정하는 스케줄링 로직이 들어갑니다.
+    // 이 예제에서는 단순히 current_task_sp와 next_task_sp를 교환하는 것으로 스케줄링을 "모방"합니다.
+
+    // 간단한 라운드 로빈 스케줄링 모방 (태스크 스위칭)
+    // current_task_sp는 현재 CPU를 점유하고 있는 태스크의 스택 포인터 (PendSV가 끝나면 이 값이 저장됨)
+    // next_task_sp는 다음에 실행될 태스크의 스택 포인터 (PendSV가 끝나면 이 값이 로드됨)
+    // 이 두 포인터를 단순히 교환함으로써 다음 PendSV 인터럽트 시
+    // 현재 실행 중인 태스크는 next_task_sp에 저장되고, current_task_sp의 태스크가 로드되도록 합니다.
+    uint32_t* temp_sp = current_task_sp;
+    current_task_sp = next_task_sp;
+    next_task_sp = temp_sp;
+
+    // PendSV 요청 (실제 컨텍스트 스위칭은 여기서 발생)
+    SCB->ICSR |= SCB_ICSR_PENDSVSET_Msk;
+}
+```assembly
+    .syntax unified
+    .cpu cortex-m4  ; 또는 cortex-m3 (사용하는 MCU에 맞게 변경하세요)
+    .thumb
+
+    .global PendSV_Handler      ; PendSV_Handler 함수를 전역으로 선언
+    .global os_start_first_task ; os_start_first_task 함수를 전역으로 선언
+
+.type PendSV_Handler, %function
+PendSV_Handler:
+    ; 이 함수는 PendSV 인터럽트가 발생했을 때 호출됩니다.
+    ; 여기서 현재 태스크의 컨텍스트를 저장하고, 다음 태스크의 컨텍스트를 복원합니다.
+
+    ; 1. 현재 실행 중인 태스크의 컨텍스트 저장
+    MRS R0, PSP         ; Process Stack Pointer(PSP)를 R0 레지스터에 로드 (현재 태스크의 스택 포인터)
+
+    ; R4-R11 레지스터를 현재 태스크의 스택에 푸시합니다.
+    ; Cortex-M의 하드웨어 스택 프레임은 R0-R3, R12, LR, PC, XPSR을 자동으로 푸시합니다.
+    ; 따라서 우리는 소프트웨어로 R4-R11만 푸시하면 됩니다.
+    ; STMDB R0!, {R4-R11} : R4-R11을 R0가 가리키는 주소에 저장하고 R0를 업데이트(감소)합니다 (Full Descending Stack).
+    STMDB R0!, {R4-R11}
+
+    ; 현재 태스크의 스택 포인터(SP)를 current_task_sp 변수에 저장합니다.
+    ; SysTick_Handler에서 'next_task_sp'에 할당되었던 값이 'current_task_sp'에 저장됩니다.
+    LDR R1, =current_task_sp ; current_task_sp 변수의 주소를 R1에 로드
+    STR R0, [R1]             ; R0 (업데이트된 현재 SP)를 current_task_sp에 저장
+
+    ; 2. 다음 실행할 태스크의 스택 포인터(SP)를 로드하여 컨텍스트 복원 준비
+    ; SysTick_Handler에서 'current_task_sp'에 할당되었던 값이 'next_task_sp'에 저장됩니다.
+    LDR R1, =next_task_sp    ; next_task_sp 변수의 주소를 R1에 로드
+    LDR R0, [R1]             ; next_task_sp 값을 R0에 로드 (이것이 다음 태스크의 새로운 스택 포인터)
+
+    ; 다음 태스크의 컨텍스트 복원
+    ; R4-R11 레지스터를 다음 태스크의 스택에서 팝합니다.
+    ; LDMIA R0!, {R4-R11} : R0가 가리키는 주소에서 R4-R11을 로드하고 R0를 업데이트(증가)합니다 (Increment After).
+    LDMIA R0!, {R4-R11}
+
+    ; R0 (새로운 SP)를 PSP에 저장합니다.
+    MSR PSP, R0         ; Process Stack Pointer를 R0 (새로운 SP)로 설정
+
+    ; BX LR을 통해 인터럽트에서 복귀합니다.
+    ; Cortex-M은 EXCEPTION RETURN 메커니즘을 사용하여 나머지 레지스터 (R0-R3, R12, LR, PC, XPSR)를
+    ; PSP (우리가 설정한 새로운 SP)에서 자동으로 복원합니다.
+    BX LR               ; 인터럽트에서 복귀
+
+.type os_start_first_task, %function
+os_start_first_task:
+    ; 이 함수는 최초로 태스크를 시작할 때 main 함수에서 호출됩니다.
+    ; 여기서 Main Stack Pointer(MSP)에서 Process Stack Pointer(PSP)로 전환하고,
+    ; 첫 태스크의 컨텍스트를 로드하여 실행을 시작합니다.
+
+    ; 1. 첫 태스크의 스택 포인터를 로드합니다.
+    LDR R0, =current_task_sp  ; current_task_sp 변수의 주소를 R0에 로드
+    LDR R0, [R0]              ; current_task_sp 값을 R0에 로드 (이것이 첫 태스크의 스택 포인터)
+
+    ; 2. 첫 태스크의 R4-R11 레지스터를 복원합니다.
+    LDMIA R0!, {R4-R11}       ; 첫 태스크의 R4-R11을 스택에서 복원하고 R0를 업데이트(증가)합니다.
+
+    ; 3. 업데이트된 R0 (첫 태스크의 SP)를 PSP에 저장합니다.
+    MSR PSP, R0               ; Process Stack Pointer를 R0 (첫 태스크의 SP)로 설정
+
+    ; 4. CONTROL 레지스터를 설정하여 PSP를 사용하고 비특권 모드로 전환합니다.
+    ; CONTROL 레지스터 (ARMv7-M Architecture Reference Manual 참조):
+    ; Bit 1 (SPSEL): 0 = MSP 사용, 1 = PSP 사용
+    ; Bit 0 (nPRIV): 0 = 특권 모드, 1 = 비특권 모드 (RTOS에서는 보통 태스크를 비특권 모드로 실행)
+    MOV R0, #0x03             ; PSP 사용 (bit 1 설정), 비특권 모드 (bit 0 설정)
+    MSR CONTROL, R0           ; CONTROL 레지스터에 설정 값 적용
+
+    ; 5. ISB (Instruction Synchronization Barrier) 및 DSB (Data Synchronization Barrier)
+    ; 캐시, 파이프라인 등의 동기화를 보장하여 레지스터 변경 사항이 즉시 적용되도록 합니다.
+    ISB
+    DSB
+
+    ; 6. BX LR 명령을 통해 첫 태스크 함수로 점프합니다.
+    ; 이 과정은 PendSV_Handler에서 복귀하는 것과 유사하게 작동합니다.
+    ; 즉, 스택에 미리 저장된 R0-R3, R12, LR, PC, XPSR 값이 PSP에서 팝되면서
+    ; 첫 태스크가 마치 인터럽트에서 복귀하는 것처럼 실행을 시작합니다.
+    BX LR
+```c
+#include "stm32f4xx.h" // 또는 stm32f3xx.h (사용하는 MCU에 맞게 변경하세요)
+                       // 이 헤더는 SysTick, SCB, GPIO 관련 정의를 포함합니다.
+
+// 어셈블리 파일에 정의된 함수를 C 파일에서 사용하기 위해 extern 선언
+extern void os_start_first_task(void);
+
+// os_init 함수는 C 파일에 정의되어 있으므로 extern 선언 필요 없음
+extern void os_init(void);
+
+// 태스크 함수들은 이미 위에 정의되어 있습니다.
+
+int main(void) {
+    // 1. 시스템 클럭 및 주변장치 초기화
+    // 이 부분은 실제 STM32 펌웨어 프로젝트에서 CubeMX 등으로 생성된 코드를 포함해야 합니다.
+    // 예: SystemClock_Config(), MX_GPIO_Init() 등
+    // 여기서는 컨텍스트 스위칭 로직에 집중하므로 생략합니다.
+    // 실제 보드에서 LED를 사용하려면 해당 GPIO 핀을 출력으로 초기화해야 합니다.
+
+    // 2. OS 초기화: 태스크 스택 준비 및 SysTick/PendSV 설정
+    os_init();
+
+    // 3. 최초 태스크 시작
+    // 이 함수가 호출되면 CPU는 MSP에서 PSP로 전환하고,
+    // os_initialize_task_stack에서 설정한 첫 태스크의 컨텍스트를 로드하여 실행을 시작합니다.
+    os_start_first_task();
+
+    // 여기까지 코드가 도달하면 안 됩니다.
+    // 첫 태스크가 무한 루프에 들어가기 때문에, os_start_first_task 호출 후
+    // 이 main 함수의 나머지 부분은 실행되지 않습니다.
+    while (1) {
+        // 프로그램이 여기에 도달하면 오류입니다.
+    }
+}
+

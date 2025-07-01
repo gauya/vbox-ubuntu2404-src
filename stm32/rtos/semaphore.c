@@ -1,10 +1,33 @@
-
-// mutex.c
-#include "rtos.h"
+// semaphore.c
+#include "semaphore.h"
 
 extern void delay(uint32_t ms);
 extern uint8_t current_task;
 extern uint32_t get_tick();
+
+// ========== Binary Semaphore ==========
+void sem_init(Semaphore *s, uint8_t init_val) {
+    s->value = init_val ? 1 : 0;
+}
+
+void sem_wait(Semaphore *s) {
+    while (1) {
+        __disable_irq();
+        if (s->value) {
+            s->value = 0;
+            __enable_irq();
+            return;
+        }
+        __enable_irq();
+        delay(1);  // sleep 1 tick
+    }
+}
+
+void sem_give(Semaphore *s) {
+    __disable_irq();
+    s->value = 1;
+    __enable_irq();
+}
 
 void mutex_init(Mutex *m) {
     m->lock_count = 0;
@@ -78,4 +101,5 @@ void mutex_unlock(Mutex *m, uint8_t task_id) {
     }
     __enable_irq();
 }
+
 

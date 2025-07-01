@@ -40,6 +40,22 @@ void schedule();
 void task_set_priority(uint8_t task_id, uint8_t new_prio);
 void task_wake(uint8_t task_id);
 
+typedef struct {
+    uint32_t *sp;
+    uint32_t *stack;
+    uint16_t stack_size;
+    uint8_t priority;
+    uint8_t ready;
+
+    uint32_t delay;
+    uint32_t period_tick;
+    //uint8_t uses_fpu;
+
+    void (*func)();            // 실행 함수 포인터
+} TCB;
+
+TCB tasks[MAX_TASK];
+
 // ================= Mutex 구조 =================
 typedef struct {
     volatile uint8_t owner_task_id;

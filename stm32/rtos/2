@@ -1,0 +1,174 @@
+// mini_rtos.c - 전체 정리
+#include "rtos.h"
+#include <stdlib.h>
+
+#define STACK_CANARY_PATTERN 0xDEADBEEF
+#define TASK_STACK_SIZE 1024
+#define MAX_TASK 8
+
+typedef enum {
+    TASK_PERIODIC_CATCHUP,
+    TASK_PERIODIC_SKIP,
+    TASK_EVENT_DRIVEN,
+    TASK_OPPORTUNISTIC,
+} TaskType;
+
+typedef struct {
+    TaskType type;
+    void (*func)();
+    uint32_t period_tick;
+    uint32_t last_run_tick;
+    uint8_t priority;
+    uint8_t active;
+    uint8_t missed_count;
+} TaskControl;
+
+TaskControl task_ctrl[MAX_TASK];
+uint32_t*   task_stacks[MAX_TASK];
+uint32_t    task_psp[MAX_TASK];
+uint32_t    task_delay[MAX_TASK];
+uint8_t     current_task = 0;
+uint8_t     task_count = 0;
+
+extern uint32_t get_tick();
+extern void monitor_task();
+
+void task_register(TaskType type, void (*func)(), uint32_t period_tick, uint8_t prio) {
+    if (task_count >= MAX_TASK) return;
+    task_ctrl[task_count].type = type;
+    task_ctrl[task_count].func = func;
+    task_ctrl[task_count].period_tick = period_tick;
+    task_ctrl[task_count].priority = prio;
+    task_ctrl[task_count].last_run_tick = 0;
+    task_ctrl[task_count].missed_count = 0;
+    task_ctrl[task_count].active = (type == TASK_EVENT_DRIVEN);
+    task_delay[task_count] = 0;
+    task_count++;
+}
+
+void delay(uint32_t tick) {
+    task_delay[current_task] = tick;
+    go_to_monitor();
+}
+
+void SysTick_Handler(void) {
+    for (int i = 0; i < task_count; i++) {
+        if (task_delay[i] > 0) task_delay[i]--;
+    }
+}
+
+void pre_task(uint8_t task_id) {
+    task_ctrl[task_id].last_run_tick = get_tick();
+}
+
+void post_task(uint8_t task_id) {
+    if (task_ctrl[task_id].type == TASK_PERIODIC_CATCHUP &&
+        task_ctrl[task_id].missed_count > 0) {
+        task_ctrl[task_id].missed_count--;
+    }
+    if (task_ctrl[task_id].type == TASK_EVENT_DRIVEN) {
+        task_ctrl[task_id].active = 0;
+    }
+}
+
+__attribute__((naked)) void go_to_monitor() {
+    __asm volatile (
+        "MRS R0, PSP\n"
+        "STMDB R0!, {R4-R11}\n"
+        "STR R0, %[psp]\n"
+        "MOV R0, #0\n"
+        "MSR CONTROL, R0\n"
+        "ISB\n"
+        "BL monitor_task\n"
+        : [psp] "=m" (task_psp[current_task])
+        :
+        : "r0"
+    );
+}
+
+void scheduler_init() {
+    for (int i = 0; i < task_count; i++) {
+        task_stacks[i] = (uint32_t*)malloc(TASK_STACK_SIZE);
+        for (int j = 0; j < TASK_STACK_SIZE / sizeof(uint32_t); j++) {
+            task_stacks[i][j] = STACK_CANARY_PATTERN;
+        }
+
+        uint32_t *stk = task_stacks[i] + TASK_STACK_SIZE / 4;
+        *(--stk) = 0x01000000;
+        *(--stk) = (uint32_t)task_ctrl[i].func;
+        *(--stk) = 0;
+        *(--stk) = 0;
+        *(--stk) = 0;
+        *(--stk) = 0;
+        *(--stk) = 0;
+        *(--stk) = 0;
+        *(--stk) = 0;
+        for (int r = 0; r < 8; r++) *(--stk) = 0;
+        task_psp[i] = (uint32_t)stk;
+    }
+}
+
+void scheduler_start() {
+    current_task = 0;
+    __set_PSP(task_psp[current_task]);
+    __set_CONTROL(0x03);
+    __ISB();
+    task_ctrl[current_task].func();
+    go_to_monitor();
+}
+
+void task_set_priority(uint8_t task_id, uint8_t new_prio) {
+    if (task_id < task_count && task_ctrl[task_id].type == TASK_OPPORTUNISTIC) {
+        task_ctrl[task_id].priority = new_prio;
+    }
+}
+
+void task_wake(uint8_t task_id) {
+    if (task_id < task_count && task_ctrl[task_id].type == TASK_EVENT_DRIVEN) {
+        task_ctrl[task_id].active = 1;
+    }
+}
+
+void monitor_task() {
+    while (1) {
+        uint32_t now = get_tick();
+        uint8_t best = 255;
+        uint8_t best_prio = 0;
+
+        for (int i = 0; i < task_count; i++) {
+            if (task_delay[i] > 0) continue;
+            TaskControl *t = &task_ctrl[i];
+
+            switch (t->type) {
+                case TASK_PERIODIC_CATCHUP:
+                    if (now - t->last_run_tick >= t->period_tick) {
+                        uint32_t miss = (now - t->last_run_tick) / t->period_tick;
+                        t->missed_count = (miss > 3) ? 3 : miss;
+                        if (t->missed_count > 0) best = i;
+                    }
+                    break;
+                case TASK_PERIODIC_SKIP:
+                    if (now - t->last_run_tick >= t->period_tick) best = i;
+                    break;
+                case TASK_EVENT_DRIVEN:
+                    if (t->active) best = i;
+                    break;
+                case TASK_OPPORTUNISTIC:
+                    if (t->priority > best_prio) {
+                        best_prio = t->priority;
+                        best = i;
+                    }
+                    break;
+            }
+        }
+
+        if (best != 255 && best != current_task) {
+            current_task = best;
+            __set_PSP(task_psp[current_task]);
+            __set_CONTROL(0x03);
+            __ISB();
+            task_ctrl[current_task].func();
+        }
+    }
+}
+
