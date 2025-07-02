@@ -4,7 +4,9 @@
 #include <stdint.h>
 
 #define MAX_TASK        8
-#define TASK_STACK_SIZE 256
+#define DEF_STACK_SIZE 256
+#define MIN_STACK_SIZE 80
+
 #define DEADLOCK_TIMEOUT_TICK 1000
 
 // 스택 감시용 패턴
@@ -20,41 +22,29 @@ typedef enum {
 
 // ================= Task 상태/모니터링 구조 =================
 typedef struct {
-    TaskType type;
+    uint8_t  type;
+    uint8_t  id;
     uint8_t  priority;         // 0~7 (TASK_OPPORTUNISTIC 용)
-    uint32_t period_tick;      // TASK_PERIODIC 용
-    uint32_t last_run_tick;
-    uint32_t missed_count;     // TASK_PERIODIC_CATCHUP 용
-    uint8_t  active;           // TASK_EVENT_DRIVEN 용 (1이면 실행 요청됨)
+    uint8_t  status;           // 
+    
+    uint32_t period;           // TASK_PERIODIC 용( > 0 ) ms
+    uint32_t period_tick;      
     void (*func)();            // 실행 함수 포인터
-} TaskControl;
+    uint32_t *stack;
+    uint32_t stack_size;
+    uint32_t psp;
 
-extern TaskControl task_ctrl[MAX_TASK];
-extern uint32_t*   task_stacks[MAX_TASK];
-extern uint32_t    task_psp[MAX_TASK];
-extern uint8_t     current_task;
+    uint32_t delay;             // > 0이면 SysTick에서 --
+    uint32_t reserved[8];       // 64 byte
+} TCB;
+
+extern uint8_t current_task;
 
 void scheduler_init();
 void scheduler_start();
 void schedule();
 void task_set_priority(uint8_t task_id, uint8_t new_prio);
 void task_wake(uint8_t task_id);
-
-typedef struct {
-    uint32_t *sp;
-    uint32_t *stack;
-    uint16_t stack_size;
-    uint8_t priority;
-    uint8_t ready;
-
-    uint32_t delay;
-    uint32_t period_tick;
-    //uint8_t uses_fpu;
-
-    void (*func)();            // 실행 함수 포인터
-} TCB;
-
-TCB tasks[MAX_TASK];
 
 // ================= Mutex 구조 =================
 typedef struct {

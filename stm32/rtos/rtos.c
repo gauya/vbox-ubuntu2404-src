@@ -4,27 +4,65 @@
 #include "stm32f4xx.h" // 또는 stm32f3xx.h (사용하는 MCU에 맞게 변경하세요)
                        // 이 헤더는 SysTick, SCB, GPIO 관련 정의를 포함합니다.
 
-TaskControl task_ctrl[MAX_TASK];
-uint32_t*   task_stacks[MAX_TASK];
-uint32_t    task_psp[MAX_TASK];
-uint32_t    task_delay[MAX_TASK];
-uint8_t     current_task = 0;
-uint8_t     task_count = 0;
+uint32_t stack_pool[MAX_TASK * DEF_STACK_SIZE];
+uint8_t __last_task_id = 0; // 현재 최대 task 수
+
+TCB __tcb[MAX_TASK];
+uint8_t current_task;
+
+int add_task(void (*func)(), uint32_t stack_size,uint32_t period, int priority) {
+  static uint32_t *next_stack_ptr = stack_pool;
+
+  uint32_t aligned_size = (stack_size + 7) & ~7;  // 8바이트 정렬
+  tcb->type = 0; // 1: realtime( period > 0 ), 2: event driven( priority > 255 ) 
+  if( priority < 0 || priority > 255 ) {
+    tcb->type = 2; // event driven
+    priority = 255; 
+    period = 0;  // 
+  }
+
+  TCB *tcb = __tcb[ __last_task_id ];
+
+  if( aligned_size < MIN_STACK_SIZE ) {
+    aligned_size = MIN_STACK_SIZE;
+  } 
+  tcb->status = 0;
+  tcb->stack = stack_ptr;
+  tcb->stack_size = aligned_size;
+  tcb->period = period; // 0 이아니면 realtime function
+  tcb->period_tick = period; // copy period
+  tcb->priority = (uint8_t)priority; // check 0 - 255
+  tcb->delay = 0;
+  tcb->psp = 0;
+  tcb->id = __last_task_id++;
+  tcb->func = func;
+
+  if( tcb->period > 0 ) {
+    tcb->type = 1;
+  }
+
+  if( tcb->id == 0 ) {
+    // maintance task
+  }
+
+  next_stack_ptr += aligned_size;
+
+  if( (next_stack_ptr - stack_pool) >= (MAX_TASK * DEF_STACK_SIZE) ) {
+    // stack overflow
+    return -1;
+  }
+
+  return (int)tcb->id;
+}
+
+TCB *get_task( int id ) {
+  if( id < 0 || id > __last_task_id ) {
+    return __tcb[ current_task ];
+  }
+  return __tcb[ id ];
+}
 
 extern uint32_t get_tick();
-
-void task_register(TaskType type, void (*func)(), uint32_t period_tick, uint8_t prio) {
-    if (task_count >= MAX_TASK) return;
-    task_ctrl[task_count].type = type;
-    task_ctrl[task_count].func = func;
-    task_ctrl[task_count].period_tick = period_tick;
-    task_ctrl[task_count].priority = prio;
-    task_ctrl[task_count].last_run_tick = 0;
-    task_ctrl[task_count].missed_count = 0;
-    task_ctrl[task_count].active = (type == TASK_EVENT_DRIVEN);
-    task_delay[task_count] = 0;
-    task_count++;
-}
 
 void delay(uint32_t tick) {
     task_delay[current_task] = tick;
@@ -33,8 +71,10 @@ void delay(uint32_t tick) {
 }
 
 void SysTick_Handler(void) {
-    for (int i = 0; i < task_count; i++) {
-        if (task_delay[i] > 0) task_delay[i]--;
+    TCB *tcb = __tcb;
+    for (int i = 0; i < __last_task_id; i++) {
+        if ( tcb->delay > 0) tcb->delay--;
+        if ( tcb->period_tick > 0 ) tcb->period_tick--;
     }
     SCB->ICSR |= SCB_ICSR_PENDSVSET_Msk;
 }
@@ -304,6 +344,25 @@ void vTaskSwitchContext() {
     }
 }
 
+attribute((naked)) void start_first_task(void) {
+__asm volatile (
+  "LDR R0, =tasks\n"
+  "LDR R1, =current_task\n"
+  "LDR R2, [R1]\n"
+  "LSLS R2, R2, #2\n"
+  "ADD R0, R0, R2\n"
+  "LDR R0, [R0]\n"
+  "MSR PSP, R0\n"
+  "MOV R0, #0x03\n"     // Thread mode, PSP 사용
+  "MSR CONTROL, R0\n"
+  "ISB\n"
+  "POP {R4-R11}\n"      // 수동 저장 복원
+  "POP {S0-S15}\n"
+  "ADD SP, SP, #8\n"    // FPSCR + reserved
+  "POP {R0-R3, R12, LR, xPSR, PC}\n"
+  );
+}
+
 os_start_first_task:
     ; 이 함수는 최초로 태스크를 시작할 때 main 함수에서 호출됩니다.
     ; 여기서 Main Stack Pointer(MSP)에서 Process Stack Pointer(PSP)로 전환하고,
@@ -344,6 +403,38 @@ os_start_first_task:
 #else
     #define USE_FPU 0
 #endif
+
+__attribute__((naked)) void start_first_task(void) {
+    __asm volatile (
+        "LDR R0, =tasks\n"
+        "LDR R1, =current_task\n"
+        "LDR R2, [R1]\n"
+        "LSLS R2, R2, #2\n"
+        "ADD R0, R0, R2\n"
+        "LDR R0, [R0]\n"
+        "MSR PSP, R0\n"
+        "#if USE_FPU == 1\n"
+        "    MRS R3, CONTROL\n"
+        "    ORR R3, R3, #0x04\n"  // FPCA 비트 설정
+        "    MSR CONTROL, R3\n"
+        "#endif\n"
+        "MOV R3, #0x03\n"         // PSP, 비특권 모드
+        "#if USE_FPU == 1\n"
+        "    ORR R3, R3, #0x04\n" // FPU 활성화 (SP 기본)
+        "#if defined(__FPU_DP) && (__FPU_DP == 1)\n"
+        "    ORR R3, R3, #0x02\n" // DP 지원 시 추가 설정 (가정)
+        "#endif\n"
+        "#endif\n"
+        "MSR CONTROL, R3\n"
+        "ISB\n"
+        "POP {R4-R11}\n"
+        "#if USE_FPU == 1\n"
+        "    VLDMIA R0!, {S0-S31}\n"  // DP 지원 시 S0-S31 복원
+        "    ADD SP, SP, #8\n"      // FPSCR + reserved (조정 필요)
+        "#endif\n"
+        "POP {R0-R3, R12, LR, xPSR, PC}\n"
+    );
+}
 
 __attribute__((naked)) void go_to_monitor() {
     __asm volatile (

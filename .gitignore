@@ -10,7 +10,7 @@ config.ini
 .vscode
 wxWidgets/
 SDL/
-STM32CubeIDE
+STM32CubeIDE/
 *.swp
 *.o
 
