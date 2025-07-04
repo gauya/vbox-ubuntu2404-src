@@ -1,4 +1,6 @@
 // main.cpp
+#include <syscalls.h>
+
 class LED {
 public:
     void toggle() { /* LED 토글 코드 */ }

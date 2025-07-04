@@ -71,6 +71,26 @@ void create_task_with_fpu(int id, void (*task_func)(void)) {
 
 경우 3: FPU 없음 (Cortex-M3) 64 byte
   [PSR, PC, LR, R12, R3-R0] (32바이트) + [R4-R11] (32바이트).
+
+
+    "MSR PSP, R0\n"
+    "#if USE_FPU == 1\n"
+    "    MRS R3, CONTROL\n"
+    "    ORR R3, R3, #0x04\n"  // FPCA 비트 설정
+    "    MSR CONTROL, R3\n"
+    "#endif\n"
+    "MOV R3, #0x03\n"         // PSP, 비특권 모드
+    "#if USE_FPU == 1\n"
+    "    ORR R3, R3, #0x04\n" // FPU 활성화 (SP 기본)
+    "#if defined(__FPU_DP) && (__FPU_DP == 1)\n"
+    "    ORR R3, R3, #0x02\n" // DP 지원 시 추가 설정 (가정)
+    "#endif\n"
+    "#endif\n"
+
+// (부팅 코드, 또는, RTOS 초기화 코드에서 한번만 )
+LDR R0, =0x0 // 또는, 적절한 값
+MSR CONTROL, R0 // FPU 권한 부여, PSP 사용, 사용자 모드
+ISB
 #endif
 
 int add_task(void (*func)(), uint32_t stack_size,uint32_t period, int priority) {
