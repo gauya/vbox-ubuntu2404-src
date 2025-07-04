@@ -4,8 +4,19 @@
 #include <stdint.h>
 
 #define MAX_TASK        8
+
 #define DEF_STACK_SIZE 256
-#define MIN_STACK_SIZE 80
+#define MIN_STACK_SIZE 80  // 64 + 16 : R4-R11, R0-R3, R12, LR, PC, PSR
+
+#if USE_FPU == 1
+#define DEF_STACK_SIZE 384
+#define MIN_STACK_SIZE 164 // 64 + 64 + 4 + 32 : = , FPSCR, S0-S15
+
+  #if defined(__FPU_DP) && (__FPU_DP == 1)  // M7,H7
+#define DEF_STACK_SIZE 512 
+#define MIN_STACK_SIZE 384 // 64 + 128 + 4 + 128 + 60 : =, S16-S31(D8-D15)
+  #endif
+#endif
 
 #define DEADLOCK_TIMEOUT_TICK 1000
 
@@ -13,11 +24,14 @@
 #define STACK_CANARY_PATTERN 0xA5A5A5A5
 
 // ================= Task 상태/모니터링 구조 =================
+// active, realtime, delay, 
+// B0: active
+// B1: 
 typedef struct {
     uint8_t  type;
     uint8_t  id;
     uint8_t  priority;         // 0~7 (TASK_OPPORTUNISTIC 용)
-    uint8_t  status;           // 0: event 
+    uint8_t  ctrlstat;         // 0: event 
     
     uint32_t period;           // TASK_PERIODIC 용( > 0 ) ms
     uint32_t period_tick;      // SysTick에서 decree, 0이되면 stat set b(1) 
@@ -25,7 +39,7 @@ typedef struct {
 
     uint32_t *stack;
     uint32_t stack_size;
-    uint32_t psp;
+    uint32_t sp;
     void (*func)();            // 실행 함수 포인터
 
     uint32_t reserved[8];      // 64 byte
@@ -33,7 +47,7 @@ typedef struct {
 
 extern uint8_t current_task;
 
-void scheduler_init();
+void stack_init();
 void scheduler_start();
 void schedule();
 void task_set_priority(uint8_t task_id, uint8_t new_prio);

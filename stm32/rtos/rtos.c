@@ -4,11 +4,74 @@
 #include "stm32f4xx.h" // 또는 stm32f3xx.h (사용하는 MCU에 맞게 변경하세요)
                        // 이 헤더는 SysTick, SCB, GPIO 관련 정의를 포함합니다.
 
-uint32_t stack_pool[MAX_TASK * DEF_STACK_SIZE];
+uint32_t stack_pool[ (MAX_TASK + 1) * DEF_STACK_SIZE];
 uint8_t __next_task_id = 0; // 현재 최대 task 수
 
 TCB __tcb[MAX_TASK];
 uint8_t current_task;
+
+// FPU 포함 태스크 생성
+void create_task_with_fpu(int id, void (*task_func)(void)) {
+    uint32_t *stack_top = &stacks[id][STACK_SIZE - 1];
+
+    // 자동 복원되는 영역 (xPSR~R0)
+    *(--stack_top) = 0x21000000;        // xPSR (Thumb)
+    *(--stack_top) = (uint32_t)task_func; // PC
+    *(--stack_top) = 0xFFFFFFED;        // LR (EXC_RETURN, use PSP + FPU active)
+    *(--stack_top) = 0x12121212;        // R12
+    *(--stack_top) = 0x03030303;        // R3
+    *(--stack_top) = 0x02020202;        // R2
+    *(--stack_top) = 0x01010101;        // R1
+    *(--stack_top) = 0x00000000;        // R0
+
+#if USE_FPU == 1
+  #if defined(__FPU_DP) && (__FPU_DP == 1)
+    // FPU 더블정밀도 자동 저장 프레임 (S0~S31) 8byte
+    for (int i = 32; i >= 0; i--) {   // S0 - S31  8byte * 32 = 256
+        *(--stack_top) = 0xAAAA0000 + i; 
+        *(--stack_top) = 0xAAAA0000 + i; 
+    }
+  #else
+    // FPU 자동 저장 프레임 (S0~S15)
+    for (int i = 15; i >= 0; i--) {   // S0 - S15
+        *(--stack_top) = 0xAAAA0000 + i; 
+    }
+  #endif
+    // FPU 자동 저장 프레임 (FPSCR + reserved)
+    *(--stack_top) = 0x00000000;        // FPSCR
+    *(--stack_top) = 0x00000000;        // reserved word
+#endif
+
+    // 수동 저장 대상 (R4~R11)
+    for (int i = 0; i < 8; i++) {
+        *(--stack_top) = 0xDEADBEEF;
+    }
+
+    tasks[id].sp = stack_top;
+}
+
+
+#if 0
+#if USE_FPU == 1        
+        "TST LR, #0x10\n"  // FPU가 없는 코어에서는 비트 4가 항상 1
+        "IT EQ\n"
+#if defined(__FPU_DP) && (__FPU_DP == 1)  // M7,H7        
+        "VSTMDBEQ R0!, {D8-D15}\n"
+#else
+        "VSTMDBEQ R0!, {S16-S31}\n"
+#endif // __FPU_DP
+#endif // USE_FPU == 1
+
+세 가지 경우별 스택 레이아웃
+경우 1: FPU DP (Cortex-M7)  324 byte
+  [PSR, PC, LR, R12, R3-R0] (32바이트) + [FPSCR, S31-S0] (260바이트) + [R4-R11] (32바이트).
+
+경우 2: FPU SP (Cortex-M4F) 132 byte
+  [PSR, PC, LR, R12, R3-R0] (32바이트) + [FPSCR, S15-S0] (68바이트) + [R4-R11] (32바이트).
+
+경우 3: FPU 없음 (Cortex-M3) 64 byte
+  [PSR, PC, LR, R12, R3-R0] (32바이트) + [R4-R11] (32바이트).
+#endif
 
 int add_task(void (*func)(), uint32_t stack_size,uint32_t period, int priority) {
   static uint32_t *next_stack_ptr = stack_pool;
@@ -45,6 +108,40 @@ int add_task(void (*func)(), uint32_t stack_size,uint32_t period, int priority) 
     // maintance task
   }
 
+  for (int j = 0; j < tcp->stack_size / sizeof(uint32_t); j++) {
+      tcb->stack[j] = STACK_CANARY_PATTERN;
+  }
+
+///////////////////////////////////////////////////////////////////////////
+  uint32_t *stk = tcb->stack + tcb->stack_size / 4;
+  *(--stk) = 0x01000000;                       // xPSR  status register Thumb 비트(bit 24)를 1로
+  *(--stk) = (uint32_t)task_wrapper;           // PC 태스크 함수의 시작 주소
+  *(--stk) = 0; // LR (Link Register) - 복귀 주소 (여기서는 태스크가 끝날 일 없으므로 0 
+  *(--stk) = 0; // R12
+  *(--stk) = 0; // R3
+  *(--stk) = 0; // R2
+  *(--stk) = 0; // R1
+  *(--stk) = 0; // R0
+
+  // FPU 자동 저장 프레임 (S0~S15 + FPSCR + reserved)
+  *(--stk) = 0; // FPSCR
+  *(--stk) = 0; // reserved word
+
+  for (int i = 0; i < 15; i++) {  // S0-S15
+    *(--stk) = (uint32_t)0xAAAA0000 + i; 
+  }
+
+  for (int i = 0; i < 15; i++) {  // S16-S31 , D8-D15
+    *(--stk) = (uint32_t)0xAAAA0000 + i; 
+  }
+
+  for (int i = 0; i < 8; i++) {   // R4-R11
+    *(--stk) = (uint32_t)0x04040404 + i; 
+  }
+
+/////////////////////////////////////////////////////////////////////////////
+  tcb->psp = (uint32_t)stk;
+
   next_stack_ptr += aligned_size;
 
   if( (next_stack_ptr - stack_pool) >= (MAX_TASK * DEF_STACK_SIZE) ) {
@@ -62,7 +159,12 @@ TCB *get_task( int id ) {
   return __tcb[ id ];
 }
 
-extern uint32_t get_tick();
+void os_init() {
+  // stack all set STACK_CANARY_PATTERN
+}
+
+void os_start() {
+}
 
 void delay(uint32_t tick) {
     task_delay[current_task] = tick;
@@ -72,7 +174,7 @@ void delay(uint32_t tick) {
 
 volatile uint32_t _system_ticks;
 
-uint32_t getTick() {
+uint32_t get_tick() {
   return _system_ticks;
 }
 
@@ -86,13 +188,13 @@ void SysTick_Handler(void) {
         if ( tcb->delay > 0) {
           tcb->delay--;
           if ( tcb->delay == 0 ) {
-            tcb->status |= 0b00001000;
+            tcb->ctrlstat |= 0b00001000;
           }
         }
         if ( tcb->period_tick > 0 ) {
           tcb->period_tick--;
           if ( tcb->period_tick == 0 ) {
-            tcb->status |= 0b00010000;
+            tcb->ctrlstat |= 0b00010000;
           }
         }
     }
@@ -147,7 +249,7 @@ void SysTick_Handler(void) {
 }
 
 
-void scheduler_init() {
+void stack_init() {
     for (int i = 0; i < task_count; i++) {
         task_stacks[i] = (uint32_t*)malloc(TASK_STACK_SIZE);
         for (int j = 0; j < TASK_STACK_SIZE / sizeof(uint32_t); j++) {
@@ -350,10 +452,11 @@ void monitor_task() {
         }
 
         if (best != 255 && best != current_task) {
-            current_task = best;
             __set_PSP(task_psp[current_task]);
             __set_CONTROL(0x03);
             __ISB();
+
+            current_task = best;
             if( first ) {
               task_ctrl[current_task].func();
             } else {
@@ -624,4 +727,40 @@ __attribute__((naked)) void PendSV_Handler(void) {
         "BX LR\n"
     );
 }
+
+#if 0
+__set_PSP(task_psp[current_task]);
+__set_CONTROL(0x03);
+__ISB()
+
+/ C/C++ 코드에 해당하는 어셈블리 코드 (PendSV_Handler 내부)
+
+// 1. __set_PSP(task_psp[current_task]);  // PSP 설정
+
+// task_psp[current_task] 주소를, R0 레지스터에 로드 (C/C++ 컴파일러에 따라 다름)
+// (task_psp 배열, current_task 변수 등은, 외부에서 정의되었다고 가정)
+LDR R0, =task_psp  // task_psp 배열의 주소 로드
+LDR R1, =current_task // current_task 변수의 주소 로드
+LDR R2, [R1]       // current_task 값 로드 (현재 태스크의 ID)
+LSLS R2, R2, #2     // R2 = current_task * 4 (uint32_t 배열)
+ADD R0, R0, R2      // R0 = task_psp[current_task]의 주소
+LDR R0, [R0]       // R0 = task_psp[current_task]의 값 (PSP 값)
+
+// PSP 레지스터에, R0 값 저장
+MSR PSP, R0        // PSP = R0  (PSP 설정)
+
+// 2. __set_CONTROL(0x03);  // CONTROL 레지스터 설정 (PSP, User mode)
+
+// 0x03 값을, R0 레지스터에 로드
+MOV R0, #0x03
+
+// CONTROL 레지스터에, R0 값 저장
+MSR CONTROL, R0    // CONTROL = R0  (CONTROL 레지스터 설정)
+
+// 3. __ISB();  // Instruction Synchronization Barrier (ISB)
+
+// ISB 명령어 실행 (ARM 아키텍처)
+ISB  // Instruction Synchronization Barrier
+
+#endif
 
