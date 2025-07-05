@@ -8,10 +8,10 @@ uint32_t __stack_pool[ (MAX_TASK + 1) * DEF_STACK_SIZE];
 uint8_t __next_task_id = 0; // 현재 최대 task 수
 
 TCB __tcb[MAX_TASK];
-uint8_t __current_task;
+uint8_t __current_task_id;
 
 // FPU 포함 태스크 생성
-void set_stack_stack(TCB *tcb) {
+void set_stack_from_tcb(TCB *tcb) {
     uint32_t *stack_top = tcb->stack;
 
     // 자동 복원되는 영역 (xPSR~R0)
@@ -100,11 +100,10 @@ int add_task(void (*func)(), void *context, uint32_t stack_size,uint32_t period,
     stack_size = MIN_STACK_SIZE;
   }
   uint32_t aligned_size = (stack_size + 7) & ~7;  // 8바이트 정렬
-  tcb->type = 0; // 1: realtime( period > 0 ), 2: event driven( priority > 255 ) 
+  tcb->type = (period > 0)? 1 : 0; // 1: realtime( period > 0 ), 2: event driven( priority > 255 ) 
   if( priority < 0 || priority > 255 ) {
-    tcb->type = 2; // event driven
+    tcb->type = 2; // event driven 
     priority = 255; 
-    period = 0;  // 
   }
 
   TCB *tcb = __tcb[ __next_task_id ];
@@ -137,12 +136,12 @@ int add_task(void (*func)(), void *context, uint32_t stack_size,uint32_t period,
       tcb->stack[j] = STACK_CANARY_PATTERN;
   }
 
-  set_task_stack( tcb );
+  set_stack_from_tcb( tcb );
 
   next_stack_ptr += aligned_size;
-  next_stack_id++;
+  __next_task_id++;
 
-  if( (next_stack_ptr - _stack_pool) >= (MAX_TASK * DEF_STACK_SIZE) ) {
+  if( (__stack_pool - next_stack_ptr) >= (MAX_TASK * DEF_STACK_SIZE) ) {
     // stack overflow
     return -1;
   }
@@ -152,7 +151,7 @@ int add_task(void (*func)(), void *context, uint32_t stack_size,uint32_t period,
 
 TCB *get_task( int id ) {
   if( id < 0 || id > __next_task_id ) {
-    return __tcb[ __current_task ];
+    return __tcb[ __current_task_id ];
   }
   return __tcb[ id ];
 }
@@ -160,6 +159,11 @@ TCB *get_task( int id ) {
 void os_init() {
   // stack all set STACK_CANARY_PATTERN
   // add_task()
+  /*
+  if ( add_task() == -1 ) {
+    while(1);
+  }
+  */
 }
 
 void os_start() {
@@ -171,10 +175,13 @@ void os_start() {
   SysTick_Config( SystemCoreClock / 1000 );
 }
 
-void delay(uint32_t tick) {
-    task_delay[__current_task] = tick;
+void delay(TCB *tcb, uint32_t ms) {
+    tcb->state |= 0x4; // block
+    tcb->delay = ms;
     SCB->ICSR |= SCB_ICSR_PENDSVSET_Msk;
-    while (task_delay[__current_task] > 0); // sleep
+}
+
+void udelay(uint32_t us) {
 }
 
 volatile uint32_t _system_ticks;
@@ -232,13 +239,13 @@ void task_wrapper(void (*func)(), uint8_t task_id) {
 }
 
 void schedule_next_task(void) {
-    uint8_t best = __current_task;
+    uint8_t best = __current_task_id;
     for (int i = 0; i < MAX_TASK; i++) {
         if (tasks[i].ready && tasks[i].priority >= tasks[best].priority) {
             best = i;
         }
     }
-    __current_task = best;
+    __current_task_id = best;
 }
 
 // ========== SysTick for Delay Countdown ==========
@@ -255,11 +262,11 @@ void SysTick_Handler(void) {
 }
 
 void scheduler_start() {
-    __current_task = 0;
-    __set_PSP(task_psp[__current_task]);
+    __current_task_id = 0;
+    __set_PSP(__tcb[__current_task_id].stack);
     __set_CONTROL(0x03);
     __ISB();
-    task_wrapper(task_ctrl[__current_task].func, __current_task);
+    task_wrapper(__tcb[__current_task_id].func, __current_task_id);
 }
 
 void task_set_priority(uint8_t task_id, uint8_t new_prio) {
@@ -278,14 +285,17 @@ void task_wake(uint8_t task_id) {
 //
 void schedule() {
     uint32_t now = get_tick();
-    uint8_t best_task = __current_task;
+    uint8_t best = __current_task_id;
     uint8_t best_score = 0;
+    TCB *tcb = __tcb;
 
-    for (int i = 0; i < task_count; i++) {
-        if (task_delay[i] > 0) continue;
-        TaskControl *t = &task_ctrl[i];
+    for (int i = 0; i < __next_task_id; i++) {
+        if (tcb->status | TCB_ACTIV ) {
+          best = i
+          break;
+        }
 
-        switch (t->type) {
+        switch (tcb->type) {
         case TASK_PERIODIC_CATCHUP:
             if (now - t->last_run_tick >= t->period_tick) {
                 uint32_t miss = (now - t->last_run_tick) / t->period_tick;
@@ -318,16 +328,16 @@ void schedule() {
     }
 
 chosen:
-    if (best_task != __current_task) {
-        task_psp[__current_task] = __get_PSP();
-        __current_task = best_task;
-        __set_PSP(task_psp[__current_task]);
+    if (best_task != __current_task_id) {
+        task_psp[__current_task_id] = __get_PSP();
+        __current_task_id = best_task;
+        __set_PSP(task_psp[__current_task_id]);
     }
 }
 
 void delay(uint32_t ms) {
-    delay_vars[__current_task] = ms;
-    tasks[__current_task].ready = 0;
+    delay_vars[__current_task_id] = ms;
+    tasks[__current_task_id].ready = 0;
     SCB->ICSR |= SCB_ICSR_PENDSVSET_Msk;
     __asm volatile("NOP");
 }
@@ -437,16 +447,16 @@ void monitor_task() {
             }
         }
 
-        if (best != 255 && best != __current_task) {
-            __set_PSP(task_psp[__current_task]);
+        if (best != 255 && best != __current_task_id) {
+            __set_PSP(task_psp[__current_task_id]);
             __set_CONTROL(0x03);
             __ISB();
 
-            __current_task = best;
+            __current_task_id = best;
             if( first ) {
-              task_ctrl[__current_task].func();
+              task_ctrl[__current_task_id].func();
             } else {
-              restore_context( task_psp[__current_task] );
+              restore_context( task_psp[__current_task_id] );
             }
         }
     }
@@ -469,7 +479,7 @@ void vTaskSwitchContext() {
 attribute((naked)) void start_first_task(void) {
 __asm volatile (
     "LDR R0, =task_stack_ptrs\n"    // R0 = 배열 주소
-    "LDR R1, =__current_task\n"       // R1 = __current_task index 주소
+    "LDR R1, =__current_task_id\n"       // R1 = __current_task_id index 주소
     "LDR R2, [R1]\n"                // R2 = 현재 태스크 ID
     "LSLS R2, R2, #2\n"             // 인덱싱을 위한 *4
     "ADD R0, R0, R2\n"
@@ -529,8 +539,8 @@ os_start_first_task:
 __attribute__((naked)) void start_first_task(void) {
     __asm volatile (
         "LDR R0, =__tcb\n"              // tasks 배열 주소 로드
-        "LDR R1, =__current_task\n"       // __current_task 주소 로드
-        "LDR R2, [R1]\n"                // __current_task 값 로드
+        "LDR R1, =__current_task_id\n"       // __current_task_id 주소 로드
+        "LDR R2, [R1]\n"                // __current_task_id 값 로드
         "LSLS R2, R2, #2\n"             // 인덱스 계산 (4바이트 단위)
         "ADD R0, R0, R2\n"              // 태스크 스택 포인터 주소 계산
         "LDR R0, [R0]\n"                // 첫 태스크의 스택 포인터 로드
@@ -566,7 +576,7 @@ __attribute__((naked)) void start_first_task(void) {
 __attribute__((naked)) void start_first_task(void) {
     __asm volatile (
         "LDR R0, =tasks\n"
-        "LDR R1, =__current_task\n"
+        "LDR R1, =__current_task_id\n"
         "LDR R2, [R1]\n"
         "LSLS R2, R2, #2\n"
         "ADD R0, R0, R2\n"
@@ -604,7 +614,7 @@ __attribute__((naked)) void go_to_monitor() {
         "MSR CONTROL, R0\n"
         "ISB\n"
         "BL monitor_task\n"
-        : [psp] "=m" (task_psp[__current_task])
+        : [psp] "=m" (task_psp[__current_task_id])
         :
         : "r0"
     );
@@ -615,7 +625,7 @@ void PendSV_Handler(void) {
         "MRS R0, PSP\n"
         "STMDB R0!, {R4-R11}\n"
         "LDR R1, =task_psp\n"
-        "LDR R2, =__current_task\n"
+        "LDR R2, =__current_task_id\n"
         "LDR R3, [R2]\n"
         "STR R0, [R1, R3, LSL #2]\n"
         "BL schedule\n"
@@ -643,7 +653,7 @@ __attribute__((naked)) void PendSV_Handler(void) {
         "STMDB R0!, {R4-R11}\n"
 
         "LDR R1, =tasks\n"
-        "LDR R2, =__current_task\n"
+        "LDR R2, =__current_task_id\n"
         "LDR R3, [R2]\n"
         "LSLS R3, R3, #6\n"
         "ADD R1, R1, R3\n"
@@ -654,7 +664,7 @@ __attribute__((naked)) void PendSV_Handler(void) {
 
         // Load next task context
         "LDR R1, =tasks\n"
-        "LDR R2, =__current_task\n"
+        "LDR R2, =__current_task_id\n"
         "LDR R3, [R2]\n"
         "LSLS R3, R3, #6\n"
         "ADD R1, R1, R3\n"
@@ -681,7 +691,7 @@ __attribute__((naked)) void PendSV_Handler(void) {
         "MRS R0, PSP\n"
         "STMDB R0!, {R4-R11}\n"
         "LDR R1, =tasks\n"
-        "LDR R2, =__current_task\n"
+        "LDR R2, =__current_task_id\n"
         "LDR R3, [R2]\n"
         "LSLS R3, R3, #4\n"            // sizeof(TCB) ~= 16
         "ADD R1, R1, R3\n"
@@ -692,7 +702,7 @@ __attribute__((naked)) void PendSV_Handler(void) {
 
         // Load next task context
         "LDR R1, =tasks\n"
-        "LDR R2, =__current_task\n"
+        "LDR R2, =__current_task_id\n"
         "LDR R3, [R2]\n"
         "LSLS R3, R3, #4\n"
         "ADD R1, R1, R3\n"
@@ -712,7 +722,7 @@ __attribute__((naked)) void PendSV_Handler(void) {
         "VSTMDBEQ R0!, {D8-D15}\n"      // M7/H7: 더블 프리시전 레지스터 저장
         "STMDB R0!, {R4-R11}\n"
 
-        "LDR R1, =__current_task\n"
+        "LDR R1, =__current_task_id\n"
         "LDR R2, [R1]\n"
         "LDR R3, =tasks\n"
         "STR R0, [R3, R2, LSL #4]\n"   // TCB.psp 저장 (16바이트 단위)
@@ -720,7 +730,7 @@ __attribute__((naked)) void PendSV_Handler(void) {
         "DSB\n"                         // 캐시 일관성 보장
         "BL schedule_next_task\n"       // 스케줄러 호출
 
-        "LDR R2, [R1]\n"               // 새로운 __current_task 로드
+        "LDR R2, [R1]\n"               // 새로운 __current_task_id 로드
         "LDR R0, [R3, R2, LSL #4]\n"   // 새 TCB.psp 로드
 
         "LDMIA R0!, {R4-R11}\n"
@@ -733,22 +743,22 @@ __attribute__((naked)) void PendSV_Handler(void) {
 }
 
 #if 0
-__set_PSP(task_psp[__current_task]);
+__set_PSP(task_psp[__current_task_id]);
 __set_CONTROL(0x03);
 __ISB()
 
 / C/C++ 코드에 해당하는 어셈블리 코드 (PendSV_Handler 내부)
 
-// 1. __set_PSP(task_psp[__current_task]);  // PSP 설정
+// 1. __set_PSP(task_psp[__current_task_id]);  // PSP 설정
 
-// task_psp[__current_task] 주소를, R0 레지스터에 로드 (C/C++ 컴파일러에 따라 다름)
-// (task_psp 배열, __current_task 변수 등은, 외부에서 정의되었다고 가정)
+// task_psp[__current_task_id] 주소를, R0 레지스터에 로드 (C/C++ 컴파일러에 따라 다름)
+// (task_psp 배열, __current_task_id 변수 등은, 외부에서 정의되었다고 가정)
 LDR R0, =task_psp  // task_psp 배열의 주소 로드
-LDR R1, =__current_task // __current_task 변수의 주소 로드
-LDR R2, [R1]       // __current_task 값 로드 (현재 태스크의 ID)
-LSLS R2, R2, #2     // R2 = __current_task * 4 (uint32_t 배열)
-ADD R0, R0, R2      // R0 = task_psp[__current_task]의 주소
-LDR R0, [R0]       // R0 = task_psp[__current_task]의 값 (PSP 값)
+LDR R1, =__current_task_id // __current_task_id 변수의 주소 로드
+LDR R2, [R1]       // __current_task_id 값 로드 (현재 태스크의 ID)
+LSLS R2, R2, #2     // R2 = __current_task_id * 4 (uint32_t 배열)
+ADD R0, R0, R2      // R0 = task_psp[__current_task_id]의 주소
+LDR R0, [R0]       // R0 = task_psp[__current_task_id]의 값 (PSP 값)
 
 // PSP 레지스터에, R0 값 저장
 MSR PSP, R0        // PSP = R0  (PSP 설정)
