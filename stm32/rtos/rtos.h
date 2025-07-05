@@ -41,8 +41,9 @@ typedef struct {
     uint32_t stack_size;
     uint32_t sp;
     void (*func)();            // 실행 함수 포인터
+    void *context;             // 
 
-    uint32_t reserved[8];      // 64 byte
+    uint32_t reserved[7];      // 64 byte
 } TCB;
 
 extern uint8_t current_task;

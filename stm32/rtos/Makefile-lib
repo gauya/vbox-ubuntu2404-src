@@ -1,0 +1,43 @@
+# 툴체인
+CC      := arm-none-eabi-gcc
+CXX     := arm-none-eabi-g++
+AR      := arm-none-eabi-ar
+
+# 옵션
+CPU     := -mcpu=cortex-m4 -mthumb
+CFLAGS  := $(CPU) -O2 -ffunction-sections -fdata-sections -Wall -I.
+CXXFLAGS:= $(CFLAGS) -fno-exceptions -fno-rtti
+
+# 소스 파일 목록
+CSRCS   := rtos.c semaphore.c
+CXXSRCS := 
+
+# 오브젝트 파일 목록
+COBJS   := $(CSRCS:.c=.o)
+CXXOBJS := $(CXXSRCS:.cpp=.o)
+OBJS    := $(COBJS) $(CXXOBJS)
+
+# 라이브러리 이름
+TARGET  := libgaurtos.a
+
+.PHONY: all clean
+
+all: $(TARGET)
+
+# C 오브젝트
+%.o: %.c
+	$(CC) $(CFLAGS) -c $< -o $@
+
+# C++ 오브젝트
+%.o: %.cpp
+	$(CXX) $(CXXFLAGS) -c $< -o $@
+
+# 정적 라이브러리 생성
+$(TARGET): $(OBJS)
+	$(AR) rcs $@ $^
+
+clean:
+	rm -f *.o $(TARGET)
+
+# arm-none-eabi-gcc ... -L. -lmylib ...
+# arm-none-eabi-gcc ... libmylib.a ...
