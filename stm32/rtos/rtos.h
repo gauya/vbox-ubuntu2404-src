@@ -27,6 +27,7 @@
 // active, realtime, delay, 
 // B0: active
 // B1: 
+// 0:normal, 1:realtime, 2:event
 typedef struct {
     uint8_t  type;
     uint8_t  id;

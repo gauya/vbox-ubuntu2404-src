@@ -254,28 +254,6 @@ void SysTick_Handler(void) {
     SCB->ICSR |= SCB_ICSR_PENDSVSET_Msk;
 }
 
-
-void stack_init() {
-    for (int i = 0; i < task_count; i++) {
-        task_stacks[i] = (uint32_t*)malloc(TASK_STACK_SIZE);
-        for (int j = 0; j < TASK_STACK_SIZE / sizeof(uint32_t); j++) {
-            task_stacks[i][j] = STACK_CANARY_PATTERN;
-        }
-
-        uint32_t *stk = task_stacks[i] + TASK_STACK_SIZE / 4;
-        *(--stk) = 0x01000000;                        // xPSR
-        *(--stk) = (uint32_t)task_wrapper;           // PC
-        *(--stk) = 0; // LR
-        *(--stk) = 0; // R12
-        *(--stk) = 0; // R3
-        *(--stk) = 0; // R2
-        *(--stk) = 0; // R1
-        *(--stk) = (uint32_t)task_ctrl[i].func;      // R0
-        for (int r = 0; r < 8; r++) *(--stk) = 0;
-        task_psp[i] = (uint32_t)stk;
-    }
-}
-
 void scheduler_start() {
     __current_task = 0;
     __set_PSP(task_psp[__current_task]);
@@ -296,6 +274,8 @@ void task_wake(uint8_t task_id) {
     }
 }
 
+// 우선순위 재조정-> 다음 실행할 task 결정
+//
 void schedule() {
     uint32_t now = get_tick();
     uint8_t best_task = __current_task;
