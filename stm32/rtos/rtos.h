@@ -40,7 +40,7 @@ typedef struct {
 
     uint32_t *stack;
     uint32_t stack_size;
-    uint32_t sp;
+    uint32_t *sp;
     void (*func)();            // 실행 함수 포인터
     void *context;             // 
 

@@ -247,6 +247,19 @@ void task_wake(uint8_t task_id) {
     }
 }
 
+void critical_section() {
+    interrupt_status = __get_PRIMASK();  // 현재 인터럽트 상태 저장 (PRIMASK 레지스터 읽기)
+    __disable_irq();                 // 인터럽트 비활성화
+
+    // ... (보호 구역 내 코드) ...
+
+    if (!(interrupt_status & 0x01)) { // 인터럽트가 비활성화되지 않았다면
+    //    __enable_irq();                 // 원래의 상태로 복원
+      __set_PRIMASK(interrupt_status);
+    }
+
+}
+
 // 우선순위 재조정-> 다음 실행할 task 결정
 //
 void schedule() {
