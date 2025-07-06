@@ -4,6 +4,14 @@
 #include "stm32f4xx.h" // 또는 stm32f3xx.h (사용하는 MCU에 맞게 변경하세요)
                        // 이 헤더는 SysTick, SCB, GPIO 관련 정의를 포함합니다.
 
+#define TCB_ACTIVE  0x1
+#define TCB_STANBY  0x2
+#define TCB_SLEEP   0x4
+#define TCB_DELAY_REQ 0x8
+#define TCB_DELAY_RCH 0x10
+#define TCB_TIME_RCH  0x20
+
+
 uint32_t __stack_pool[ (MAX_TASK + 1) * DEF_STACK_SIZE];
 uint8_t __next_task_id = 0; // 현재 최대 task 수
 
@@ -49,49 +57,6 @@ void set_stack_from_tcb(TCB *tcb) {
 
     tcb->sp = (uint32_t)stack_top;
 }
-
-
-#if 0
-#if USE_FPU == 1        
-        "TST LR, #0x10\n"  // FPU가 없는 코어에서는 비트 4가 항상 1
-        "IT EQ\n"
-#if defined(__FPU_DP) && (__FPU_DP == 1)  // M7,H7        
-        "VSTMDBEQ R0!, {D8-D15}\n"
-#else
-        "VSTMDBEQ R0!, {S16-S31}\n"
-#endif // __FPU_DP
-#endif // USE_FPU == 1
-
-세 가지 경우별 스택 레이아웃
-경우 1: FPU DP (Cortex-M7)  324 byte
-  [PSR, PC, LR, R12, R3-R0] (32바이트) + [FPSCR, S31-S0] (260바이트) + [R4-R11] (32바이트).
-
-경우 2: FPU SP (Cortex-M4F) 132 byte
-  [PSR, PC, LR, R12, R3-R0] (32바이트) + [FPSCR, S15-S0] (68바이트) + [R4-R11] (32바이트).
-
-경우 3: FPU 없음 (Cortex-M3) 64 byte
-  [PSR, PC, LR, R12, R3-R0] (32바이트) + [R4-R11] (32바이트).
-
-
-    "MSR PSP, R0\n"
-    "#if USE_FPU == 1\n"
-    "    MRS R3, CONTROL\n"
-    "    ORR R3, R3, #0x04\n"  // FPCA 비트 설정
-    "    MSR CONTROL, R3\n"
-    "#endif\n"
-    "MOV R3, #0x03\n"         // PSP, 비특권 모드
-    "#if USE_FPU == 1\n"
-    "    ORR R3, R3, #0x04\n" // FPU 활성화 (SP 기본)
-    "#if defined(__FPU_DP) && (__FPU_DP == 1)\n"
-    "    ORR R3, R3, #0x02\n" // DP 지원 시 추가 설정 (가정)
-    "#endif\n"
-    "#endif\n"
-
-// (부팅 코드, 또는, RTOS 초기화 코드에서 한번만 )
-LDR R0, =0x0 // 또는, 적절한 값
-MSR CONTROL, R0 // FPU 권한 부여, PSP 사용, 사용자 모드
-ISB
-#endif
 
 int add_task(void (*func)(), void *context, uint32_t stack_size,uint32_t period, int priority) {
   static uint32_t *next_stack_ptr = __stack_pool; // only use add_task()
@@ -182,6 +147,7 @@ void delay(TCB *tcb, uint32_t ms) {
 }
 
 void udelay(uint32_t us) {
+  // micro second delay ( 1-
 }
 
 volatile uint32_t _system_ticks;
@@ -290,7 +256,7 @@ void schedule() {
     TCB *tcb = __tcb;
 
     for (int i = 0; i < __next_task_id; i++) {
-        if (tcb->status | TCB_ACTIV ) {
+        if (tcb->status | TCB_ACTIVE ) {
           best = i
           break;
         }
