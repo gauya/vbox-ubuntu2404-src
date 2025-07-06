@@ -428,20 +428,6 @@ void monitor_task() {
     }
 }
 
-
-void vTaskSwitchContext() {
-    // 현재 태스크의 S레지스터 저장 (FPU 사용 시에만)
-    if (pxCurrentTask->uxFPUUsed) {
-        __asm("VSTMDB sp!, {s0-s31}");
-    }
-    // 다음 태스크 선택
-    pxCurrentTask = pxNextTask;
-    // 다음 태스크의 S레지스터 복원 (FPU 사용 시에만)
-    if (pxCurrentTask->uxFPUUsed) {
-        __asm("VLDMIA sp!, {s0-s31}");
-    }
-}
-
 attribute((naked)) void start_first_task(void) {
 __asm volatile (
     "LDR R0, =task_stack_ptrs\n"    // R0 = 배열 주소
@@ -450,16 +436,30 @@ __asm volatile (
     "LSLS R2, R2, #2\n"             // 인덱싱을 위한 *4
     "ADD R0, R0, R2\n"
     "LDR R0, [R0]\n"                // R0 = PSP 값
-
-    "LDMIA R0!, {R4-R11} \n"        // 수동으로 R4-R11 복원
     "MSR PSP, R0         \n"        // PSP 설정
     "MOV R0, #0x03       \n"        // Thread mode, PSP 사용
     "MSR CONTROL, R0     \n"
     "ISB                 \n"
     "DSB                 \n"
+    "LDMIA R0!, {R4-R11} \n"        // 수동으로 R4-R11 복원
     "BX LR               \n"        // 하드웨어가 자동으로 나머지 (R0-R3, R12, LR, PC, xPSR) 복원
 );
 
+__attribute__((naked)) void start_first_task(void) {
+__asm volatile (
+    "LDR R0, =__tcb\n"              // tasks 배열 주소 로드
+    "LDR R1, =__current_task_id\n"  // __current_task_id 주소 로드
+    "LDR R2, [R1]\n"                // __current_task_id 값 로드
+    "LSLS R2, R2, #2\n"             // 인덱스 계산 (4바이트 단위)
+    "ADD R0, R0, R2\n"              // 태스크 스택 포인터 주소 계산
+    "LDR R0, [R0]\n"                // 첫 태스크의 스택 포인터 로드
+    "MSR PSP, R0\n"                 // PSP에 스택 포인터 설정
+    "MSR CONTROL, R3\n"          // CONTROL 레지스터에 설정 적용
+    "ISB\n"                     // 명령어 동기화
+    "POP {R4-R11}\n"            // FPU 없는 경우 기본 레지스터만 복원
+    "POP {R0-R3, R12, LR, PC, xPSR}\n"  // 컨텍스트 복원 후 실행
+);
+}
 
 os_start_first_task:
     ; 이 함수는 최초로 태스크를 시작할 때 main 함수에서 호출됩니다.
@@ -535,39 +535,7 @@ __attribute__((naked)) void start_first_task(void) {
         "    POP {R4-R11}\n"            // FPU 없는 경우 기본 레지스터만 복원
 #endif
 
-        "POP {R0-R3, R12, LR, xPSR, PC}\n"  // 컨텍스트 복원 후 실행
-    );
-}
-
-__attribute__((naked)) void start_first_task(void) {
-    __asm volatile (
-        "LDR R0, =tasks\n"
-        "LDR R1, =__current_task_id\n"
-        "LDR R2, [R1]\n"
-        "LSLS R2, R2, #2\n"
-        "ADD R0, R0, R2\n"
-        "LDR R0, [R0]\n"
-        "MSR PSP, R0\n"
-#if USE_FPU == 1
-        "    MRS R3, CONTROL\n"
-        "    ORR R3, R3, #0x04\n"  // FPCA 비트 설정
-        "    MSR CONTROL, R3\n"
-#endif
-        "MOV R3, #0x03\n"         // PSP, 비특권 모드
-#if USE_FPU == 1
-        "    ORR R3, R3, #0x04\n" // FPU 활성화 (SP 기본)
-  #if defined(__FPU_DP) && (__FPU_DP == 1)
-        "    ORR R3, R3, #0x02\n" // DP 지원 시 추가 설정 (가정)
-  #endif
-#endif
-        "MSR CONTROL, R3\n"
-        "ISB\n"
-        "POP {R4-R11}\n"
-#if USE_FPU == 1
-        "    VLDMIA R0!, {S0-S31}\n"  // DP 지원 시 S0-S31 복원
-        "    ADD SP, SP, #8\n"      // FPSCR + reserved (조정 필요)
-#endif
-        "POP {R0-R3, R12, LR, xPSR, PC}\n"
+        "POP {R0-R3, R12, LR, PC, xPSR}\n"  // 컨텍스트 복원 후 실행
     );
 }
 
@@ -583,23 +551,6 @@ __attribute__((naked)) void go_to_monitor() {
         : [psp] "=m" (task_psp[__current_task_id])
         :
         : "r0"
-    );
-}
-
-void PendSV_Handler(void) {
-    __asm volatile(
-        "MRS R0, PSP\n"
-        "STMDB R0!, {R4-R11}\n"
-        "LDR R1, =task_psp\n"
-        "LDR R2, =__current_task_id\n"
-        "LDR R3, [R2]\n"
-        "STR R0, [R1, R3, LSL #2]\n"
-        "BL schedule\n"
-        "LDR R3, [R2]\n"
-        "LDR R0, [R1, R3, LSL #2]\n"
-        "LDMIA R0!, {R4-R11}\n"
-        "MSR PSP, R0\n"
-        "BX LR\n"
     );
 }
 
@@ -646,63 +597,6 @@ __attribute__((naked)) void PendSV_Handler(void) {
         "VLDMIAEQ R0!, {S16-S31}\n"
 #endif // __FPU_DP
 #endif
-        "MSR PSP, R0\n"
-        "BX LR\n"
-    );
-}
-
-__attribute__((naked)) void PendSV_Handler(void) {
-    __asm volatile (
-        // Save context of current task
-        "MRS R0, PSP\n"
-        "STMDB R0!, {R4-R11}\n"
-        "LDR R1, =tasks\n"
-        "LDR R2, =__current_task_id\n"
-        "LDR R3, [R2]\n"
-        "LSLS R3, R3, #4\n"            // sizeof(TCB) ~= 16
-        "ADD R1, R1, R3\n"
-        "STR R0, [R1]\n"
-
-        // Find next task
-        "BL schedule_next_task\n"
-
-        // Load next task context
-        "LDR R1, =tasks\n"
-        "LDR R2, =__current_task_id\n"
-        "LDR R3, [R2]\n"
-        "LSLS R3, R3, #4\n"
-        "ADD R1, R1, R3\n"
-        "LDR R0, [R1]\n"
-        "LDMIA R0!, {R4-R11}\n"
-        "MSR PSP, R0\n"
-        "BX LR\n"
-    );
-}
-
-// M7,H7  FPU-Double Precision 
-__attribute__((naked)) void PendSV_Handler(void) {
-    __asm volatile (
-        "MRS R0, PSP\n"
-        "TST LR, #0x10\n"              // FPU 사용 여부 확인
-        "IT EQ\n"
-        "VSTMDBEQ R0!, {D8-D15}\n"      // M7/H7: 더블 프리시전 레지스터 저장
-        "STMDB R0!, {R4-R11}\n"
-
-        "LDR R1, =__current_task_id\n"
-        "LDR R2, [R1]\n"
-        "LDR R3, =tasks\n"
-        "STR R0, [R3, R2, LSL #4]\n"   // TCB.psp 저장 (16바이트 단위)
-
-        "DSB\n"                         // 캐시 일관성 보장
-        "BL schedule_next_task\n"       // 스케줄러 호출
-
-        "LDR R2, [R1]\n"               // 새로운 __current_task_id 로드
-        "LDR R0, [R3, R2, LSL #4]\n"   // 새 TCB.psp 로드
-
-        "LDMIA R0!, {R4-R11}\n"
-        "TST LR, #0x10\n"
-        "IT EQ\n"
-        "VLDMIAEQ R0!, {D8-D15}\n"     // M7/H7: 더블 프리시전 레지스터 복원
         "MSR PSP, R0\n"
         "BX LR\n"
     );
