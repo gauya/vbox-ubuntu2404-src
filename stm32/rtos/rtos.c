@@ -136,8 +136,12 @@ void os_start() {
   SCB->SHPR3 |= (0xFFUL << 16); // PendSV 
   SCB->SHPR3 |= (0xFFUL << 24); // SysTick
 
+  __current_task_id = 0;
+
   // SysTick 1ms Start scadule
   SysTick_Config( SystemCoreClock / 1000 );
+
+  start_first_start(); // scadule_start()
 }
 
 void delay(TCB *tcb, uint32_t ms) {

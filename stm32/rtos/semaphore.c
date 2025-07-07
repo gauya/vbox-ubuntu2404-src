@@ -12,21 +12,23 @@ void sem_init(Semaphore *s, uint8_t init_val) {
 
 void sem_wait(Semaphore *s) {
     while (1) {
-        __disable_irq();
+        OS_LOCK(_lock_);
         if (s->value) {
             s->value = 0;
-            __enable_irq();
+            OS_UNLOCK(_lock_);
             return;
         }
-        __enable_irq();
+        OS_UNLOCK(_lock_);
         delay(1);  // sleep 1 tick
     }
 }
 
 void sem_give(Semaphore *s) {
-    __disable_irq();
+    OS_LOCK(_lock_);
+
     s->value = 1;
-    __enable_irq();
+    
+    OS_UNLOCK(_lock_);
 }
 
 void mutex_init(Mutex *m) {
@@ -36,18 +38,18 @@ void mutex_init(Mutex *m) {
 
 void mutex_lock(Mutex *m, uint8_t task_id) {
     while (1) {
-        __disable_irq();
+        OS_LOCK(_lock_);
         if (m->lock_count == 0) {
             m->owner_task_id = task_id;
             m->lock_count = 1;
-            __enable_irq();
+            OS_UNLOCK(_lock_);
             return;
         } else if (m->owner_task_id == task_id) {
             m->lock_count++;
-            __enable_irq();
+            OS_UNLOCK(_lock_);
             return;
         }
-        __enable_irq();
+        OS_UNLOCK(_lock_);
         task_monitors[task_id].wait_tick = get_tick();
         task_monitors[task_id].wait_desc = "MUTEX_WAIT";
         delay(1);
@@ -56,7 +58,7 @@ void mutex_lock(Mutex *m, uint8_t task_id) {
 
 int mutex_try_lock(Mutex *m, uint8_t task_id) {
     int success = 0;
-    __disable_irq();
+    OS_LOCK(_lock_);
     if (m->lock_count == 0) {
         m->owner_task_id = task_id;
         m->lock_count = 1;
@@ -65,25 +67,25 @@ int mutex_try_lock(Mutex *m, uint8_t task_id) {
         m->lock_count++;
         success = 1;
     }
-    __enable_irq();
+    OS_UNLOCK(_lock_);
     return success;
 }
 
 int mutex_lock_timeout(Mutex *m, uint8_t task_id, uint32_t timeout_tick) {
     uint32_t start = get_tick();
     while ((get_tick() - start) < timeout_tick) {
-        __disable_irq();
+        OS_LOCK(_lock_);
         if (m->lock_count == 0) {
             m->owner_task_id = task_id;
             m->lock_count = 1;
-            __enable_irq();
+            OS_UNLOCK(_lock_);
             return 1;
         } else if (m->owner_task_id == task_id) {
             m->lock_count++;
-            __enable_irq();
+            OS_UNLOCK(_lock_);
             return 1;
         }
-        __enable_irq();
+        OS_UNLOCK(_lock_);
         task_monitors[task_id].wait_tick = get_tick();
         task_monitors[task_id].wait_desc = "MUTEX_TIMEOUT";
         delay(1);
@@ -92,14 +94,14 @@ int mutex_lock_timeout(Mutex *m, uint8_t task_id, uint32_t timeout_tick) {
 }
 
 void mutex_unlock(Mutex *m, uint8_t task_id) {
-    __disable_irq();
+    OS_LOCK(_lock_);
     if (m->owner_task_id == task_id && m->lock_count > 0) {
         m->lock_count--;
         if (m->lock_count == 0) {
             m->owner_task_id = 0xFF;
         }
     }
-    __enable_irq();
+    OS_UNLOCK(_lock_);
 }
 
 
