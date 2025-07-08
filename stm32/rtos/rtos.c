@@ -5,11 +5,10 @@
                        // 이 헤더는 SysTick, SCB, GPIO 관련 정의를 포함합니다.
 
 #define TCB_ACTIVE  0x1
-#define TCB_STANBY  0x2
-#define TCB_SLEEP   0x4
+#define TCB_READY   0x2
+#define TCB_SLEEP   0x4  // yeild, delay
 #define TCB_DELAY_REQ 0x8
-#define TCB_DELAY_RCH 0x10
-#define TCB_TIME_RCH  0x20
+#define TCB_DELAY_END 0x10
 
 
 uint32_t __stack_pool[ (MAX_TASK + 1) * DEF_STACK_SIZE];
@@ -20,12 +19,12 @@ uint8_t __current_task_id;
 
 // FPU 포함 태스크 생성
 void set_stack_from_tcb(TCB *tcb) {
-    uint32_t *stack_top = tcb->stack;
+    uint32_t *stack_top = tcb->stack + tcb->stack_size;
 
     // 자동 복원되는 영역 (xPSR~R0)
-    *(--stack_top) = 0x21000000;        // xPSR (Thumb)
-    *(--stack_top) = (uint32_t)task_wrap_func; // PC
-    *(--stack_top) = 0xFFFFFFED;        // LR (EXC_RETURN, use PSP + FPU active)
+    *(--stack_top) = 0x1000000;        // xPSR (Thumb) 0x21000000
+    *(--stack_top) = (uint32_t)tcb->func; // PC
+    *(--stack_top) = 0xFFFFFFFD;        // LR (EXC_RETURN, use PSP + thrad mode, FPU active)
     *(--stack_top) = 0x12121212;        // R12
     *(--stack_top) = 0x03030303;        // R3
     *(--stack_top) = 0x02020202;        // R2
@@ -47,7 +46,7 @@ void set_stack_from_tcb(TCB *tcb) {
   #endif
     // FPU 자동 저장 프레임 (FPSCR + reserved)
     *(--stack_top) = 0x00000000;        // FPSCR
-    *(--stack_top) = 0x00000000;        // reserved word
+    *(--stack_top) = 0x00000000;        // reserved word 8 byte
 #endif
 
     // 수동 저장 대상 (R4~R11)
@@ -56,6 +55,56 @@ void set_stack_from_tcb(TCB *tcb) {
     }
 
     tcb->sp = (uint32_t)stack_top;
+}
+
+// deep seek
+void set_stack_from_tcb(TCB *tcb) {
+    uint32_t *stack_top = tcb->stack + tcb->stack_size;
+
+    /*--- 1. 스택 정렬 검증 (8바이트) ---*/
+    if ((uint32_t)stack_top % 8 != 0) {
+        stack_top--;  // 주소 강제 정렬
+    }
+
+    /*--- 2. 자동 복원 영역 (xPSR ~ R0) ---*/
+    *(--stack_top) = 0x01000000;              // xPSR (Thumb 모드)
+    *(--stack_top) = (uint32_t)tcb->func;     // PC (진입점)
+    *(--stack_top) = 0xFFFFFFFD;              // EXC_RETURN (Thread + PSP + FPU 비활성화)
+    *(--stack_top) = 0x12121212;              // R12
+    *(--stack_top) = 0x03030303;              // R3
+    *(--stack_top) = 0x02020202;              // R2
+    *(--stack_top) = 0x01010101;              // R1
+    *(--stack_top) = (uint32_t)tcb->context;  // R0 (인자 전달)
+
+#if defined(__FPU_PRESENT) && (__FPU_PRESENT == 1)
+    /*--- 3. FPU 컨텍스트 초기화 (M4/H7 분기) ---*/
+    *(--stack_top) = 0x00000000;              // FPSCR
+    *(--stack_top) = 0x00000000;              // Reserved (8바이트 정렬)
+
+    #if defined(__FPU_DP) && (__FPU_DP == 1)
+        /* H7 (Double-Precision): D0-D15 저장 (S0-S31 자동 포함) */
+        for (int i = 15; i >= 0; i--) {
+            *(--stack_top) = 0xBBBB0000 + i;  // Dn 상위 32비트
+            *(--stack_top) = 0xAAAA0000 + i;  // Dn 하위 32비트
+        }
+        tcb->ctrlstat |= 0x80;  // DP-FPU 사용 플래그
+    #else
+        /* M4 (Single-Precision): S0-S15 저장 */
+        for (int i = 15; i >= 0; i--) {
+            *(--stack_top) = 0xAAAA0000 + i;  // Sn
+        }
+    #endif
+
+    /* EXC_RETURN 업데이트: FPU 활성화 (비트 4 = 0) */
+    *(stack_top + 8) = 0xFFFFFFFD;  // xPSR 위치에서 8워드 뒤
+#endif
+
+    /*--- 4. 수동 저장 영역 (R4-R11) ---*/
+    for (int i = 0; i < 8; i++) {
+        *(--stack_top) = 0xDEADBEEF + i;  // R4-R11
+    }
+
+    tcb->sp = (uint32_t)stack_top;  // 최종 SP 저장
 }
 
 int add_task(void (*func)(), void *context, uint32_t stack_size,uint32_t period, int priority) {
@@ -122,6 +171,9 @@ TCB *get_task( int id ) {
 }
 
 void os_init() {
+#if USE_FPU == 1
+  SCB->CPACR |= (0xF << 20); // fpu 활성화
+#endif
   // stack all set STACK_CANARY_PATTERN
   // add_task()
   /*
@@ -348,7 +400,7 @@ void create_task_with_fpu(int id, void (*task_func)(void)) {
     uint32_t *stack_top = &stacks[id][STACK_SIZE - 1];
 
     // 자동 복원되는 영역 (xPSR~R0)
-    *(--stack_top) = 0x21000000;        // xPSR (Thumb)
+    *(--stack_top) = 0x1000000;        // xPSR (Thumb & psp)
     *(--stack_top) = (uint32_t)task_func; // PC
     *(--stack_top) = 0xFFFFFFED;        // LR (EXC_RETURN, use PSP + FPU active)
     *(--stack_top) = 0x12121212;        // R12
@@ -359,6 +411,7 @@ void create_task_with_fpu(int id, void (*task_func)(void)) {
 
     // FPU 자동 저장 프레임 (S0~S15 + FPSCR + reserved)
     *(--stack_top) = 0x00000000;        // FPSCR
+    *(--stack_top) = 0x00000000;        // reserved word
     *(--stack_top) = 0x00000000;        // reserved word
     for (int i = 15; i >= 0; i--) {
         *(--stack_top) = 0xAAAA0000 + i; // S15~S0
@@ -445,6 +498,26 @@ void monitor_task() {
     }
 }
 
+__attribute__((naked)) void start_first_task() {
+__asm volatile (
+    "LDR R0, =__tcb\n"           // TCB 배열 주소
+    "LDR R1, =__current_task_id\n"
+    "LDRB R1, [R1]\n"            // current_task_id 로드
+    "MOV R2, #64\n"              // TCB 크기 (64바이트)
+    "MUL R1, R1, R2\n"           // 오프셋 계산
+    "ADD R0, R0, R1\n"           // 현재 TCB 주소
+    "LDR R0, [R0, #32]\n"        // TCB.sp (offset 32) 로드
+    "MSR PSP, R0\n"              // PSP 설정
+
+    "MOV R0, #0x03\n"            // CONTROL[1]=1 (PSP), [0]=1 (Thread Mode)
+    "MSR CONTROL, R0\n"          // 모드 전환
+    "ISB\n"                      // 파이프라인 동기화
+
+    "POP {R4-R11}\n"             // 수동 컨텍스트 복원
+    "POP {R0-R3, R12, LR, PC, xPSR}\n"  // 태스크 진입
+);
+}
+
 attribute((naked)) void start_first_task(void) {
 __asm volatile (
     "LDR R0, =task_stack_ptrs\n"    // R0 = 배열 주소
@@ -461,6 +534,7 @@ __asm volatile (
     "LDMIA R0!, {R4-R11} \n"        // 수동으로 R4-R11 복원
     "BX LR               \n"        // 하드웨어가 자동으로 나머지 (R0-R3, R12, LR, PC, xPSR) 복원
 );
+}
 
 __attribute__((naked)) void start_first_task(void) {
 __asm volatile (
