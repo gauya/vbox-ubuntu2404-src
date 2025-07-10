@@ -29,7 +29,7 @@
 // B1: 
 // 0:normal, 1:realtime, 2:event
 typedef struct {
-    uint8_t  type;
+    uint8_t  type;             // 0: normal, 1: freq, 2: event
     uint8_t  id;
     uint8_t  priority;         // 0~7 (TASK_OPPORTUNISTIC 용)
     uint8_t  ctrlstat;         // 0: event 
