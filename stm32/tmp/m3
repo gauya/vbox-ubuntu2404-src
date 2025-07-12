@@ -1,0 +1,7 @@
+MCU_FAMILY = stm32f3
+MCU_SERIES = stm32f3xx
+MCU_DEVICE = STM32F303xC # 또는 정확한 디바이스명
+CPU_ARCH = armv7-m
+CPU_CORE = cortex-m3
+FPU_TYPE = none
+LD_SCRIPT = ./STM32F303VC_FLASH.ld # 해당 링커 스크립트

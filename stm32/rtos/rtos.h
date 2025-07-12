@@ -8,6 +8,12 @@
 #define DEF_STACK_SIZE 256 // 8의 배수( Cortex-M 요구사항)
 #define MIN_STACK_SIZE 80  // 64 + 16 : R4-R11, R0-R3, R12, LR, PC, PSR
 
+#if defined(__FPU_PRESENT) && (__FPU_PRESENT == 1)
+    #define USE_FPU 1
+#else
+    #define USE_FPU 0
+#endif
+
 #if USE_FPU == 1  // #if defined(__FPU_PRESENT) && (__FPU_PRESENT == 1)
 #define DEF_STACK_SIZE 384
 #define MIN_STACK_SIZE 164 // 64 + 64 + 4 + 32 : = , FPSCR, S0-S15

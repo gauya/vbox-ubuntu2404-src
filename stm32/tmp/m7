@@ -1,0 +1,7 @@
+MCU_FAMILY = stm32h7
+MCU_SERIES = stm32h7xx
+MCU_DEVICE = STM32H743xx # 또는 정확한 디바이스명
+CPU_ARCH = armv7e-m
+CPU_CORE = cortex-m7
+FPU_TYPE = fpv5-d16 # H7은 보통 배정밀도 FPU 지원
+LD_SCRIPT = ./STM32H743ZITx_FLASH.ld # 해당 링커 스크립트

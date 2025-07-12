@@ -11,20 +11,29 @@
 #define TCB_DELAY_END 0x10
 
 
-uint32_t __stack_pool[ (MAX_TASK + 1) * DEF_STACK_SIZE];
+uint32_t __stack_pool[ (MAX_TASK + 1) * DEF_STACK_SIZE] __attribute__((aligned(8)));
+uint8_t __current_task_id = 0;
 uint8_t __next_task_id = 0; // 현재 최대 task 수
 
 TCB __tcb[MAX_TASK];
-uint8_t __current_task_id;
 
 // FPU 포함 태스크 생성
 void set_stack_from_tcb(TCB *tcb) {
     uint32_t *stack_top = tcb->stack + tcb->stack_size;
 
+    /*--- 1. 스택 정렬 검증 (8바이트) ---*/
+    //if ((uint32_t)stack_top % 8 != 0) {
+    //    stack_top--;  // 주소 강제 정렬
+    //}
+
     // 자동 복원되는 영역 (xPSR~R0)
     *(--stack_top) = 0x1000000;        // xPSR (Thumb) 0x21000000
     *(--stack_top) = (uint32_t)tcb->func; // PC
-    *(--stack_top) = 0xFFFFFFFD;        // LR (EXC_RETURN, use PSP + thrad mode, FPU active)
+    #if USE_FPU == 1
+    *(--stack_top) = 0xFFFFFFED;        // LR (EXC_RETURN, use PSP + thrad mode, FPU active)
+    #else
+    *(--stack_top) = 0xFFFFFFFD;        // LR (EXC_RETURN, use PSP + thrad mode, no FPU)
+    #endif
     *(--stack_top) = 0x12121212;        // R12
     *(--stack_top) = 0x03030303;        // R3
     *(--stack_top) = 0x02020202;        // R2
@@ -113,7 +122,9 @@ int add_task(void (*func)(), void *context, uint32_t stack_size,uint32_t period,
   if( stack_size < MIN_STACK_SIZE ) {
     stack_size = MIN_STACK_SIZE;
   }
+  
   uint32_t aligned_size = (stack_size + 7) & ~7;  // 8바이트 정렬
+  
   tcb->type = (period > 0)? 1 : 0; // 1: realtime( period > 0 ), 2: event driven( priority > 255 ) 
   if( priority < 0 || priority > 255 ) {
     tcb->type = 2; // event driven 
@@ -127,7 +138,7 @@ int add_task(void (*func)(), void *context, uint32_t stack_size,uint32_t period,
   } 
   tcb->status = 0;
   tcb->stack = stack_ptr;
-  tcb->stack_size = aligned_size;
+  tcb->stack_size = aligned_size; // 8의 배수
   tcb->period = period; // 0 이아니면 realtime function
   tcb->period_tick = period; // copy period
   tcb->priority = (uint8_t)priority; // check 0 - 255
@@ -181,6 +192,13 @@ void os_init() {
     while(1);
   }
   */
+
+  SCB->SHPR3 |= (0xFFUL << 16); // PendSV 우선순위 설정
+  SCB->SHPR3 |= (0xFFUL << 24); // SysTick 우선순위 설정
+
+  //SysTick_Config(SystemCoreClock / 1000); // 1ms (1000Hz) 시작은 하지말고 셋팅만해야됨
+  SysTick->LOAD = (SystemCoreClock / 1000) - 1; // 1ms (1000Hz) 주기 설정
+  SysTick->VAL = 0; // 카운터 초기화
 }
 
 void os_start() {
